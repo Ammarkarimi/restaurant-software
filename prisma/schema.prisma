@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// A restaurant that pays to use the software. Every other record belongs to exactly one
+// restaurant, and restaurants never see each other's data.
+model Restaurant {
+  id                   String                @id @default(cuid())
+  name                 String
+  slug                 String                @unique
+  status               String                @default("active") // active, suspended
+  contactName          String?
+  contactPhone         String?
+  contactEmail         String?
+  city                 String?
+  monthlyFee           Float                 @default(0)
+  billingStart         String // first month that is charged, "YYYY-MM"
+  notes                String?
+  orderSeq             Int                   @default(0) // last order number handed out
+  billSeq              Int                   @default(0) // last bill number handed out
+  kotSeq               Int                   @default(0) // last kitchen ticket number handed out
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  staff                Staff[]
+  settings             RestaurantSettings?
+  tables               DiningTable[]
+  categories           MenuCategory[]
+  menuItems            MenuItem[]
+  orders               Order[]
+  orderItems           OrderItem[]
+  payments             Payment[]
+  activities           ActivityLog[]
+  subscriptionPayments SubscriptionPayment[]
+}
+
+// Money a restaurant paid the software provider for its monthly subscription.
+model SubscriptionPayment {
+  id           String     @id @default(cuid())
+  restaurantId String
+  month        String // the month this payment is for, "YYYY-MM"
+  amount       Float
+  clearsMonth  Boolean    @default(true) // false = part payment, the month is still due
+  method       String     @default("upi") // cash, upi, bank_transfer, card, cheque, other
+  reference    String?
+  notes        String?
+  paidOn       DateTime   @db.Date
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, month])
+}
+
+model Staff {
+  id           String        @id @default(cuid())
+  restaurantId String
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         String        @default("staff") // admin = owner / manager, staff = cashier / captain
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lastLoginAt  DateTime?
+  activities   ActivityLog[]
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// One row per restaurant holding its profile, tax rules and bill design.
+model RestaurantSettings {
+  id                   String     @id @default(cuid())
+  restaurantId         String     @unique
+  restaurantName       String     @default("My Restaurant")
+  legalName            String? // registered business name, if different
+  address              String?
+  city                 String?
+  phone                String?
+  email                String?
+  gstin                String?
+  fssai                String? // food licence number, printed on bills in India
+  currency             String     @default("INR")
+  timezone             String     @default("Asia/Kolkata")
+  taxMode              String     @default("gst") // gst (CGST + SGST), simple (one tax line), none
+  taxName              String     @default("Tax") // label used when taxMode = simple, e.g. VAT
+  defaultTaxRate       Float      @default(5)
+  pricesIncludeTax     Boolean    @default(false)
+  serviceChargePercent Float      @default(0)
+  roundOff             Boolean    @default(true)
+  billPrefix           String     @default("")
+  upiId                String? // printed as a QR code on the bill so guests can pay
+  logoPath             String?
+  billTemplate         String     @default("{}") // JSON, see src/lib/bill-template.ts
+  updatedAt            DateTime   @updatedAt
+  restaurant           Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model DiningTable {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String // "T1", "Garden 4"
+  area         String     @default("Main hall")
+  seats        Int        @default(4)
+  sortOrder    Int        @default(0)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  orders       Order[]    @relation("TableOrders")
+  activeOrder  Order?     @relation("ActiveTableOrder")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, name])
+}
+
+model MenuCategory {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String
+  sortOrder    Int        @default(0)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  items        MenuItem[]
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id           String       @id @default(cuid())
+  restaurantId String
+  categoryId   String
+  name         String
+  shortCode    String? // typed at the counter for quick search, e.g. "PBM"
+  description  String?
+  price        Float // used when the item has no portions
+  variants     String       @default("[]") // JSON [{ "name": "Half", "price": 180 }]
+  foodType     String       @default("veg") // veg, non_veg, egg
+  taxRate      Float? // null = the restaurant's default rate
+  available    Boolean      @default(true) // false = sold out today
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  category     MenuCategory @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, categoryId])
+}
+
+model Order {
+  id                   String      @id @default(cuid())
+  restaurantId         String
+  number               Int // counts up per restaurant
+  type                 String      @default("dine_in") // dine_in, takeaway, delivery
+  status               String      @default("open") // open, billed, settled, cancelled
+  tableId              String?
+  // Set to tableId while the order is running and cleared when it is paid or cancelled,
+  // so the database itself refuses two running orders on one table.
+  activeTableId        String?     @unique
+  customerName         String?
+  customerPhone        String?
+  customerAddress      String?
+  guests               Int         @default(0)
+  notes                String?
+  discountType         String      @default("percent") // percent, amount
+  discountValue        Float       @default(0)
+  discountReason       String?
+  // Tax rules copied from settings when the order is opened, so later changes
+  // to settings never alter this bill.
+  taxMode              String      @default("gst")
+  taxName              String      @default("Tax")
+  pricesIncludeTax     Boolean     @default(false)
+  serviceChargePercent Float       @default(0)
+  roundOff             Boolean     @default(true)
+  billNumber           String?
+  // Totals saved when the bill is printed and again when it is paid.
+  subtotal             Float       @default(0)
+  discountAmount       Float       @default(0)
+  serviceCharge        Float       @default(0)
+  taxAmount            Float       @default(0)
+  roundOffAmount       Float       @default(0)
+  total                Float       @default(0)
+  businessDate         String? // "YYYY-MM-DD" in the restaurant's time zone, set when paid
+  cancelReason         String?
+  createdById          String?
+  createdByName        String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  billedAt             DateTime?
+  settledAt            DateTime?
+  cancelledAt          DateTime?
+  table                DiningTable? @relation("TableOrders", fields: [tableId], references: [id], onDelete: SetNull)
+  activeTable          DiningTable? @relation("ActiveTableOrder", fields: [activeTableId], references: [id], onDelete: SetNull)
+  items                OrderItem[]
+  payments             Payment[]
+  restaurant           Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, number])
+  @@unique([restaurantId, billNumber])
+  @@index([restaurantId, status])
+  @@index([restaurantId, businessDate])
+  @@index([restaurantId, createdAt])
+}
+
+model OrderItem {
+  id           String     @id @default(cuid())
+  restaurantId String
+  orderId      String
+  menuItemId   String?
+  name         String // copied from the menu so later menu edits never change old bills
+  variant      String?
+  categoryName String?
+  foodType     String     @default("veg")
+  price        Float // unit price
+  quantity     Int        @default(1)
+  taxRate      Float      @default(0)
+  note         String? // "less spicy", "no onion"
+  kotNumber    Int? // null = not sent to the kitchen yet
+  sentAt       DateTime?
+  status       String     @default("active") // active, cancelled
+  cancelReason String?
+  createdAt    DateTime   @default(now())
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, orderId])
+}
+
+model Payment {
+  id           String     @id @default(cuid())
+  restaurantId String
+  orderId      String
+  amount       Float
+  method       String // cash, upi, card, other
+  reference    String?
+  receivedBy   String?
+  paidAt       DateTime   @default(now())
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, paidAt])
+}
+
+model ActivityLog {
+  id           String     @id @default(cuid())
+  restaurantId String
+  staffId      String?
+  staffName    String
+  action       String
+  details      String?
+  createdAt    DateTime   @default(now())
+  staff        Staff?     @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+}
