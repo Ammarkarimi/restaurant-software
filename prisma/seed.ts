@@ -12,6 +12,7 @@ import { currentRestaurantId, prisma, rawPrisma, runForRestaurant } from "../src
 import { addDays, todayKey } from "../src/lib/dates";
 import { calculateBill } from "../src/lib/billing";
 import { DEFAULT_BILL_TEMPLATE } from "../src/lib/bill-template";
+import { monthRange } from "../src/lib/subscription";
 
 const withDemo = process.argv.includes("--demo");
 const TZ = "Asia/Kolkata";
@@ -260,8 +261,23 @@ async function seedDemo() {
       }
     }
 
-    // Right now: a few running orders, one waiting for payment.
+    // Earlier today: some paid bills, so "Sales today" has numbers.
     const nowHour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: TZ }).format(new Date())) % 24;
+    // Lunch starts at 11; before that there are no bills yet today.
+    for (let i = 0; i < (nowHour > 12 ? Math.min(12, (nowHour - 11) * 2) : 0); i++) {
+      const type = rand() < 0.7 ? "dine_in" : "takeaway";
+      await createOrder({
+        day: today,
+        hour: 11 + Math.floor(rand() * (nowHour - 12)),
+        minute: Math.floor(rand() * 60),
+        type,
+        tableId: type === "dine_in" ? pick(tableRows).id : null,
+        status: "settled",
+        staff: cashier,
+      });
+    }
+
+    // Right now: a few running orders, one waiting for payment.
     const startHour = Math.max(0, nowHour - 1);
     await createOrder({ day: today, hour: startHour, minute: 5, type: "dine_in", tableId: tableRows[1].id, status: "open", staff: cashier });
     await createOrder({ day: today, hour: startHour, minute: 20, type: "dine_in", tableId: tableRows[4].id, status: "billed", staff: cashier });
@@ -269,9 +285,10 @@ async function seedDemo() {
     await createOrder({ day: today, hour: startHour, minute: 40, type: "takeaway", tableId: null, status: "open", staff: cashier });
 
     await rawPrisma.restaurant.update({ where: { id: restaurantId }, data: { orderSeq, billSeq, kotSeq } });
-    await rawPrisma.subscriptionPayment.create({
-      data: { restaurantId, month: addDays(today, -60).slice(0, 7), amount: 999, method: "upi", paidOn: new Date(`${addDays(today, -55)}T00:00:00Z`) },
-    });
+    // The demo restaurant has paid its software subscription up to this month.
+    for (const month of monthRange(addDays(today, -60).slice(0, 7), today.slice(0, 7))) {
+      await rawPrisma.subscriptionPayment.create({ data: { restaurantId, month, amount: 999, method: "upi", paidOn: new Date(`${month}-05T00:00:00Z`) } });
+    }
     await prisma.activityLog.create({ data: { restaurantId, staffId: owner.id, staffName: owner.name, action: "Demo data loaded", details: `${orderSeq} orders` } });
     console.log(`Demo restaurant created: ${tableRows.length} tables, ${dishes.length} dishes, ${orderSeq} orders.`);
   });

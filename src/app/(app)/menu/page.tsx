@@ -387,7 +387,7 @@ export default function MenuPage() {
           }
         />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
           <Card className="h-fit">
             <CardHeader
               title="Categories"

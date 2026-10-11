@@ -201,8 +201,6 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       });
       setCart([]);
       setOrder(r.order);
-      // Keep the address bar in step, so a refresh shows the saved order.
-      window.history.replaceState(null, "", `/orders/${r.order.id}`);
       return r;
     }
     if (cart.length) {
@@ -232,6 +230,14 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     }
   }
 
+  /**
+   * After the first save of a new order, move the address bar to the saved order so a
+   * refresh shows it. Done only when nothing else is open, because it reloads the screen.
+   */
+  function showSavedOrder(id: string) {
+    if (!orderId) router.replace(`/orders/${id}`);
+  }
+
   function showPrint(win: Window | null, url: string) {
     if (win && !win.closed) win.location.href = url;
     else window.open(url, "_blank");
@@ -247,12 +253,15 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       if (autoKot) showPrint(win, `/print/kot/${r.order.id}?kot=${r.kotNumber}&auto=1`);
     } else win?.close();
     if (orderType === "dine_in") router.push("/");
+    else showSavedOrder(r.order.id);
   }
 
   async function saveOnly() {
     if (cart.length === 0) return;
     const r = await run("save", () => saveCart(false));
-    if (r) toast("Order saved. Send it to the kitchen when ready.");
+    if (!r) return;
+    toast("Order saved. Send it to the kitchen when ready.");
+    showSavedOrder(r.order.id);
   }
 
   async function printBill() {
@@ -270,6 +279,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     setOrder(r.order);
     showPrint(win, `/print/bill/${r.order.id}?auto=1`);
     if (r.kotNumber) toast(`New items were sent to the kitchen as KOT ${r.kotNumber}`, "info");
+    showSavedOrder(r.order.id);
   }
 
   async function openPayment() {
@@ -287,6 +297,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     setOrder(r.order);
     setDialog(null);
     toast(`Paid · Bill ${r.order.billNumber}${tableName ? ` · ${tableName} is free now` : ""}`);
+    showSavedOrder(r.order.id);
   }
 
   async function patchOrder(body: Record<string, unknown>, message?: string) {
@@ -520,7 +531,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   );
 
   const orderPanel = (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-20 lg:max-h-[calc(100vh-6.5rem)]">
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-20 lg:max-h-[calc(100vh-10.5rem)]">
       <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">
@@ -670,9 +681,9 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         {order?.status === "billed" && <Badge variant="info" className="ml-auto">Bill printed — waiting for payment</Badge>}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
-        <div className={cn(mobileTab === "order" && "hidden lg:block")}>{menuPanel}</div>
-        <div className={cn(mobileTab === "menu" && "hidden lg:block")}>{orderPanel}</div>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
+        <div className={cn("min-w-0", mobileTab === "order" && "hidden lg:block")}>{menuPanel}</div>
+        <div className={cn("min-w-0", mobileTab === "menu" && "hidden lg:block")}>{orderPanel}</div>
       </div>
 
       {/* Phone: switch between the menu and the order. */}

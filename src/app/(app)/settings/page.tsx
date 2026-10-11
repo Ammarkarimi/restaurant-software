@@ -126,7 +126,7 @@ function TaxTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: Set
     roundOff: Boolean(f.roundOff),
   });
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-6">
         <Card>
           <CardHeader title="Tax" description="Changes apply to new orders. Bills already started keep the old rules." />

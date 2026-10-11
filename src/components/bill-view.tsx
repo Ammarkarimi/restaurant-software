@@ -140,8 +140,8 @@ export function BillView({
   );
 
   const infoPairs: Array<[string, string]> = [];
-  if (!a4 && t.showBillNumber) infoPairs.push(["Bill No", b.billNumber ?? "—"]);
   if (!a4 && t.showDateTime) infoPairs.push(["Date", `${when.date} ${when.time}`]);
+  if (!a4 && t.showBillNumber) infoPairs.push(["Bill No", b.billNumber ?? "—"]);
   if (t.showOrderType || t.showTable) infoPairs.push([b.type === "dine_in" && t.showTable ? "Table" : "Order", t.showTable ? where : label(b.type)]);
   infoPairs.push(["Order No", `#${b.orderNumber}`]);
   if (t.showGuests && b.guests > 0) infoPairs.push(["Guests", String(b.guests)]);
@@ -275,7 +275,7 @@ export function BillView({
       <div className={cn(a4 ? "mt-4 grid grid-cols-2 gap-6 rounded border border-slate-200 p-3" : "mt-1")}>
         <div className={cn(!a4 && "grid grid-cols-2 gap-x-2")}>
           {infoPairs.map(([k, v]) => (
-            <p key={k} className="truncate">
+            <p key={k} className={cn(!a4 && (k === "Date" || k === "Served by") ? "col-span-2" : "truncate")}>
               <span className="opacity-75">{k}:</span> {v}
             </p>
           ))}

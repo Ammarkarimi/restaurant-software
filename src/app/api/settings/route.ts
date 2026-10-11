@@ -43,6 +43,8 @@ const schema = z
   })
   .partial();
 
+const NULLABLE = new Set(["legalName", "address", "city", "phone", "email", "gstin", "fssai", "upiId"]);
+
 export async function PATCH(request: NextRequest) {
   return withAdmin(async (user) => {
     const body = schema.parse(await request.json());
@@ -55,7 +57,8 @@ export async function PATCH(request: NextRequest) {
     }
     const current = await getSettings();
     const { billTemplate, ...rest } = body;
-    const blankToNull = Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v === "" ? null : v]));
+    // Optional details cleared in the form are stored as empty (null); required text such as the bill prefix may be "".
+    const blankToNull = Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v === "" && NULLABLE.has(k) ? null : v]));
     const updated = await prisma.restaurantSettings.update({
       where: { id: current.id },
       data: {

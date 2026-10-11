@@ -112,7 +112,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]">
       <div className="space-y-6">
         <Card>
           <CardHeader title="Start from a style" description="Pick one, then change anything you like below. Nothing is saved until you press Save." />
