@@ -1,6 +1,5 @@
-// Hotel stays are counted in calendar nights, so booking dates are handled as
-// "date keys" (YYYY-MM-DD) and stored as midnight UTC. This keeps the night
-// count identical no matter which timezone the server or browser runs in.
+// Calendar dates are handled as "date keys" (YYYY-MM-DD) and stored as midnight UTC.
+// This keeps business days identical no matter which timezone the server or browser runs in.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -45,7 +44,7 @@ export function isWeekendNight(key: string): boolean {
   return day === 5 || day === 6;
 }
 
-/** Today's date in the hotel's timezone (servers usually run in UTC). */
+/** Today's date in the restaurant's timezone (servers usually run in UTC). */
 export function todayKey(timeZone = "Asia/Kolkata", now = new Date()): string {
   try {
     return new Intl.DateTimeFormat("en-CA", {

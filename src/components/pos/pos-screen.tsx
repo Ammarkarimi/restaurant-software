@@ -398,6 +398,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const title = orderType === "dine_in" ? `Table ${tableName ?? "?"}` : label(orderType);
   const discountLabel = order && order.discountValue > 0 ? (order.discountType === "percent" ? `${order.discountValue}%` : undefined) : undefined;
   const customer = order ? order.customerName || order.customerPhone : draftCustomer.customerName || draftCustomer.customerPhone;
+  const guests = order ? order.guests : Number(draftCustomer.guests) || 0;
 
   // ---------- render ----------
   const menuPanel = (
@@ -542,7 +543,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           <button onClick={() => setDialog({ kind: "customer" })} disabled={!editable} className="flex items-center gap-1 text-sm text-slate-500 hover:text-primary-700">
             <User className="h-3.5 w-3.5" />
             {customer || "Add customer"}
-            {(order?.guests || Number(draftCustomer.guests)) ? ` · ${order?.guests || draftCustomer.guests} guests` : ""}
+            {guests > 0 ? ` · ${guests} guest${guests === 1 ? "" : "s"}` : ""}
           </button>
         </div>
         <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "more" })} aria-label="More actions">
@@ -639,10 +640,10 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <Button variant="warning" size="lg" className="col-span-2" loading={busy === "kot"} disabled={!!busy || newCount === 0} onClick={sendToKitchen}>
               <ChefHat className="h-5 w-5" /> Send to kitchen{newCount ? ` (${newCount})` : ""}
             </Button>
-            <Button variant="outline" size="lg" loading={busy === "bill"} disabled={!!busy} onClick={printBill}>
-              <ReceiptText className="h-5 w-5" /> {order?.billNumber ? "Print bill again" : "Print bill"}
+            <Button variant="outline" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "bill"} disabled={!!busy} onClick={printBill}>
+              <ReceiptText className="h-5 w-5" /> {order?.billNumber ? "Reprint bill" : "Print bill"}
             </Button>
-            <Button variant="success" size="lg" loading={busy === "pay"} disabled={!!busy} onClick={openPayment}>
+            <Button variant="success" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "pay"} disabled={!!busy} onClick={openPayment}>
               <Wallet className="h-5 w-5" /> Take payment
             </Button>
             {cart.length > 0 && orderType !== "takeaway" && (

@@ -152,14 +152,14 @@ export default function PlatformRestaurantPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Sign-in accounts" description="The owner adds front-desk staff from their own Settings. You can give anyone a new password here." />
+        <CardHeader title="Sign-in accounts" description="The owner adds cashiers and captains from their own Settings. You can give anyone a new password here." />
         <CardContent>
           <ul className="divide-y divide-slate-100">
             {restaurant.staff.map((st) => (
               <li key={st.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="min-w-0">
                   <span className="font-semibold text-slate-900">{st.name}</span>{" "}
-                  <Badge variant={st.role === "admin" ? "purple" : "default"}>{st.role === "admin" ? "Owner / manager" : "Front desk"}</Badge>
+                  <Badge variant={st.role === "admin" ? "purple" : "default"}>{st.role === "admin" ? "Owner / manager" : "Cashier / captain"}</Badge>
                   {!st.active && <Badge variant="danger" className="ml-1">Switched off</Badge>}
                   <span className="block break-all text-sm text-slate-500">
                     {st.email} · {st.lastLoginAt ? `last signed in ${formatDateTime(st.lastLoginAt)}` : "never signed in"}
