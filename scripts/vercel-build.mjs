@@ -24,12 +24,15 @@ run("prisma generate");
 if (isPreview) {
   console.log(`\n▶ Vercel ${vercelEnv} build: skipping database migrations.\n`);
 } else if (hasDatabase) {
-  run("prisma migrate deploy");
+  // Neon / Vercel Postgres give a pooled DATABASE_URL for the app and a direct one for
+  // schema changes; migrations need the direct connection.
+  const direct = process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING;
+  execSync("prisma migrate deploy", { stdio: "inherit", env: direct ? { ...process.env, DATABASE_URL: direct } : process.env });
 } else {
   console.error(`
 ✖ DATABASE_URL is not set, so the database cannot be prepared.
 
-  On Vercel: open this project → Storage → connect a Postgres database (e.g. Neon),
+  On Vercel: open this project → Storage → create or connect a Neon Postgres database,
   or add DATABASE_URL under Settings → Environment Variables for Production,
   then redeploy. Also add JWT_SECRET (any long random text).
 `);
