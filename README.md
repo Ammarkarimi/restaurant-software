@@ -77,13 +77,23 @@ The owner panel is at <http://localhost:3000/platform> (sign in with the
 
 ## Deploying (Vercel + Postgres)
 
-Same as the hotel software:
+The live project is **restaurant-software** on Vercel, connected to this repository:
+every push to the production branch deploys automatically.
 
-1. Create a Vercel project from this repository.
-2. Connect a Postgres database (e.g. Neon) so `DATABASE_URL` is set.
-3. Add `JWT_SECRET` (long random text), `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`.
-4. Connect **Vercel Blob** storage so logo uploads are kept (`BLOB_READ_WRITE_TOKEN`).
-5. Deploy. Production builds run database migrations automatically; preview builds don't touch the database.
+1. Create a Vercel project from this repository (framework: Next.js; `vercel.json` sets the build command).
+2. **Storage → Create Database → Neon (Serverless Postgres)**, free plan, and connect it to the
+   project for Production, Preview and Development. Keep the default variable prefix so
+   `DATABASE_URL` and `DATABASE_URL_UNPOOLED` are set. Migrations use the unpooled (direct)
+   connection automatically.
+3. Add `JWT_SECRET` (long random text), `PLATFORM_ADMIN_EMAIL` and `PLATFORM_ADMIN_PASSWORD`
+   (10+ characters) under **Settings → Environment Variables**.
+4. Connect **Vercel Blob** storage so logo uploads are kept (`BLOB_READ_WRITE_TOKEN`), and set
+   `STORAGE_DRIVER=blob`.
+5. Deploy. Production builds run database migrations; preview builds don't touch the database.
+6. Open `/platform`, sign in with the owner-panel email and password, and add your first restaurant.
+
+On the Hobby plan Vercel only deploys commits whose author is the account owner, so commit
+with the email of the Vercel account.
 
 ## Printing
 
