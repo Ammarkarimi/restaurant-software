@@ -665,6 +665,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <ul className="divide-y divide-slate-100">
               {unsentItems.map((i) =>
                 lineRow(i.id, i, {
+                  tag: i.byGuest ? <b className="text-violet-700">· ordered by guest (QR)</b> : undefined,
                   onMinus: editable ? () => changeSaved(i, i.quantity - 1) : undefined,
                   onPlus: editable ? () => changeSaved(i, i.quantity + 1) : undefined,
                   onNote: editable ? () => setDialog({ kind: "note", target: { itemId: i.id }, initial: i.note ?? "", title: `Note for ${i.name}` }) : undefined,

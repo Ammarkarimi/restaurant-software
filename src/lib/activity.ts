@@ -1,8 +1,11 @@
 import { currentRestaurantId, prisma } from "./db";
 import type { SessionUser } from "./session";
 
+/** Who did it: a signed-in person, or e.g. a guest ordering from the table QR code (no account). */
+type Actor = Pick<SessionUser, "name"> & { id: string | null };
+
 /** Records who did what, so the owner can always see the history. Never throws. */
-export async function logActivity(user: SessionUser | null, action: string, details?: string) {
+export async function logActivity(user: Actor | null, action: string, details?: string) {
   try {
     await prisma.activityLog.create({
       data: {

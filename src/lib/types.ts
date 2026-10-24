@@ -31,6 +31,10 @@ export interface TableDTO {
   seats: number;
   sortOrder: number;
   active: boolean;
+  qrToken: string;
+  /** A guest pressed "Call waiter" (waiter) or "Ask for the bill" (bill) on the table QR menu. */
+  callType: string | null;
+  callAt: string | null;
 }
 
 export interface OrderSummary {
@@ -49,6 +53,7 @@ export interface OrderSummary {
   total: number;
   itemCount: number;
   unsent: number;
+  guestNew: number;
   ready: number;
 }
 
@@ -63,6 +68,7 @@ export interface OrderItemDTO {
   quantity: number;
   taxRate: number;
   note: string | null;
+  byGuest: boolean;
   kotNumber: number | null;
   sentAt: string | null;
   kitchenStatus: string;
@@ -161,6 +167,8 @@ export interface SettingsDTO {
   loyaltyEnabled: boolean;
   loyaltyEarnPercent: number;
   loyaltyMinRedeem: number;
+  qrMenuEnabled: boolean;
+  qrOrderingEnabled: boolean;
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;

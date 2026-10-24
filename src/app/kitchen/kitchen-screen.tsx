@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bell, BellOff, Check, ChefHat, CircleSlash, LogOut, Maximize, Undo2 } from "lucide-react";
 import { api } from "@/lib/client";
+import { ding } from "@/lib/ding";
 import { cn, label } from "@/lib/utils";
 import type { CategoryDTO, KitchenTicket } from "@/lib/types";
 
@@ -12,28 +13,6 @@ const SOUND_KEY = "kitchen:sound";
 
 function minutes(from: string, now: number) {
   return Math.max(0, Math.floor((now - new Date(from).getTime()) / 60_000));
-}
-
-/** A short "ding" without any sound file. */
-function ding() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    [880, 1320].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      const start = ctx.currentTime + i * 0.18;
-      gain.gain.setValueAtTime(0.25, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35);
-      osc.start(start);
-      osc.stop(start + 0.4);
-    });
-  } catch {
-    // no audio on this device
-  }
 }
 
 function Ticket({ t, now, onItem, onAll }: { t: KitchenTicket; now: number; onItem: (id: string, status: string) => void; onAll: (t: KitchenTicket, status: string) => void }) {

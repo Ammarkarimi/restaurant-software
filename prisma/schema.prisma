@@ -102,6 +102,8 @@ model RestaurantSettings {
   loyaltyEnabled       Boolean    @default(false)
   loyaltyEarnPercent   Float      @default(5) // points earned = this % of the bill; 1 point = 1 rupee off
   loyaltyMinRedeem     Float      @default(100) // points a guest needs before they can use them
+  qrMenuEnabled        Boolean    @default(true) // guests can open the menu from a QR code
+  qrOrderingEnabled    Boolean    @default(false) // guests can order from the table QR code; staff confirm
   logoPath             String?
   billTemplate         String     @default("{}") // JSON, see src/lib/bill-template.ts
   updatedAt            DateTime   @updatedAt
@@ -116,6 +118,9 @@ model DiningTable {
   seats        Int        @default(4)
   sortOrder    Int        @default(0)
   active       Boolean    @default(true)
+  qrToken      String     @unique @default(cuid()) // in the table's QR code, so guests can order for this table
+  callType     String? // a guest pressed "Call waiter" (waiter) or "Ask for the bill" (bill)
+  callAt       DateTime?
   createdAt    DateTime   @default(now())
   orders       Order[]    @relation("TableOrders")
   activeOrder  Order?     @relation("ActiveTableOrder")
@@ -237,6 +242,7 @@ model OrderItem {
   quantity      Int        @default(1)
   taxRate       Float      @default(0)
   note          String? // "less spicy", "no onion"
+  byGuest       Boolean    @default(false) // ordered by the guest from the table QR code
   kotNumber     Int? // null = not sent to the kitchen yet
   sentAt        DateTime?
   kitchenStatus String     @default("new") // on the kitchen screen: new (cooking), ready, served

@@ -12,8 +12,8 @@ import { calculateBill } from "@/lib/billing";
 import { formatDateTime, label } from "@/lib/utils";
 import type { SettingsDTO } from "@/lib/types";
 
-type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "staff" | "activity";
-const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "staff", "activity"];
+type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "staff" | "activity";
+const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "staff", "activity"];
 
 const TIMEZONES = ["Asia/Kolkata", "Asia/Dubai", "Asia/Kathmandu", "Asia/Dhaka", "Asia/Colombo", "Asia/Singapore", "Europe/London", "America/New_York", "Australia/Sydney"];
 
@@ -229,6 +229,40 @@ function LoyaltyTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s:
         On the order screen, add the customer&apos;s phone number. The cashier sees their points and can tap “Use points”. After payment, send the bill on WhatsApp: it shows the points they earned.
       </Tip>
       <SaveBar saving={saving} changed={changed} onSave={save} />
+    </div>
+  );
+}
+
+function QrTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
+  const { form: f, set, save, saving, changed } = useSettingsForm(settings, onSaved, ["qrMenuEnabled", "qrOrderingEnabled"]);
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader title="QR menu & table ordering" description="Print a QR code for each table. Guests scan it with their phone camera — no app needed." />
+        <CardContent className="space-y-4">
+          <Toggle
+            checked={Boolean(f.qrMenuEnabled)}
+            onChange={(v) => set({ qrMenuEnabled: v, ...(!v && { qrOrderingEnabled: false }) })}
+            label="Guests can see the menu from a QR code"
+            description="Your dishes, prices, veg marks and what is sold out today, always up to date. Table QR codes also let guests call a waiter or ask for the bill."
+          />
+          <Toggle
+            checked={Boolean(f.qrOrderingEnabled)}
+            onChange={(v) => set({ qrOrderingEnabled: v, ...(v && { qrMenuEnabled: true }) })}
+            label="Guests can order from the table QR code"
+            description="Their dishes appear on the table's order, marked “ordered by guest”. Staff check them and press Send to kitchen — nothing reaches the kitchen without staff."
+          />
+        </CardContent>
+      </Card>
+      <SaveBar saving={saving} changed={changed} onSave={save} />
+      <Card>
+        <CardHeader title="QR codes" description="One for each table, plus one for the menu only (for the entrance, counter or social media)." />
+        <CardContent className="flex flex-wrap gap-2">
+          <a href="/print/qr" target="_blank" rel="noopener noreferrer">
+            <Button>Print QR codes</Button>
+          </a>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -469,6 +503,7 @@ function SettingsView() {
           { value: "tax", label: "Tax & charges" },
           { value: "bill", label: "Bill design" },
           { value: "loyalty", label: "Loyalty" },
+          { value: "qr", label: "QR menu" },
           { value: "staff", label: "Staff" },
           { value: "activity", label: "Activity history" },
         ]}
@@ -477,6 +512,7 @@ function SettingsView() {
       {tab === "tax" && <TaxTab key={settings.id + "t"} settings={settings} onSaved={saved} />}
       {tab === "bill" && <BillDesigner settings={settings} onChange={saved} />}
       {tab === "loyalty" && <LoyaltyTab key={settings.id + "l"} settings={settings} onSaved={saved} />}
+      {tab === "qr" && <QrTab key={settings.id + "q"} settings={settings} onSaved={saved} />}
       {tab === "staff" && <StaffTab />}
       {tab === "activity" && <ActivityTab />}
     </div>

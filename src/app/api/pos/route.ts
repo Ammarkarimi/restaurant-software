@@ -36,6 +36,8 @@ export async function GET() {
         total: t.total,
         itemCount: t.itemCount,
         unsent: o.items.filter((i) => i.status === "active" && i.kotNumber === null).length,
+        // Dishes a guest ordered from the table QR code, waiting for staff to check them.
+        guestNew: o.items.filter((i) => i.status === "active" && i.kotNumber === null && i.byGuest).length,
         // Dishes the kitchen marked ready that are not served yet.
         ready: o.items.filter((i) => i.status === "active" && i.kotNumber !== null && i.kitchenStatus === "ready").length,
       };

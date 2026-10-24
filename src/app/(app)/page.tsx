@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Armchair, Bike, ChefHat, IndianRupee, Plus, ReceiptText, ShoppingBag, Split, Users } from "lucide-react";
+import { Armchair, BellRing, Bike, ChefHat, IndianRupee, Plus, QrCode, ReceiptText, ShoppingBag, Split, Users } from "lucide-react";
 import { Button, EmptyState, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { api } from "@/lib/client";
+import { ding } from "@/lib/ding";
 import { cn, formatCurrency, label, minutesSince } from "@/lib/utils";
 import type { OrderSummary, TableDTO } from "@/lib/types";
 
@@ -62,16 +63,24 @@ function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
 }
 
 export default function TablesPage() {
-  const { isAdmin } = useApp();
+  const { isAdmin, toast } = useApp();
   const [data, setData] = useState<PosData | null>(null);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const alerts = useRef<string | null>(null);
 
   const load = useCallback(() => {
     api<PosData>("/api/pos").then(
       (d) => {
         setData(d);
         setError("");
+        // Ding when a guest calls or orders from a table QR code since the last look.
+        const key = d.tables
+          .flatMap((t) => [t.callType ? `${t.id}:${t.callType}:${t.callAt}` : "", t.order?.guestNew ? `${t.order.id}:${t.order.guestNew}` : ""])
+          .filter(Boolean)
+          .join("|");
+        if (alerts.current !== null && key && key !== alerts.current && key.split("|").some((k) => !alerts.current!.includes(k))) ding();
+        alerts.current = key;
       },
       (e) => setError(e.message)
     );
@@ -79,13 +88,22 @@ export default function TablesPage() {
 
   useEffect(() => {
     load();
-    // Other tills and captains' phones change orders too; keep the floor fresh.
+    // Other tills, captains' phones and QR orders change the floor too; keep it fresh.
     const t = setInterval(() => {
       if (document.visibilityState === "visible") load();
       setNow(Date.now());
-    }, 15_000);
+    }, 10_000);
     return () => clearInterval(t);
   }, [load]);
+
+  async function answer(tableId: string) {
+    try {
+      await api(`/api/tables/${tableId}/call`, { method: "DELETE" });
+      load();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
 
   const areas = useMemo(() => {
     const map = new Map<string, PosData["tables"]>();
@@ -96,6 +114,8 @@ export default function TablesPage() {
   if (error && !data) return <Tip tone="danger">{error}</Tip>;
   if (!data) return <Loading />;
   const s = data.stats;
+  const calls = data.tables.filter((t) => t.callType);
+  const qrOrders = data.tables.filter((t) => t.order && t.order.guestNew > 0);
 
   return (
     <div className="space-y-6">
@@ -129,6 +149,37 @@ export default function TablesPage() {
           tone="primary"
         />
       </div>
+
+      {(calls.length > 0 || qrOrders.length > 0) && (
+        <section className="space-y-2">
+          {calls.map((t) => (
+            <div key={t.id} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-red-300 bg-red-50 px-4 py-3">
+              <BellRing className="h-6 w-6 animate-pulse text-red-600" />
+              <p className="flex-1 font-semibold text-red-900">
+                Table {t.name} {t.callType === "bill" ? "asked for the bill" : "is calling a waiter"}
+                {t.callAt && <span className="font-normal text-red-700"> · {minutesSince(t.callAt, now)} ago</span>}
+              </p>
+              {t.order && (
+                <Link href={`/orders/${t.order.id}`}>
+                  <Button size="sm" variant="outline">Open order</Button>
+                </Link>
+              )}
+              <Button size="sm" variant="danger" onClick={() => answer(t.id)}>
+                Done
+              </Button>
+            </div>
+          ))}
+          {qrOrders.map((t) => (
+            <Link key={t.id} href={`/orders/${t.order!.id}`} className="flex items-center gap-3 rounded-2xl border-2 border-violet-300 bg-violet-50 px-4 py-3">
+              <QrCode className="h-6 w-6 text-violet-700" />
+              <p className="flex-1 font-semibold text-violet-900">
+                Table {t.name} ordered {t.order!.guestNew} dish{t.order!.guestNew === 1 ? "" : "es"} from the QR menu. Check and send to the kitchen.
+              </p>
+              <Button size="sm">Open</Button>
+            </Link>
+          ))}
+        </section>
+      )}
 
       {data.otherOrders.length > 0 && (
         <section>
@@ -176,6 +227,11 @@ export default function TablesPage() {
                         STATUS_STYLE[o?.status ?? "free"]
                       )}
                     >
+                      {t.callType && (
+                        <span className="absolute bottom-1.5 right-1.5 animate-pulse rounded-full bg-red-600 p-1 text-white" title={t.callType === "bill" ? "Asked for the bill" : "Calling a waiter"}>
+                          <BellRing className="h-3 w-3" />
+                        </span>
+                      )}
                       {o && o.ready > 0 && (
                         <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-2 text-[11px] font-bold text-white" title="Dishes ready in the kitchen">
                           {o.ready} ready

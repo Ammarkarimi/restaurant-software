@@ -44,6 +44,8 @@ const schema = z
     loyaltyEnabled: z.boolean(),
     loyaltyEarnPercent: z.coerce.number().min(0).max(100),
     loyaltyMinRedeem: z.coerce.number().int().min(0).max(1_000_000),
+    qrMenuEnabled: z.boolean(),
+    qrOrderingEnabled: z.boolean(),
     billTemplate: billTemplateSchema,
   })
   .partial();
