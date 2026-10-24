@@ -116,6 +116,8 @@ function TaxTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: Set
     "defaultTaxRate",
     "pricesIncludeTax",
     "serviceChargePercent",
+    "packingCharge",
+    "deliveryCharge",
     "roundOff",
     "billPrefix",
   ]);
@@ -165,6 +167,12 @@ function TaxTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: Set
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field label="Service charge (%)" hint="0 for none. Added after discount; taxed like the food.">
               <Input type="number" min={0} max={50} step="0.01" value={String(f.serviceChargePercent)} onChange={(e) => set({ serviceChargePercent: Number(e.target.value) })} />
+            </Field>
+            <Field label="Packing charge (per takeaway / delivery order)" hint="0 for none. You can change it on any order.">
+              <Input type="number" min={0} step="0.01" value={String(f.packingCharge)} onChange={(e) => set({ packingCharge: Number(e.target.value) })} />
+            </Field>
+            <Field label="Delivery charge (per delivery order)" hint="0 for free delivery. You can change it on any order.">
+              <Input type="number" min={0} step="0.01" value={String(f.deliveryCharge)} onChange={(e) => set({ deliveryCharge: Number(e.target.value) })} />
             </Field>
             <Field label="Bill number prefix" optional hint={`Bills will be numbered ${(f.billPrefix as string) || ""}1, ${(f.billPrefix as string) || ""}2…`}>
               <Input value={f.billPrefix as string} onChange={(e) => set({ billPrefix: e.target.value })} maxLength={12} placeholder="e.g. SG/25-26/" />

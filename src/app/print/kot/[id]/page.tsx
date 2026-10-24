@@ -60,6 +60,12 @@ export default async function PrintKotPage({ params, searchParams }: Props) {
               <div className="my-1 border-t border-dashed border-black" />
               <p>Order #{order.number} · {time(items[0]?.sentAt ?? null)}</p>
               {order.createdByName && <p>By: {order.createdByName}</p>}
+              {order.source !== "counter" && (
+                <p className="font-bold">
+                  {label(order.source).toUpperCase()}
+                  {order.sourceRef && ` #${order.sourceRef}`}
+                </p>
+              )}
               {order.type !== "dine_in" && order.customerName && <p>For: {order.customerName}</p>}
               {order.notes && <p className="font-bold">Note: {order.notes}</p>}
               <div className="my-1 border-t border-dashed border-black" />

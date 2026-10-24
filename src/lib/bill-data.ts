@@ -20,6 +20,8 @@ export function billDataFor(order: FullOrder, currency: string): BillData {
     billNumber: order.billNumber,
     orderNumber: order.number,
     type: order.type,
+    source: order.source,
+    sourceRef: order.sourceRef,
     tableName: order.table?.name ?? null,
     guests: order.guests,
     servedBy: order.createdByName,

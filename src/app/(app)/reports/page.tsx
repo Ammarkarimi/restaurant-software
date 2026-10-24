@@ -176,6 +176,18 @@ export default function ReportsPage() {
                     </ul>
                   </CardContent>
                 </Card>
+                {data.bySource.some((x) => x.source !== "counter") && (
+                  <Card>
+                    <CardHeader title="Order sources" description="Walk-in, phone, Zomato, Swiggy, QR…" />
+                    <CardContent>
+                      <ul>
+                        {data.bySource.map((x) => (
+                          <ShareRow key={x.source} name={label(x.source)} value={formatCurrency(x.sales)} sub={`${x.bills} bills`} share={x.sales / data.totals.sales} />
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
                 <Card>
                   <CardHeader title="Sales by staff" description="Who opened the order" />
                   <CardContent>
@@ -250,7 +262,12 @@ export default function ReportsPage() {
                     )}
                     <div className="mt-4 space-y-1 text-sm text-slate-600">
                       <p>Items at menu price: <b>{formatCurrency(data.totals.itemsTotal)}</b></p>
-                      <p>Discounts: <b>{formatCurrency(data.totals.discount)}</b> · Service charge: <b>{formatCurrency(data.totals.serviceCharge)}</b> · Round off: <b>{formatCurrency(data.totals.roundOff)}</b></p>
+                      <p>
+                        Discounts: <b>{formatCurrency(data.totals.discount)}</b>
+                        {data.totals.pointsDiscount > 0 && <> (incl. loyalty points {formatCurrency(data.totals.pointsDiscount)})</>} · Service charge:{" "}
+                        <b>{formatCurrency(data.totals.serviceCharge)}</b> · Packing & delivery: <b>{formatCurrency(data.totals.charges)}</b> · Round off:{" "}
+                        <b>{formatCurrency(data.totals.roundOff)}</b>
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

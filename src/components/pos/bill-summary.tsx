@@ -1,7 +1,7 @@
 import { taxRowsFor, type BillTotals } from "@/lib/billing";
 import { cn, formatCurrency } from "@/lib/utils";
 
-/** The totals block under a cart or order: items, discount, service charge, tax, round-off, total. */
+/** The totals block under a cart or order: items, discount, service charge, packing / delivery, tax, round-off, total. */
 export function BillSummary({
   totals,
   taxMode,
@@ -9,6 +9,7 @@ export function BillSummary({
   pricesIncludeTax,
   serviceChargePercent,
   onDiscountClick,
+  onChargesClick,
   discountLabel,
   className,
 }: {
@@ -18,11 +19,14 @@ export function BillSummary({
   pricesIncludeTax: boolean;
   serviceChargePercent: number;
   onDiscountClick?: () => void;
+  /** Edits packing / delivery charges; shown as a link for takeaway and delivery. */
+  onChargesClick?: () => void;
   discountLabel?: string;
   className?: string;
 }) {
   const taxRows = taxRowsFor(totals, taxMode, taxName);
   const row = "flex items-center justify-between gap-3 py-0.5";
+  const manualDiscount = Math.round((totals.discount - totals.pointsDiscount) * 100) / 100;
   return (
     <div className={cn("text-[15px]", className)}>
       <div className={row}>
@@ -32,23 +36,47 @@ export function BillSummary({
       {onDiscountClick ? (
         <button type="button" onClick={onDiscountClick} className={cn(row, "w-full text-left")}>
           <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">
-            {totals.discount > 0 ? `Discount${discountLabel ? ` (${discountLabel})` : ""}` : "+ Add discount"}
+            {manualDiscount > 0 ? `Discount${discountLabel ? ` (${discountLabel})` : ""}` : "+ Add discount"}
           </span>
-          {totals.discount > 0 && <span className="text-emerald-700">− {formatCurrency(totals.discount)}</span>}
+          {manualDiscount > 0 && <span className="text-emerald-700">− {formatCurrency(manualDiscount)}</span>}
         </button>
       ) : (
-        totals.discount > 0 && (
+        manualDiscount > 0 && (
           <div className={row}>
             <span className="text-slate-600">Discount{discountLabel ? ` (${discountLabel})` : ""}</span>
-            <span className="text-emerald-700">− {formatCurrency(totals.discount)}</span>
+            <span className="text-emerald-700">− {formatCurrency(manualDiscount)}</span>
           </div>
         )
+      )}
+      {totals.pointsDiscount > 0 && (
+        <div className={row}>
+          <span className="text-slate-600">Loyalty points used</span>
+          <span className="text-emerald-700">− {formatCurrency(totals.pointsDiscount)}</span>
+        </div>
       )}
       {totals.serviceCharge > 0 && (
         <div className={row}>
           <span className="text-slate-600">Service charge ({serviceChargePercent}%)</span>
           <span>{formatCurrency(totals.serviceCharge)}</span>
         </div>
+      )}
+      {totals.charges.map((c) =>
+        onChargesClick ? (
+          <button key={c.name} type="button" onClick={onChargesClick} className={cn(row, "w-full text-left")}>
+            <span className="text-slate-600 underline-offset-2 hover:underline">{c.name}</span>
+            <span>{formatCurrency(c.amount)}</span>
+          </button>
+        ) : (
+          <div key={c.name} className={row}>
+            <span className="text-slate-600">{c.name}</span>
+            <span>{formatCurrency(c.amount)}</span>
+          </div>
+        )
+      )}
+      {onChargesClick && totals.charges.length === 0 && (
+        <button type="button" onClick={onChargesClick} className={cn(row, "w-full text-left")}>
+          <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">+ Packing / delivery charge</span>
+        </button>
       )}
       {pricesIncludeTax
         ? totals.tax > 0 && (

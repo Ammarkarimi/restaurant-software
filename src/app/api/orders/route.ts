@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/settings";
 import {
   ACTIVE_STATUSES,
   buildLines,
+  defaultCharges,
   isUniqueViolation,
   itemSummary,
   loadOrder,
@@ -21,7 +22,7 @@ import {
   totalsOf,
 } from "@/lib/orders";
 import { isDateKey } from "@/lib/dates";
-import { ORDER_STATUSES, ORDER_TYPES } from "@/lib/utils";
+import { ORDER_SOURCES, ORDER_STATUSES, ORDER_TYPES } from "@/lib/utils";
 
 /** Bills list: by business day (paid / cancelled) or start day (running), status and search. */
 export async function GET(request: NextRequest) {
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
         { billNumber: { contains: q, mode: "insensitive" } },
         { customerName: { contains: q, mode: "insensitive" } },
         { customerPhone: { contains: q } },
+        { sourceRef: { contains: q, mode: "insensitive" } },
         { table: { name: { equals: q, mode: "insensitive" } } },
       ];
       if (Number.isInteger(n) && n > 0) search.push({ number: n });
@@ -69,6 +71,8 @@ export async function GET(request: NextRequest) {
         number: o.number,
         billNumber: o.billNumber,
         type: o.type,
+        source: o.source,
+        sourceRef: o.sourceRef,
         status: o.status,
         table: o.table,
         customerName: o.customerName,
@@ -88,6 +92,8 @@ export async function GET(request: NextRequest) {
 
 const createSchema = z.object({
   type: z.enum(ORDER_TYPES),
+  source: z.enum(ORDER_SOURCES).default("counter"),
+  sourceRef: z.string().trim().max(40).optional().nullable(),
   tableId: z.string().optional().nullable(),
   customerName: z.string().trim().max(100).optional().nullable(),
   customerPhone: z.string().trim().max(20).optional().nullable(),
@@ -119,6 +125,8 @@ export async function POST(request: NextRequest) {
             restaurantId: settings.restaurantId,
             number: await nextNumber(tx, "orderSeq"),
             type: body.type,
+            source: body.type === "dine_in" && body.source !== "qr" ? "counter" : body.source,
+            sourceRef: body.sourceRef || null,
             tableId,
             activeTableId: tableId,
             customerName: body.customerName || null,
@@ -129,6 +137,7 @@ export async function POST(request: NextRequest) {
             createdById: user.id,
             createdByName: user.name,
             ...orderRulesFrom(settings),
+            ...defaultCharges(body.type, settings),
             items: { create: lines.map((l) => ({ ...l, restaurantId: settings.restaurantId })) },
           },
         });

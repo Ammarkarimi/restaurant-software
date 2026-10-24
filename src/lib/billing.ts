@@ -8,6 +8,8 @@
 //   service      = base × service charge %
 //   taxable      = base + service             (service charge is taxed like the food)
 //   tax          = taxable × the item's tax rate
+// Packing and delivery charges are added after that: no discount or service charge
+// on them, taxed at their own rate (the food rate in India).
 // Grand total = Σ (taxable + tax), then rounded to the nearest whole amount if asked.
 
 export interface BillLineInput {
@@ -28,6 +30,19 @@ export interface BillDiscount {
   value: number;
 }
 
+/** A charge on the whole order, like packing or delivery. */
+export interface BillCharge {
+  name: string;
+  amount: number;
+  taxRate: number;
+}
+
+export interface BillExtras {
+  charges?: BillCharge[];
+  /** Loyalty points used to pay, taken off like a discount. */
+  pointsDiscount?: number;
+}
+
 export interface TaxLine {
   rate: number;
   taxable: number;
@@ -37,12 +52,18 @@ export interface TaxLine {
 export interface BillTotals {
   /** Sum of menu prices × quantity. */
   itemsTotal: number;
+  /** Everything taken off the items: the discount plus loyalty points used. */
   discount: number;
+  /** The part of `discount` paid with loyalty points. */
+  pointsDiscount: number;
   /** Service charge before tax. */
   serviceCharge: number;
   /** Tax on the service charge (part of `tax`). */
   serviceChargeTax: number;
-  /** Amount tax is calculated on (food after discount, without tax, plus service charge). */
+  /** Packing, delivery… as entered (they include tax when menu prices include tax). */
+  charges: Array<{ name: string; amount: number }>;
+  chargesTotal: number;
+  /** Amount tax is calculated on (food after discount, without tax, plus service charge and charges). */
   taxable: number;
   tax: number;
   /** Tax grouped by rate, for the GST summary. Empty when there is no tax. */
@@ -62,10 +83,12 @@ export function discountAmount(itemsTotal: number, discount: BillDiscount | null
   return round2(Math.min(amount, itemsTotal));
 }
 
-export function calculateBill(lines: BillLineInput[], rules: BillRules, discount?: BillDiscount | null): BillTotals {
+export function calculateBill(lines: BillLineInput[], rules: BillRules, discount?: BillDiscount | null, extras: BillExtras = {}): BillTotals {
   const items = lines.filter((l) => l.quantity > 0);
   const itemsTotal = round2(items.reduce((sum, l) => sum + l.price * l.quantity, 0));
-  const discount$ = discountAmount(itemsTotal, discount);
+  const manual = discountAmount(itemsTotal, discount);
+  const points = round2(Math.min(Math.max(0, extras.pointsDiscount || 0), itemsTotal - manual));
+  const discount$ = round2(manual + points);
   const discountShare = itemsTotal > 0 ? discount$ / itemsTotal : 0;
   const taxed = rules.taxMode !== "none";
   const sc = Math.max(0, rules.serviceChargePercent || 0) / 100;
@@ -93,18 +116,35 @@ export function calculateBill(lines: BillLineInput[], rules: BillRules, discount
     }
   }
 
+  const charges = (extras.charges ?? []).filter((c) => c.amount > 0);
+  let chargesBase = 0;
+  for (const c of charges) {
+    const rate = taxed ? Math.max(0, c.taxRate || 0) : 0;
+    const base = rules.pricesIncludeTax ? c.amount / (1 + rate / 100) : c.amount;
+    chargesBase += base;
+    if (taxed && rate > 0) {
+      const t = byRate.get(rate) ?? { rate, taxable: 0, tax: 0 };
+      t.taxable += base;
+      t.tax += (base * rate) / 100;
+      byRate.set(rate, t);
+    }
+  }
+
   const taxLines = [...byRate.values()]
     .sort((a, b) => a.rate - b.rate)
     .map((t) => ({ rate: t.rate, taxable: round2(t.taxable), tax: round2(t.tax) }));
   const tax = round2(taxLines.reduce((sum, t) => sum + t.tax, 0));
   serviceCharge = round2(serviceCharge);
-  const taxable = round2(foodBase + serviceCharge);
+  const taxable = round2(foodBase + serviceCharge + chargesBase);
   const exactTotal = round2(taxable + tax);
   const total = rules.roundOff ? Math.round(exactTotal) : exactTotal;
 
   return {
     itemsTotal,
     discount: discount$,
+    pointsDiscount: points,
+    charges: charges.map((c) => ({ name: c.name, amount: round2(c.amount) })),
+    chargesTotal: round2(charges.reduce((sum, c) => sum + c.amount, 0)),
     serviceCharge,
     serviceChargeTax: round2(serviceChargeTax),
     taxable,

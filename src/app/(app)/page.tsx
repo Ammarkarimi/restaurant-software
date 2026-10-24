@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Armchair, Bike, ChefHat, IndianRupee, Plus, ReceiptText, ShoppingBag, Users } from "lucide-react";
+import { Armchair, Bike, ChefHat, IndianRupee, Plus, ReceiptText, ShoppingBag, Split, Users } from "lucide-react";
 import { Button, EmptyState, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { api } from "@/lib/client";
@@ -11,7 +11,7 @@ import type { OrderSummary, TableDTO } from "@/lib/types";
 
 interface PosData {
   today: string;
-  tables: Array<TableDTO & { order: OrderSummary | null }>;
+  tables: Array<TableDTO & { order: OrderSummary | null; extraBills: number }>;
   otherOrders: OrderSummary[];
   stats: { sales: number; bills: number; guests: number; running: number; runningValue: number };
 }
@@ -33,7 +33,7 @@ function Legend() {
 }
 
 function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
-  const Icon = o.type === "delivery" ? Bike : ShoppingBag;
+  const Icon = o.type === "delivery" ? Bike : o.type === "dine_in" ? Split : ShoppingBag;
   return (
     <Link
       href={`/orders/${o.id}`}
@@ -45,7 +45,13 @@ function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
         </span>
         <span className="text-xs text-slate-500">{minutesSince(o.createdAt, now)}</span>
       </span>
-      <span className="truncate text-sm text-slate-600">{o.customerName || label(o.type)}</span>
+      <span className="truncate text-sm text-slate-600">{o.customerName || (o.splitOf ? `${o.splitOf} · separate bill` : label(o.type))}</span>
+      {o.source !== "counter" && (
+        <span className="truncate text-xs font-semibold text-violet-700">
+          {label(o.source)}
+          {o.sourceRef ? ` #${o.sourceRef}` : ""}
+        </span>
+      )}
       <span className="flex items-center justify-between text-sm">
         <b>{formatCurrency(o.total)}</b>
         {o.unsent > 0 && <span className="rounded-full bg-red-600 px-2 text-xs font-bold text-white">{o.unsent} new</span>}
@@ -125,7 +131,9 @@ export default function TablesPage() {
 
       {data.otherOrders.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">Takeaway & delivery</h2>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+            {data.otherOrders.some((o) => o.type === "dine_in") ? "Takeaway, delivery & separate bills" : "Takeaway & delivery"}
+          </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
             {data.otherOrders.map((o) => (
               <OrderCard key={o.id} o={o} now={now} />
@@ -170,6 +178,11 @@ export default function TablesPage() {
                       {o && o.unsent > 0 && (
                         <span className="absolute right-1.5 top-1.5 rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white" title="Items not sent to the kitchen">
                           {o.unsent}
+                        </span>
+                      )}
+                      {t.extraBills > 0 && (
+                        <span className="absolute left-1.5 top-1.5 rounded-full bg-sky-600 px-1.5 text-[11px] font-bold text-white" title="Separate bills for this table">
+                          +{t.extraBills} bill
                         </span>
                       )}
                       <span className="text-xl font-bold text-slate-900">{t.name}</span>

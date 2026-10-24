@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { currentRestaurantId, prisma, type Db } from "./db";
 import { fail } from "./api";
-import { calculateBill, paidAmount, round2, type BillRules } from "./billing";
+import { calculateBill, paidAmount, round2, type BillCharge, type BillRules } from "./billing";
 import { priceFor } from "./menu";
 import type { SettingsRecord } from "./settings";
 
@@ -41,8 +41,18 @@ export function activeItems<T extends { status: string }>(items: T[]) {
   return items.filter((i) => i.status === "active");
 }
 
+type ChargeFields = Pick<FullOrder, "packingCharge" | "deliveryCharge" | "chargeTaxRate">;
+
+/** Packing and delivery charges of an order, as bill lines. */
+export function chargesOf(order: ChargeFields): BillCharge[] {
+  return [
+    { name: "Packing charge", amount: order.packingCharge, taxRate: order.chargeTaxRate },
+    { name: "Delivery charge", amount: order.deliveryCharge, taxRate: order.chargeTaxRate },
+  ];
+}
+
 export function totalsOf(order: FullOrder) {
-  return calculateBill(activeItems(order.items), rulesOf(order), { type: order.discountType, value: order.discountValue });
+  return calculateBill(activeItems(order.items), rulesOf(order), { type: order.discountType, value: order.discountValue }, { charges: chargesOf(order) });
 }
 
 export function serializeOrder(order: FullOrder) {
@@ -79,6 +89,7 @@ export async function saveTotals(db: Db, order: FullOrder, extra: Prisma.OrderUp
       subtotal: t.itemsTotal,
       discountAmount: t.discount,
       serviceCharge: t.serviceCharge,
+      chargesAmount: t.chargesTotal,
       taxAmount: t.tax,
       roundOffAmount: t.roundOff,
       total: t.total,
@@ -96,6 +107,15 @@ export function orderRulesFrom(s: SettingsRecord) {
     pricesIncludeTax: s.pricesIncludeTax,
     serviceChargePercent: s.serviceChargePercent,
     roundOff: s.roundOff,
+    chargeTaxRate: s.defaultTaxRate,
+  };
+}
+
+/** The restaurant's usual packing and delivery charges for a new order of this type. */
+export function defaultCharges(type: string, s: Pick<SettingsRecord, "packingCharge" | "deliveryCharge">) {
+  return {
+    packingCharge: type === "dine_in" ? 0 : s.packingCharge,
+    deliveryCharge: type === "delivery" ? s.deliveryCharge : 0,
   };
 }
 

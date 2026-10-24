@@ -14,6 +14,8 @@ interface Row {
   number: number;
   billNumber: string | null;
   type: string;
+  source: string;
+  sourceRef: string | null;
   status: string;
   table: { name: string } | null;
   customerName: string | null;
@@ -87,7 +89,7 @@ export default function BillsPage() {
           />
           <div className="relative md:w-80">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bill no., order no., table, name or phone" className="pl-9" aria-label="Search bills" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bill no., order no., table, name, phone or app order ID" className="pl-9" aria-label="Search bills" />
           </div>
         </div>
       </Card>
@@ -115,6 +117,7 @@ export default function BillsPage() {
                       <b className="text-slate-900">{r.billNumber ? `Bill ${r.billNumber}` : `Order #${r.number}`}</b>
                       <StatusBadge status={r.status} />
                       <Badge variant={r.type}>{r.type === "dine_in" && r.table ? `Table ${r.table.name}` : label(r.type)}</Badge>
+                      {r.source !== "counter" && <Badge variant="purple">{label(r.source)}{r.sourceRef ? ` #${r.sourceRef}` : ""}</Badge>}
                     </span>
                     <span className="block truncate text-sm text-slate-500">
                       {formatDate(r.createdAt)} {formatTime(r.settledAt ?? r.createdAt, settings.timezone)} · #{r.number} · {r.itemCount} item(s)

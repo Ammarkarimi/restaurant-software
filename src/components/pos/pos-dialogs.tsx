@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
-import { Banknote, CreditCard, Plus, QrCode, Trash2 } from "lucide-react";
+import { Banknote, CreditCard, Minus, Plus, QrCode, Smartphone, Split, Trash2 } from "lucide-react";
 import { Button, Field, Input, Modal, Select, Textarea, Tip } from "@/components/ui";
 import { FoodMark } from "@/components/food-mark";
 import { round2 } from "@/lib/billing";
 import { parseVariants } from "@/lib/menu";
 import { cn, formatCurrency, label } from "@/lib/utils";
-import type { MenuItemDTO, TableDTO } from "@/lib/types";
+import type { MenuItemDTO, OrderItemDTO, TableDTO } from "@/lib/types";
 
 export function PortionDialog({ item, onPick, onClose }: { item: MenuItemDTO; onPick: (variant: string, price: number) => void; onClose: () => void }) {
   const variants = parseVariants(item.variants);
@@ -100,9 +100,25 @@ export interface CustomerForm {
   customerAddress: string;
   guests: string;
   notes: string;
+  source: string;
+  sourceRef: string;
 }
 
-export function CustomerDialog({ initial, isDelivery, onSave, onClose }: { initial: CustomerForm; isDelivery: boolean; onSave: (f: CustomerForm) => Promise<void> | void; onClose: () => void }) {
+const SOURCE_CHOICES = ["counter", "phone", "zomato", "swiggy", "app"];
+
+export function CustomerDialog({
+  initial,
+  isDelivery,
+  showSource,
+  onSave,
+  onClose,
+}: {
+  initial: CustomerForm;
+  isDelivery: boolean;
+  showSource: boolean;
+  onSave: (f: CustomerForm) => Promise<void> | void;
+  onClose: () => void;
+}) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const set = (p: Partial<CustomerForm>) => setForm((f) => ({ ...f, ...p }));
@@ -131,6 +147,24 @@ export function CustomerDialog({ initial, isDelivery, onSave, onClose }: { initi
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
+        {showSource && (
+          <>
+            <Field label="Order from">
+              <Select value={form.source} onChange={(e) => set({ source: e.target.value })}>
+                {[...new Set([...SOURCE_CHOICES, form.source])].map((s) => (
+                  <option key={s} value={s}>{label(s)}</option>
+                ))}
+              </Select>
+            </Field>
+            {form.source !== "counter" && form.source !== "phone" && form.source !== "qr" ? (
+              <Field label={`${label(form.source)} order ID`} optional hint="Printed on the kitchen ticket and bill">
+                <Input value={form.sourceRef} onChange={(e) => set({ sourceRef: e.target.value })} maxLength={40} />
+              </Field>
+            ) : (
+              <div className="hidden sm:block" />
+            )}
+          </>
+        )}
         <Field label="Customer name" optional>
           <Input value={form.customerName} onChange={(e) => set({ customerName: e.target.value })} autoFocus />
         </Field>
@@ -228,6 +262,60 @@ export function DiscountDialog({
   );
 }
 
+export function ChargesDialog({
+  initial,
+  isDelivery,
+  onSave,
+  onClose,
+}: {
+  initial: { packingCharge: number; deliveryCharge: number };
+  isDelivery: boolean;
+  onSave: (c: { packingCharge: number; deliveryCharge: number }) => Promise<void> | void;
+  onClose: () => void;
+}) {
+  const [packing, setPacking] = useState(initial.packingCharge ? String(initial.packingCharge) : "");
+  const [delivery, setDelivery] = useState(initial.deliveryCharge ? String(initial.deliveryCharge) : "");
+  const [saving, setSaving] = useState(false);
+  const invalid = Number(packing) < 0 || Number(delivery) < 0;
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Packing & delivery charges"
+      description="Added to this bill after the discount. Tax is charged on them like on the food."
+      size="sm"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            loading={saving}
+            disabled={invalid}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSave({ packingCharge: Number(packing) || 0, deliveryCharge: Number(delivery) || 0 });
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Packing charge" hint="0 for none">
+          <Input type="number" min={0} step="0.01" inputMode="decimal" value={packing} onChange={(e) => setPacking(e.target.value)} autoFocus />
+        </Field>
+        <Field label="Delivery charge" hint={isDelivery ? "0 for free delivery" : "Only for delivery orders"}>
+          <Input type="number" min={0} step="0.01" inputMode="decimal" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
 export function MoveTableDialog({ tables, current, onMove, onClose }: { tables: TableDTO[]; current: string | null; onMove: (tableId: string) => Promise<void> | void; onClose: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const free = tables.filter((t) => t.id !== current);
@@ -278,10 +366,13 @@ export function PaymentDialog({
   payeeName,
   billLabel,
   currency,
+  initialMethod = "cash",
   onPay,
   onClose,
 }: {
   total: number;
+  /** "online" for orders that Zomato / Swiggy already collected. */
+  initialMethod?: string;
   upiId: string | null;
   payeeName: string;
   billLabel: string;
@@ -289,7 +380,7 @@ export function PaymentDialog({
   onPay: (payments: Array<{ method: string; amount: number; reference: string | null }>) => Promise<void>;
   onClose: () => void;
 }) {
-  const [rows, setRows] = useState<PayRow[]>([{ method: "cash", amount: String(total), reference: "" }]);
+  const [rows, setRows] = useState<PayRow[]>([{ method: initialMethod, amount: String(total), reference: "" }]);
   const [received, setReceived] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -346,9 +437,9 @@ export function PaymentDialog({
       }
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
-          {(["cash", "upi", "card"] as const).map((m) => {
-            const Icon = METHOD_ICONS[m];
+        <div className={cn("grid gap-2", initialMethod === "online" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+          {(initialMethod === "online" ? ["online", "cash", "upi", "card"] : ["cash", "upi", "card"]).map((m) => {
+            const Icon = METHOD_ICONS[m] ?? Smartphone;
             const only = rows.length === 1 && rows[0].method === m;
             return (
               <Button key={m} variant={only ? "primary" : "outline"} size="lg" onClick={() => setRows([{ method: m, amount: String(total), reference: "" }])}>
@@ -361,9 +452,9 @@ export function PaymentDialog({
         <div className="space-y-2">
           {rows.map((r, i) => (
             <div key={i} className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 p-3">
-              <Field label="Paid by" className="w-36">
+              <Field label="Paid by" className="w-44">
                 <Select value={r.method} onChange={(e) => setRow(i, { method: e.target.value })}>
-                  {["cash", "upi", "card", "other"].map((m) => (
+                  {["cash", "upi", "card", "online", "other"].map((m) => (
                     <option key={m} value={m}>{label(m)}</option>
                   ))}
                 </Select>
@@ -426,6 +517,131 @@ export function PaymentDialog({
           </div>
         )}
         {error && <Tip tone="danger">{error}</Tip>}
+      </div>
+    </Modal>
+  );
+}
+
+export interface TransferTable extends TableDTO {
+  order: { id: string; number: number; total: number } | null;
+}
+
+/** Split the bill, merge with another table or move a few dishes: pick items, then where they go. */
+export function TransferDialog({
+  items,
+  tables,
+  currentTableId,
+  onTransfer,
+  onClose,
+}: {
+  items: OrderItemDTO[];
+  tables: TransferTable[];
+  currentTableId: string | null;
+  onTransfer: (body: { items: Array<{ itemId: string; quantity: number }>; to: { tableId: string } | { newBill: true } }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  const [to, setTo] = useState<string | null>(null); // table id, or "new"
+  const [saving, setSaving] = useState(false);
+  const count = Object.values(picked).reduce((s, n) => s + n, 0);
+  const all = items.every((i) => (picked[i.id] ?? 0) === i.quantity);
+  const others = tables.filter((t) => t.id !== currentTableId);
+  const set = (id: string, n: number) => setPicked((p) => ({ ...p, [id]: n }));
+  const target = to === "new" ? null : others.find((t) => t.id === to);
+
+  async function go() {
+    if (!to || count === 0) return;
+    setSaving(true);
+    try {
+      await onTransfer({
+        items: Object.entries(picked)
+          .filter(([, n]) => n > 0)
+          .map(([itemId, quantity]) => ({ itemId, quantity })),
+        to: to === "new" ? { newBill: true } : { tableId: to },
+      });
+    } catch {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Split bill or move items"
+      description="Choose the dishes, then where they go. Kitchen tickets and prices move with them."
+      size="lg"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button loading={saving} disabled={!to || count === 0 || (to === "new" && all)} onClick={go}>
+            {to === "new" ? `Make a separate bill (${count})` : target?.order ? `Add to ${target.name} (${count})` : target ? `Move to ${target.name} (${count})` : "Move"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">1. Dishes to move</p>
+            <Button size="sm" variant="ghost" onClick={() => setPicked(all ? {} : Object.fromEntries(items.map((i) => [i.id, i.quantity])))}>
+              {all ? "Clear" : "Select all"}
+            </Button>
+          </div>
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            {items.map((i) => {
+              const n = picked[i.id] ?? 0;
+              return (
+                <li key={i.id} className="flex items-center gap-2 px-3 py-2">
+                  <FoodMark type={i.foodType} />
+                  <span className="min-w-0 flex-1 text-[15px]">
+                    <span className="font-semibold">{i.name}</span>
+                    {i.variant && <span className="text-slate-500"> ({i.variant})</span>}
+                    <span className="block text-xs text-slate-500">
+                      {i.quantity} on this order · {formatCurrency(i.price)} each
+                    </span>
+                  </span>
+                  <button onClick={() => set(i.id, Math.max(0, n - 1))} disabled={n === 0} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40" aria-label={`One less ${i.name}`}>
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className={cn("w-8 text-center font-bold", n > 0 ? "text-primary-700" : "text-slate-400")}>{n}</span>
+                  <button onClick={() => set(i.id, Math.min(i.quantity, n + 1))} disabled={n === i.quantity} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40" aria-label={`One more ${i.name}`}>
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-semibold text-slate-700">2. Where they go</p>
+          <Button
+            variant={to === "new" ? "primary" : "outline"}
+            className="mb-2 w-full justify-start"
+            disabled={all}
+            onClick={() => setTo("new")}
+          >
+            <Split className="h-4 w-4" /> Separate bill{currentTableId ? " at this table" : ""} — these guests pay on their own
+          </Button>
+          {others.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {others.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTo(t.id)}
+                  className={cn(
+                    "rounded-xl border-2 px-2 py-2 text-center transition",
+                    to === t.id ? "border-primary-500 bg-primary-50" : t.order ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white hover:border-primary-300"
+                  )}
+                >
+                  <span className="block font-bold text-slate-900">{t.name}</span>
+                  <span className="block text-xs text-slate-500">{t.order ? `Running · ${formatCurrency(t.order.total)}` : "Free"}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {target?.order && <p className="mt-2 text-sm text-slate-600">The dishes join {target.name}&apos;s running order #{target.order.number}.</p>}
+        </div>
       </div>
     </Modal>
   );

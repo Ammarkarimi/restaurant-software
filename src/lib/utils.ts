@@ -80,13 +80,16 @@ export function titleCase(s: string): string {
 export const ORDER_TYPES = ["dine_in", "takeaway", "delivery"] as const;
 export const ORDER_STATUSES = ["open", "billed", "settled", "cancelled"] as const;
 export const FOOD_TYPES = ["veg", "non_veg", "egg"] as const;
-export const PAYMENT_METHODS = ["cash", "upi", "card", "other"] as const;
+export const PAYMENT_METHODS = ["cash", "upi", "card", "online", "other"] as const;
+// Where a takeaway or delivery order came from. "qr" = a guest ordered from the table QR code.
+export const ORDER_SOURCES = ["counter", "phone", "zomato", "swiggy", "app", "qr"] as const;
 export const TAX_MODES = ["gst", "simple", "none"] as const;
 
 export type OrderType = (typeof ORDER_TYPES)[number];
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type FoodType = (typeof FOOD_TYPES)[number];
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+export type OrderSource = (typeof ORDER_SOURCES)[number];
 
 // Plain-language labels so people who are new to restaurant software understand them.
 export const LABELS: Record<string, string> = {
@@ -110,7 +113,15 @@ export const LABELS: Record<string, string> = {
   cash: "Cash",
   upi: "UPI / QR",
   card: "Card",
+  online: "Paid online / app",
   other: "Other",
+  // order sources
+  counter: "Walk-in / counter",
+  phone: "Phone order",
+  zomato: "Zomato",
+  swiggy: "Swiggy",
+  app: "Other app / website",
+  qr: "QR table order",
   // tax modes
   gst: "GST (CGST + SGST)",
   simple: "One tax line (VAT / sales tax)",

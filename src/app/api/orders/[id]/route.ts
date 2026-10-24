@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { fail, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { assertEditable, isUniqueViolation, loadOrder, saveTotals, serializeOrder } from "@/lib/orders";
-import { formatCurrency } from "@/lib/utils";
+import { ORDER_SOURCES, formatCurrency, label } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,12 +25,16 @@ const schema = z
     discountType: z.enum(["percent", "amount"]),
     discountValue: z.coerce.number().min(0).max(10_000_000),
     discountReason: z.string().trim().max(200).nullable(),
+    packingCharge: z.coerce.number().min(0).max(1_000_000),
+    deliveryCharge: z.coerce.number().min(0).max(1_000_000),
+    source: z.enum(ORDER_SOURCES),
+    sourceRef: z.string().trim().max(40).nullable(),
     // Move a dine-in order to another table (or turn it into takeaway with null).
     tableId: z.string().nullable(),
   })
   .partial();
 
-/** Customer details, discount, or moving the order to another table. */
+/** Customer details, discount, packing / delivery charges, or moving the order to another table. */
 export async function PATCH(request: NextRequest, { params }: Params) {
   return withAuth(async (user) => {
     const { id } = await params;
@@ -46,13 +50,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       if (!body.tableId) fail("Choose the table to move this order to");
       const table = await prisma.diningTable.findFirst({ where: { id: body.tableId, active: true } });
       if (!table) fail("This table was not found");
-      tableData = { type: "dine_in", tableId: table.id, activeTableId: table.id };
+      // Seating a takeaway order at a table: no packing or delivery any more.
+      tableData = { type: "dine_in", tableId: table.id, activeTableId: table.id, ...(order.type !== "dine_in" && { packingCharge: 0, deliveryCharge: 0 }) };
       move = { from: order.table?.name ?? order.type, to: table.name };
     }
 
     const discountChanged =
       (body.discountValue !== undefined && body.discountValue !== order.discountValue) ||
       (body.discountType !== undefined && body.discountType !== order.discountType);
+    const chargesChanged =
+      (body.packingCharge !== undefined && body.packingCharge !== order.packingCharge) ||
+      (body.deliveryCharge !== undefined && body.deliveryCharge !== order.deliveryCharge);
 
     try {
       const updated = await prisma.$transaction(async (tx) => {
@@ -67,9 +75,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             ...(body.guests !== undefined && { guests: body.guests }),
             ...(body.discountType && { discountType: body.discountType }),
             ...(body.discountValue !== undefined && { discountValue: body.discountValue }),
+            ...(body.packingCharge !== undefined && { packingCharge: body.packingCharge }),
+            ...(body.deliveryCharge !== undefined && { deliveryCharge: body.deliveryCharge }),
+            ...(body.source && { source: body.source }),
+            sourceRef: text(body.sourceRef),
             ...tableData,
             // A changed bill must be printed again.
-            ...(discountChanged && order.status === "billed" && { status: "open" }),
+            ...((discountChanged || chargesChanged) && order.status === "billed" && { status: "open" }),
           },
         });
         return saveTotals(tx, await loadOrder(id, tx));
@@ -79,6 +91,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         const d = updated.discountValue > 0 ? (updated.discountType === "percent" ? `${updated.discountValue}%` : formatCurrency(updated.discountValue)) : "removed";
         await logActivity(user, "Changed discount", `Order #${order.number}: ${d}${updated.discountReason ? ` (${updated.discountReason})` : ""}`);
       }
+      if (chargesChanged) {
+        const what = [
+          updated.packingCharge > 0 && `packing ${formatCurrency(updated.packingCharge)}`,
+          updated.deliveryCharge > 0 && `delivery ${formatCurrency(updated.deliveryCharge)}`,
+        ].filter(Boolean);
+        await logActivity(user, "Changed charges", `Order #${order.number}: ${what.join(", ") || "removed"}`);
+      }
+      if (body.source && body.source !== order.source) await logActivity(user, "Changed order source", `Order #${order.number}: ${label(body.source)}`);
       return NextResponse.json({ order: serializeOrder(updated) });
     } catch (error) {
       if (isUniqueViolation(error, "activeTableId")) fail("That table already has a running order. Choose a free table.", 409);

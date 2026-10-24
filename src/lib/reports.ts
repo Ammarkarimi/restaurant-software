@@ -40,13 +40,14 @@ export async function salesReport(range: ReportRange) {
   for (let d = range.from; d <= range.to && days.size < 400; d = addDays(d, 1)) days.set(d, { date: d, sales: 0, bills: 0 });
   const hours = Array.from({ length: 24 }, (_, h) => ({ hour: h, sales: 0, bills: 0 }));
   const byType = new Map<string, { type: string; sales: number; bills: number }>();
+  const bySource = new Map<string, { source: string; sales: number; bills: number }>();
   const byMethod = new Map<string, { method: string; amount: number; count: number }>();
   const items = new Map<string, { name: string; category: string; quantity: number; amount: number }>();
   const categories = new Map<string, { category: string; quantity: number; amount: number }>();
   const taxes = new Map<number, { rate: number; taxable: number; tax: number }>();
   const staff = new Map<string, { name: string; sales: number; bills: number }>();
 
-  const totals = { sales: 0, bills: orders.length, guests: 0, itemsTotal: 0, discount: 0, serviceCharge: 0, tax: 0, roundOff: 0, taxable: 0 };
+  const totals = { sales: 0, bills: orders.length, guests: 0, itemsTotal: 0, discount: 0, pointsDiscount: 0, serviceCharge: 0, charges: 0, tax: 0, roundOff: 0, taxable: 0 };
 
   for (const o of orders) {
     const t = totalsOf(o);
@@ -54,7 +55,9 @@ export async function salesReport(range: ReportRange) {
     totals.guests += o.guests;
     totals.itemsTotal += t.itemsTotal;
     totals.discount += t.discount;
+    totals.pointsDiscount += t.pointsDiscount;
     totals.serviceCharge += t.serviceCharge;
+    totals.charges += t.chargesTotal;
     totals.tax += t.tax;
     totals.roundOff += t.roundOff;
     totals.taxable += t.taxable;
@@ -73,6 +76,10 @@ export async function salesReport(range: ReportRange) {
     type.sales += t.total;
     type.bills += 1;
     byType.set(o.type, type);
+    const source = bySource.get(o.source) ?? { source: o.source, sales: 0, bills: 0 };
+    source.sales += t.total;
+    source.bills += 1;
+    bySource.set(o.source, source);
 
     for (const p of o.payments) {
       const m = byMethod.get(p.method) ?? { method: p.method, amount: 0, count: 0 };
@@ -116,6 +123,7 @@ export async function salesReport(range: ReportRange) {
     daily: [...days.values()].map(r2),
     hourly: hours.filter((h) => h.bills > 0).map(r2),
     byType: [...byType.values()].map(r2).sort((a, b) => b.sales - a.sales),
+    bySource: [...bySource.values()].map(r2).sort((a, b) => b.sales - a.sales),
     payments: [...byMethod.values()].map(r2).sort((a, b) => b.amount - a.amount),
     topItems: [...items.values()].map(r2).sort((a, b) => b.quantity - a.quantity || b.amount - a.amount),
     categories: [...categories.values()].map(r2).sort((a, b) => b.amount - a.amount),

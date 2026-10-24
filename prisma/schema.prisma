@@ -91,6 +91,8 @@ model RestaurantSettings {
   defaultTaxRate       Float      @default(5)
   pricesIncludeTax     Boolean    @default(false)
   serviceChargePercent Float      @default(0)
+  packingCharge        Float      @default(0) // added to every takeaway and delivery order
+  deliveryCharge       Float      @default(0) // added to every delivery order
   roundOff             Boolean    @default(true)
   billPrefix           String     @default("")
   upiId                String? // printed as a QR code on the bill so guests can pay
@@ -156,6 +158,8 @@ model Order {
   restaurantId         String
   number               Int // counts up per restaurant
   type                 String      @default("dine_in") // dine_in, takeaway, delivery
+  source               String      @default("counter") // counter, phone, zomato, swiggy, app, qr
+  sourceRef            String? // the order id on Zomato / Swiggy / the other app
   status               String      @default("open") // open, billed, settled, cancelled
   tableId              String?
   // Set to tableId while the order is running and cleared when it is paid or cancelled,
@@ -176,11 +180,15 @@ model Order {
   pricesIncludeTax     Boolean     @default(false)
   serviceChargePercent Float       @default(0)
   roundOff             Boolean     @default(true)
+  packingCharge        Float       @default(0)
+  deliveryCharge       Float       @default(0)
+  chargeTaxRate        Float       @default(0) // tax rate on packing and delivery charges
   billNumber           String?
   // Totals saved when the bill is printed and again when it is paid.
   subtotal             Float       @default(0)
   discountAmount       Float       @default(0)
   serviceCharge        Float       @default(0)
+  chargesAmount        Float       @default(0)
   taxAmount            Float       @default(0)
   roundOffAmount       Float       @default(0)
   total                Float       @default(0)

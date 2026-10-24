@@ -23,8 +23,12 @@ export async function GET() {
         id: o.id,
         number: o.number,
         type: o.type,
+        source: o.source,
+        sourceRef: o.sourceRef,
         status: o.status,
         tableId: o.activeTableId,
+        // A separate (split) bill of a table that still has its main order running.
+        splitOf: o.activeTableId ? null : (o.table?.name ?? null),
         customerName: o.customerName,
         guests: o.guests,
         createdAt: o.createdAt,
@@ -35,10 +39,12 @@ export async function GET() {
       };
     });
     const byTable = new Map(summaries.filter((s) => s.tableId).map((s) => [s.tableId!, s]));
+    const extraBills = new Map<string, number>();
+    for (const o of running) if (!o.activeTableId && o.tableId) extraBills.set(o.tableId, (extraBills.get(o.tableId) ?? 0) + 1);
 
     return NextResponse.json({
       today,
-      tables: tables.map((t) => ({ ...t, order: byTable.get(t.id) ?? null })),
+      tables: tables.map((t) => ({ ...t, order: byTable.get(t.id) ?? null, extraBills: extraBills.get(t.id) ?? 0 })),
       otherOrders: summaries.filter((s) => !s.tableId),
       stats: {
         sales: round2(todayOrders.reduce((sum, o) => sum + o.total, 0)),

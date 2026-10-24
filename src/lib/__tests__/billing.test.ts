@@ -94,3 +94,47 @@ test("empty orders total zero", () => {
   assert.equal(t.total, 0);
   assert.equal(t.itemCount, 0);
 });
+
+test("packing and delivery charges are taxed but never discounted", () => {
+  const t = calculateBill([{ price: 400, quantity: 1, taxRate: 5 }], { ...gst, serviceChargePercent: 10 }, { type: "percent", value: 50 }, {
+    charges: [
+      { name: "Packing charge", amount: 20, taxRate: 5 },
+      { name: "Delivery charge", amount: 40, taxRate: 5 },
+    ],
+  });
+  assert.equal(t.discount, 200);
+  assert.equal(t.serviceCharge, 20); // only on the food
+  assert.equal(t.chargesTotal, 60);
+  assert.deepEqual(t.charges, [
+    { name: "Packing charge", amount: 20 },
+    { name: "Delivery charge", amount: 40 },
+  ]);
+  assert.equal(t.taxable, 280); // 200 food + 20 service + 60 charges
+  assert.equal(t.tax, 14);
+  assert.equal(t.total, 294);
+});
+
+test("charges of zero are left off the bill, and include tax when menu prices do", () => {
+  const t = calculateBill([{ price: 105, quantity: 1, taxRate: 5 }], { ...gst, pricesIncludeTax: true }, null, {
+    charges: [
+      { name: "Packing charge", amount: 21, taxRate: 5 },
+      { name: "Delivery charge", amount: 0, taxRate: 5 },
+    ],
+  });
+  assert.deepEqual(t.charges, [{ name: "Packing charge", amount: 21 }]);
+  assert.equal(t.taxable, 120);
+  assert.equal(t.tax, 6);
+  assert.equal(t.total, 126);
+});
+
+test("loyalty points come off like a discount, never more than the items", () => {
+  const t = calculateBill([{ price: 500, quantity: 1, taxRate: 5 }], gst, { type: "amount", value: 100 }, { pointsDiscount: 50 });
+  assert.equal(t.discount, 150);
+  assert.equal(t.pointsDiscount, 50);
+  assert.equal(t.taxable, 350);
+  assert.equal(t.total, 367.5);
+  const capped = calculateBill([{ price: 100, quantity: 1, taxRate: 5 }], gst, { type: "percent", value: 80 }, { pointsDiscount: 500 });
+  assert.equal(capped.pointsDiscount, 20);
+  assert.equal(capped.discount, 100);
+  assert.equal(capped.total, 0);
+});

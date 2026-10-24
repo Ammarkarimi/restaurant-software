@@ -21,13 +21,13 @@ export async function GET(request: NextRequest) {
     if (type === "bills") {
       const orders = await settledOrders(range);
       return csvResponse(`bills_${suffix}`, [
-        ["Bill #", "Date", "Time", "Order #", "Type", "Table", "Customer", "Phone", "Items", "Items total", "Discount", "Service charge", "Taxable", "Tax", "Round off", "Total", "Paid by", "Staff"],
+        ["Bill #", "Date", "Time", "Order #", "Type", "Order from", "App order ID", "Table", "Customer", "Phone", "Items", "Items total", "Discount", "Service charge", "Packing & delivery", "Taxable", "Tax", "Round off", "Total", "Paid by", "Staff"],
         ...orders.map((o) => {
           const t = totalsOf(o);
           return [
             o.billNumber, o.businessDate, o.settledAt?.toLocaleTimeString("en-IN", { timeZone: settings.timezone, hour: "2-digit", minute: "2-digit" }),
-            o.number, label(o.type), o.table?.name, o.customerName, o.customerPhone, t.itemCount, t.itemsTotal, t.discount,
-            t.serviceCharge, t.taxable, t.tax, t.roundOff, t.total,
+            o.number, label(o.type), label(o.source), o.sourceRef, o.table?.name, o.customerName, o.customerPhone, t.itemCount, t.itemsTotal, t.discount,
+            t.serviceCharge, t.chargesTotal, t.taxable, t.tax, t.roundOff, t.total,
             o.payments.map((p) => `${label(p.method)} ${p.amount}`).join(" + "), o.createdByName,
           ];
         }),

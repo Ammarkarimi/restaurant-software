@@ -16,6 +16,7 @@ import {
   ReceiptText,
   Save,
   Search,
+  Split,
   Trash2,
   User,
   Wallet,
@@ -25,6 +26,7 @@ import { useApp } from "@/components/app-provider";
 import { FoodMark } from "@/components/food-mark";
 import { BillSummary } from "@/components/pos/bill-summary";
 import {
+  ChargesDialog,
   CustomerDialog,
   DiscountDialog,
   MoveTableDialog,
@@ -32,7 +34,9 @@ import {
   OpenItemDialog,
   PaymentDialog,
   PortionDialog,
+  TransferDialog,
   type CustomerForm,
+  type TransferTable,
 } from "@/components/pos/pos-dialogs";
 import { api } from "@/lib/client";
 import { calculateBill } from "@/lib/billing";
@@ -59,7 +63,9 @@ type Dialog =
   | { kind: "note"; target: { cartKey: string } | { itemId: string }; initial: string; title: string }
   | { kind: "customer" }
   | { kind: "discount" }
+  | { kind: "charges" }
   | { kind: "move"; tables: TableDTO[] }
+  | { kind: "transfer"; tables: TransferTable[] }
   | { kind: "pay" }
   | { kind: "more" }
   | null;
@@ -94,7 +100,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const [error, setError] = useState("");
   const [mobileTab, setMobileTab] = useState<"menu" | "order">("menu");
   const [autoKot, setAutoKot] = useState(true);
-  const [draftCustomer, setDraftCustomer] = useState<CustomerForm>({ customerName: "", customerPhone: "", customerAddress: "", guests: "", notes: "" });
+  const [draftCustomer, setDraftCustomer] = useState<CustomerForm>({ customerName: "", customerPhone: "", customerAddress: "", guests: "", notes: "", source: "counter", sourceRef: "" });
   const searchRef = useRef<HTMLInputElement>(null);
   const keySeq = useRef(1);
 
@@ -164,11 +170,26 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       ? { taxMode: settings.taxMode, pricesIncludeTax: settings.pricesIncludeTax, serviceChargePercent: settings.serviceChargePercent, roundOff: settings.roundOff }
       : null;
   const activeItems = useMemo(() => (order?.items ?? []).filter((i) => i.status === "active"), [order]);
+  // Packing / delivery charges: the order's own, or the restaurant's usual ones for a new order.
+  const charges = order
+    ? { packingCharge: order.packingCharge, deliveryCharge: order.deliveryCharge, taxRate: order.chargeTaxRate }
+    : settings
+      ? {
+          packingCharge: orderType === "dine_in" ? 0 : settings.packingCharge,
+          deliveryCharge: orderType === "delivery" ? settings.deliveryCharge : 0,
+          taxRate: settings.defaultTaxRate,
+        }
+      : null;
   const totals = useMemo(() => {
-    if (!rules) return null;
-    return calculateBill([...activeItems, ...cart], rules, order ? { type: order.discountType, value: order.discountValue } : null);
+    if (!rules || !charges) return null;
+    return calculateBill([...activeItems, ...cart], rules, order ? { type: order.discountType, value: order.discountValue } : null, {
+      charges: [
+        { name: "Packing charge", amount: charges.packingCharge, taxRate: charges.taxRate },
+        { name: "Delivery charge", amount: charges.deliveryCharge, taxRate: charges.taxRate },
+      ],
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeItems, cart, order, rules?.taxMode, rules?.pricesIncludeTax, rules?.serviceChargePercent, rules?.roundOff]);
+  }, [activeItems, cart, order, rules?.taxMode, rules?.pricesIncludeTax, rules?.serviceChargePercent, rules?.roundOff, charges?.packingCharge, charges?.deliveryCharge, charges?.taxRate]);
 
   const sentItems = activeItems.filter((i) => i.kotNumber !== null);
   const unsentItems = activeItems.filter((i) => i.kotNumber === null);
@@ -189,6 +210,8 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       const r = await api<{ order: OrderDTO; kotNumber: number | null }>("/api/orders", {
         body: {
           type: newOrder?.type ?? "dine_in",
+          source: draftCustomer.source,
+          sourceRef: draftCustomer.sourceRef || null,
           tableId: newOrder?.tableId ?? null,
           customerName: draftCustomer.customerName || null,
           customerPhone: draftCustomer.customerPhone || null,
@@ -380,6 +403,36 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     if (r) setDialog({ kind: "move", tables: r.tables.filter((t) => !t.order) });
   }
 
+  async function openTransfer() {
+    setDialog(null);
+    if (cart.length) return toast("Save the new items first (Send to kitchen or Save), then move them", "info");
+    const r = await run("transfer", () => api<{ tables: TransferTable[] }>("/api/pos"));
+    if (r) setDialog({ kind: "transfer", tables: r.tables });
+  }
+
+  async function transfer(body: { items: Array<{ itemId: string; quantity: number }>; to: { tableId: string } | { newBill: true } }) {
+    if (!order) return;
+    try {
+      const r = await api<{ order: OrderDTO | null; target: OrderDTO }>(`/api/orders/${order.id}/transfer`, { body });
+      setDialog(null);
+      const where = r.target.table && "tableId" in body.to ? `table ${r.target.table.name}` : `separate bill #${r.target.number}`;
+      if (!r.order) {
+        toast(`Moved to ${where}`);
+        if (r.target.id === order.id) setOrder(r.target);
+        else router.replace(`/orders/${r.target.id}`);
+      } else if ("newBill" in body.to) {
+        toast(`Separate bill #${r.target.number} made. Take its payment now.`);
+        router.push(`/orders/${r.target.id}`);
+      } else {
+        setOrder(r.order);
+        toast(`Moved to ${where}`);
+      }
+    } catch (e) {
+      toast((e as Error).message, "error");
+      throw e;
+    }
+  }
+
   // Keyboard: "/" focuses search, Enter adds the first match.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -396,6 +449,9 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   if (!categories || !settings || !totals || (orderId && !order)) return <Loading />;
 
   const title = orderType === "dine_in" ? `Table ${tableName ?? "?"}` : label(orderType);
+  const source = order ? order.source : draftCustomer.source;
+  const sourceRef = order ? order.sourceRef : draftCustomer.sourceRef;
+  const fromApp = ["zomato", "swiggy", "app"].includes(source);
   const discountLabel = order && order.discountValue > 0 ? (order.discountType === "percent" ? `${order.discountValue}%` : undefined) : undefined;
   const customer = order ? order.customerName || order.customerPhone : draftCustomer.customerName || draftCustomer.customerPhone;
   const guests = order ? order.guests : Number(draftCustomer.guests) || 0;
@@ -539,6 +595,12 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             {title}
             {order && <span className="text-sm font-medium text-slate-500">#{order.number}</span>}
             {order && <StatusBadge status={order.status} />}
+            {source !== "counter" && (
+              <Badge variant={fromApp ? "purple" : "info"}>
+                {label(source)}
+                {sourceRef ? ` #${sourceRef}` : ""}
+              </Badge>
+            )}
           </p>
           <button onClick={() => setDialog({ kind: "customer" })} disabled={!editable} className="flex items-center gap-1 text-sm text-slate-500 hover:text-primary-700">
             <User className="h-3.5 w-3.5" />
@@ -614,6 +676,14 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           pricesIncludeTax={rules!.pricesIncludeTax}
           serviceChargePercent={rules!.serviceChargePercent}
           discountLabel={discountLabel}
+          onChargesClick={
+            editable && orderType !== "dine_in"
+              ? () => {
+                  if (!order) return toast("Save or send the order first, then change the charges", "info");
+                  setDialog({ kind: "charges" });
+                }
+              : undefined
+          }
           onDiscountClick={
             editable
               ? () => {
@@ -722,6 +792,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       {dialog?.kind === "customer" && (
         <CustomerDialog
           isDelivery={orderType === "delivery"}
+          showSource={orderType !== "dine_in"}
           initial={
             order
               ? {
@@ -730,6 +801,8 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                   customerAddress: order.customerAddress ?? "",
                   guests: order.guests ? String(order.guests) : "",
                   notes: order.notes ?? "",
+                  source: order.source,
+                  sourceRef: order.sourceRef ?? "",
                 }
               : draftCustomer
           }
@@ -742,7 +815,14 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             }
             try {
               await patchOrder(
-                { customerName: f.customerName || null, customerPhone: f.customerPhone || null, customerAddress: f.customerAddress || null, guests: Number(f.guests) || 0, notes: f.notes || null },
+                {
+                  customerName: f.customerName || null,
+                  customerPhone: f.customerPhone || null,
+                  customerAddress: f.customerAddress || null,
+                  guests: Number(f.guests) || 0,
+                  notes: f.notes || null,
+                  ...(orderType !== "dine_in" && { source: f.source, sourceRef: f.sourceRef || null }),
+                },
                 "Saved"
               );
               setDialog(null);
@@ -767,6 +847,21 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           }}
         />
       )}
+      {dialog?.kind === "charges" && order && (
+        <ChargesDialog
+          initial={{ packingCharge: order.packingCharge, deliveryCharge: order.deliveryCharge }}
+          isDelivery={orderType === "delivery"}
+          onClose={() => setDialog(null)}
+          onSave={async (c) => {
+            try {
+              await patchOrder(c, "Charges saved");
+              setDialog(null);
+            } catch (e) {
+              toast((e as Error).message, "error");
+            }
+          }}
+        />
+      )}
       {dialog?.kind === "move" && (
         <MoveTableDialog
           tables={dialog.tables}
@@ -782,12 +877,16 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           }}
         />
       )}
+      {dialog?.kind === "transfer" && order && (
+        <TransferDialog items={activeItems} tables={dialog.tables} currentTableId={order.activeTableId} onClose={() => setDialog(null)} onTransfer={transfer} />
+      )}
       {dialog?.kind === "pay" && order && (
         <PaymentDialog
           total={order.totals.total}
           upiId={settings.upiId}
           payeeName={settings.restaurantName}
           currency={settings.currency}
+          initialMethod={fromApp ? "online" : "cash"}
           billLabel={`${title} · Order #${order.number}${order.billNumber ? ` · Bill ${order.billNumber}` : ""}`}
           onClose={() => setDialog(null)}
           onPay={settle}
@@ -804,6 +903,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             {editable && order && (
               <Button variant="outline" className="justify-start" onClick={openMove}>
                 <ArrowRightLeft className="h-4 w-4" /> {orderType === "dine_in" ? "Move to another table" : "Seat at a table"}
+              </Button>
+            )}
+            {editable && order && activeItems.length > 0 && (
+              <Button variant="outline" className="justify-start" onClick={openTransfer}>
+                <Split className="h-4 w-4" /> Split bill / move items to another table
               </Button>
             )}
             {order && sentItems.length > 0 && (

@@ -30,6 +30,8 @@ const schema = z
     defaultTaxRate: z.coerce.number().min(0).max(100),
     pricesIncludeTax: z.boolean(),
     serviceChargePercent: z.coerce.number().min(0).max(50),
+    packingCharge: z.coerce.number().min(0).max(100_000),
+    deliveryCharge: z.coerce.number().min(0).max(100_000),
     roundOff: z.boolean(),
     billPrefix: z.string().trim().max(12),
     upiId: z

@@ -37,8 +37,11 @@ export interface OrderSummary {
   id: string;
   number: number;
   type: string;
+  source: string;
+  sourceRef: string | null;
   status: string;
   tableId: string | null;
+  splitOf: string | null;
   customerName: string | null;
   guests: number;
   createdAt: string;
@@ -79,8 +82,12 @@ export interface OrderDTO {
   id: string;
   number: number;
   type: string;
+  source: string;
+  sourceRef: string | null;
   status: string;
   tableId: string | null;
+  /** Set while the order is the table's running order (null for a separate bill). */
+  activeTableId: string | null;
   table: { id: string; name: string; area: string } | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -95,6 +102,9 @@ export interface OrderDTO {
   pricesIncludeTax: boolean;
   serviceChargePercent: number;
   roundOff: boolean;
+  packingCharge: number;
+  deliveryCharge: number;
+  chargeTaxRate: number;
   billNumber: string | null;
   createdAt: string;
   billedAt: string | null;
@@ -127,6 +137,8 @@ export interface SettingsDTO {
   defaultTaxRate: number;
   pricesIncludeTax: boolean;
   serviceChargePercent: number;
+  packingCharge: number;
+  deliveryCharge: number;
   roundOff: boolean;
   billPrefix: string;
   upiId: string | null;

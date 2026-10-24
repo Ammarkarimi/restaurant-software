@@ -27,6 +27,8 @@ export function sampleBill(s: SampleSettings, paid: boolean): BillData {
     billNumber: `${s.billPrefix}1024`,
     orderNumber: 2318,
     type: "dine_in",
+    source: "counter",
+    sourceRef: null,
     tableName: "T4",
     guests: 4,
     servedBy: "Ravi",

@@ -21,6 +21,8 @@ export interface BillData {
   billNumber: string | null;
   orderNumber: number;
   type: string;
+  source: string;
+  sourceRef: string | null;
   tableName: string | null;
   guests: number;
   servedBy: string | null;
@@ -98,6 +100,7 @@ export function BillView({
   const money = (n: number) => formatAmount(n);
   const where = b.type === "dine_in" ? (b.tableName ? `Table ${b.tableName}` : "Dine-in") : label(b.type);
   const showQr = t.showUpiQr && qrDataUrl && due > 0;
+  const manualDiscount = Math.round((b.totals.discount - b.totals.pointsDiscount) * 100) / 100;
 
   const header = (
     <div className={cn(a4 ? "flex items-start gap-4" : align)}>
@@ -144,6 +147,7 @@ export function BillView({
   if (!a4 && t.showBillNumber) infoPairs.push(["Bill No", b.billNumber ?? "—"]);
   if (t.showOrderType || t.showTable) infoPairs.push([b.type === "dine_in" && t.showTable ? "Table" : "Order", t.showTable ? where : label(b.type)]);
   infoPairs.push(["Order No", `#${b.orderNumber}`]);
+  if (b.source !== "counter") infoPairs.push(["Via", `${label(b.source)}${b.sourceRef ? ` ${b.sourceRef}` : ""}`]);
   if (t.showGuests && b.guests > 0) infoPairs.push(["Guests", String(b.guests)]);
   if (t.showServedBy && b.servedBy) infoPairs.push(["Served by", b.servedBy]);
 
@@ -187,8 +191,12 @@ export function BillView({
   const totals = (
     <div className={cn(a4 && "ml-auto w-80")}>
       <Line l={`Items total${t.showItemCount ? ` (${b.totals.itemCount})` : ""}`} v={money(b.totals.itemsTotal)} />
-      {b.totals.discount > 0 && <Line l={`Discount${b.discountLabel ? ` (${b.discountLabel})` : ""}`} v={`-${money(b.totals.discount)}`} />}
+      {manualDiscount > 0 && <Line l={`Discount${b.discountLabel ? ` (${b.discountLabel})` : ""}`} v={`-${money(manualDiscount)}`} />}
+      {b.totals.pointsDiscount > 0 && <Line l="Loyalty points used" v={`-${money(b.totals.pointsDiscount)}`} />}
       {b.totals.serviceCharge > 0 && <Line l={`Service charge (${b.serviceChargePercent}%)`} v={money(b.totals.serviceCharge)} />}
+      {b.totals.charges.map((c) => (
+        <Line key={c.name} l={c.name} v={money(c.amount)} />
+      ))}
       {!b.pricesIncludeTax && taxRows.map((r) => <Line key={r.label} l={r.label} v={money(r.amount)} />)}
       {b.totals.roundOff !== 0 && <Line l="Round off" v={`${b.totals.roundOff > 0 ? "+" : ""}${money(b.totals.roundOff)}`} muted />}
       <div className={cn("my-1", a4 ? "border-t-2" : rule)} style={a4 ? { borderColor: t.accentColor } : undefined} />
@@ -275,7 +283,7 @@ export function BillView({
       <div className={cn(a4 ? "mt-4 grid grid-cols-2 gap-6 rounded border border-slate-200 p-3" : "mt-1")}>
         <div className={cn(!a4 && "grid grid-cols-2 gap-x-2")}>
           {infoPairs.map(([k, v]) => (
-            <p key={k} className={cn(!a4 && (k === "Date" || k === "Served by") ? "col-span-2" : "truncate")}>
+            <p key={k} className={cn(!a4 && (k === "Date" || k === "Served by" || k === "Via") ? "col-span-2" : "truncate")}>
               <span className="opacity-75">{k}:</span> {v}
             </p>
           ))}
