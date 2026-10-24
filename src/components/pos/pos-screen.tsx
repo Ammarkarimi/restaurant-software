@@ -9,6 +9,7 @@ import {
   Ban,
   ChefHat,
   Minus,
+  MessageCircle,
   MessageSquare,
   MoreHorizontal,
   Plus,
@@ -33,16 +34,18 @@ import {
   NoteDialog,
   OpenItemDialog,
   PaymentDialog,
+  PointsDialog,
   PortionDialog,
   TransferDialog,
   type CustomerForm,
   type TransferTable,
 } from "@/components/pos/pos-dialogs";
-import { api } from "@/lib/client";
+import { api, whatsappLink } from "@/lib/client";
+import { normalizePhone } from "@/lib/phone";
 import { calculateBill } from "@/lib/billing";
 import { fromPrice, parseVariants } from "@/lib/menu";
 import { cn, formatCurrency, formatTime, label } from "@/lib/utils";
-import type { CategoryDTO, MenuItemDTO, OrderDTO, OrderItemDTO, SettingsDTO, TableDTO } from "@/lib/types";
+import type { CategoryDTO, CustomerLookup, MenuItemDTO, OrderDTO, OrderItemDTO, SettingsDTO, TableDTO } from "@/lib/types";
 
 /** An item added on this screen and not saved yet. */
 interface CartLine {
@@ -64,6 +67,7 @@ type Dialog =
   | { kind: "customer" }
   | { kind: "discount" }
   | { kind: "charges" }
+  | { kind: "points" }
   | { kind: "move"; tables: TableDTO[] }
   | { kind: "transfer"; tables: TransferTable[] }
   | { kind: "pay" }
@@ -101,6 +105,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const [mobileTab, setMobileTab] = useState<"menu" | "order">("menu");
   const [autoKot, setAutoKot] = useState(true);
   const [draftCustomer, setDraftCustomer] = useState<CustomerForm>({ customerName: "", customerPhone: "", customerAddress: "", guests: "", notes: "", source: "counter", sourceRef: "" });
+  const [known, setKnown] = useState<CustomerLookup | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const keySeq = useRef(1);
 
@@ -124,6 +129,19 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   }, [orderId, newOrder?.tableId]);
 
   const editable = !order || order.status === "open" || order.status === "billed";
+
+  // A guest we know by phone: show their visits and loyalty points.
+  const phone = normalizePhone(order ? order.customerPhone : draftCustomer.customerPhone);
+  useEffect(() => {
+    if (!phone) {
+      setKnown(null);
+      return;
+    }
+    api<{ customers: CustomerLookup[] }>(`/api/customers?q=${phone}`).then(
+      (r) => setKnown(r.customers.find((c) => c.phone === phone) ?? null),
+      () => setKnown(null)
+    );
+  }, [phone, order?.status]);
   const orderType = order?.type ?? newOrder?.type ?? "dine_in";
   const tableName = order?.table?.name ?? table?.name;
 
@@ -187,6 +205,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         { name: "Packing charge", amount: charges.packingCharge, taxRate: charges.taxRate },
         { name: "Delivery charge", amount: charges.deliveryCharge, taxRate: charges.taxRate },
       ],
+      pointsDiscount: order?.pointsRedeemed ?? 0,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeItems, cart, order, rules?.taxMode, rules?.pricesIncludeTax, rules?.serviceChargePercent, rules?.roundOff, charges?.packingCharge, charges?.deliveryCharge, charges?.taxRate]);
@@ -403,6 +422,13 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     if (r) setDialog({ kind: "move", tables: r.tables.filter((t) => !t.order) });
   }
 
+  function billMessage(o: OrderDTO) {
+    const lines = [`Thank you for visiting ${settings!.restaurantName}!`, `Bill ${o.billNumber}: ${formatCurrency(o.totals.total)}`];
+    if (o.pointsEarned > 0) lines.push(`You earned ${o.pointsEarned} loyalty points${known ? ` (balance ${known.points})` : ""}.`);
+    lines.push(`Your bill: ${window.location.origin}/b/${o.shareToken}`);
+    return lines.join("\n");
+  }
+
   async function openTransfer() {
     setDialog(null);
     if (cart.length) return toast("Save the new items first (Send to kitchen or Save), then move them", "info");
@@ -606,6 +632,12 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <User className="h-3.5 w-3.5" />
             {customer || "Add customer"}
             {guests > 0 ? ` · ${guests} guest${guests === 1 ? "" : "s"}` : ""}
+            {known && (
+              <span className="text-emerald-700">
+                {" "}· {known.visits} visit{known.visits === 1 ? "" : "s"}
+                {settings.loyaltyEnabled && ` · ${known.points} pts`}
+              </span>
+            )}
           </button>
         </div>
         <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "more" })} aria-label="More actions">
@@ -676,6 +708,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           pricesIncludeTax={rules!.pricesIncludeTax}
           serviceChargePercent={rules!.serviceChargePercent}
           discountLabel={discountLabel}
+          pointsAction={
+            editable && order && settings.loyaltyEnabled && known && (known.points >= settings.loyaltyMinRedeem || order.pointsRedeemed > 0)
+              ? { label: `Use loyalty points (${known.points})`, onClick: () => setDialog({ kind: "points" }) }
+              : undefined
+          }
           onChargesClick={
             editable && orderType !== "dine_in"
               ? () => {
@@ -725,13 +762,22 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         ) : (
           <>
             {order?.status === "settled" && (
-              <a href={`/print/bill/${order.id}?auto=1`} target="_blank" rel="noopener noreferrer" className="col-span-1">
-                <Button variant="outline" size="lg" className="w-full">
-                  <Printer className="h-5 w-5" /> Print bill
-                </Button>
-              </a>
+              <>
+                <a href={`/print/bill/${order.id}?auto=1`} target="_blank" rel="noopener noreferrer" className="col-span-1">
+                  <Button variant="outline" size="lg" className="w-full">
+                    <Printer className="h-5 w-5" /> Print bill
+                  </Button>
+                </a>
+                {order.shareToken && (
+                  <a href={whatsappLink(order.customerPhone, billMessage(order))} target="_blank" rel="noopener noreferrer" className="col-span-1">
+                    <Button variant="outline" size="lg" className="w-full whitespace-nowrap px-3 text-base text-emerald-700">
+                      <MessageCircle className="h-5 w-5" /> WhatsApp bill
+                    </Button>
+                  </a>
+                )}
+              </>
             )}
-            <Link href="/" className={order?.status === "settled" ? "" : "col-span-2"}>
+            <Link href="/" className={order?.status === "settled" && !order.shareToken ? "" : "col-span-2"}>
               <Button size="lg" className="w-full">
                 <ArrowLeft className="h-5 w-5" /> Back to tables
               </Button>
@@ -847,6 +893,23 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           }}
         />
       )}
+      {dialog?.kind === "points" && order && known && (
+        <PointsDialog
+          balance={known.points}
+          minRedeem={settings.loyaltyMinRedeem}
+          maxUsable={totals.itemsTotal - (totals.discount - totals.pointsDiscount)}
+          initial={order.pointsRedeemed}
+          onClose={() => setDialog(null)}
+          onSave={async (points) => {
+            try {
+              await patchOrder({ pointsRedeemed: points }, points ? `${points} points used` : "Points removed");
+              setDialog(null);
+            } catch (e) {
+              toast((e as Error).message, "error");
+            }
+          }}
+        />
+      )}
       {dialog?.kind === "charges" && order && (
         <ChargesDialog
           initial={{ packingCharge: order.packingCharge, deliveryCharge: order.deliveryCharge }}
@@ -921,6 +984,13 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               <a href={`/print/bill/${order.id}`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" className="w-full justify-start">
                   <ReceiptText className="h-4 w-4" /> View bill
+                </Button>
+              </a>
+            )}
+            {order?.shareToken && order.status !== "cancelled" && (
+              <a href={whatsappLink(order.customerPhone, billMessage(order))} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="w-full justify-start">
+                  <MessageCircle className="h-4 w-4" /> Send bill on WhatsApp
                 </Button>
               </a>
             )}

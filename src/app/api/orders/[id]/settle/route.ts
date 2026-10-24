@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
 import { round2 } from "@/lib/billing";
 import { todayKey } from "@/lib/dates";
+import { recordVisit } from "@/lib/customers";
 import { activeItems, assertEditable, loadOrder, nextNumber, saveTotals, sendUnsentToKitchen, serializeOrder, totalsOf } from "@/lib/orders";
 import { PAYMENT_METHODS, formatCurrency, label } from "@/lib/utils";
 
@@ -50,7 +51,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
       }
       const now = new Date();
+      const visit = await recordVisit(tx, order, total, settings);
       const updated = await saveTotals(tx, await loadOrder(id, tx), {
+        ...visit,
         status: "settled",
         billNumber,
         billedAt: order.billedAt ?? now,

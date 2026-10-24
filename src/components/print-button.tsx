@@ -22,7 +22,7 @@ function whenImagesReady(): Promise<void> {
   ]);
 }
 
-export function PrintButton({ auto = false, title }: { auto?: boolean; title?: string }) {
+export function PrintButton({ auto = false, title, closable = true }: { auto?: boolean; title?: string; closable?: boolean }) {
   useEffect(() => {
     if (!auto) return;
     let cancelled = false;
@@ -34,12 +34,14 @@ export function PrintButton({ auto = false, title }: { auto?: boolean; title?: s
   }, [auto]);
   return (
     <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3">
-      <Button variant="outline" onClick={() => window.close()}>
-        Close
-      </Button>
-      {title && <span className="hidden truncate text-sm font-semibold text-slate-600 sm:block">{title}</span>}
+      {closable && (
+        <Button variant="outline" onClick={() => window.close()}>
+          Close
+        </Button>
+      )}
+      {title && <span className={closable ? "hidden truncate text-sm font-semibold text-slate-600 sm:block" : "truncate text-sm font-semibold text-slate-600"}>{title}</span>}
       <Button onClick={() => window.print()}>
-        <Printer className="h-5 w-5" /> Print
+        <Printer className="h-5 w-5" /> {closable ? "Print" : "Print / save PDF"}
       </Button>
     </div>
   );

@@ -41,6 +41,9 @@ const schema = z
       .regex(/^$|^[\w.\-]{2,}@[\w.\-]{2,}$/, "UPI ID looks like name@bank")
       .nullable()
       .optional(),
+    loyaltyEnabled: z.boolean(),
+    loyaltyEarnPercent: z.coerce.number().min(0).max(100),
+    loyaltyMinRedeem: z.coerce.number().int().min(0).max(1_000_000),
     billTemplate: billTemplateSchema,
   })
   .partial();

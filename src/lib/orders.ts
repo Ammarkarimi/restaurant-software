@@ -5,6 +5,7 @@ import { fail } from "./api";
 import { calculateBill, paidAmount, round2, type BillCharge, type BillRules } from "./billing";
 import { priceFor } from "./menu";
 import type { SettingsRecord } from "./settings";
+import { billShareToken } from "./share";
 
 export const ACTIVE_STATUSES = ["open", "billed"];
 
@@ -52,7 +53,12 @@ export function chargesOf(order: ChargeFields): BillCharge[] {
 }
 
 export function totalsOf(order: FullOrder) {
-  return calculateBill(activeItems(order.items), rulesOf(order), { type: order.discountType, value: order.discountValue }, { charges: chargesOf(order) });
+  return calculateBill(
+    activeItems(order.items),
+    rulesOf(order),
+    { type: order.discountType, value: order.discountValue },
+    { charges: chargesOf(order), pointsDiscount: order.pointsRedeemed }
+  );
 }
 
 export function serializeOrder(order: FullOrder) {
@@ -64,6 +70,8 @@ export function serializeOrder(order: FullOrder) {
     paid,
     balance: round2(totals.total - paid),
     unsentCount: order.items.filter((i) => i.status === "active" && i.kotNumber === null).length,
+    // For the "send bill on WhatsApp" link, once there is a bill to send.
+    shareToken: order.billNumber ? billShareToken(order.id) : null,
   };
 }
 

@@ -118,6 +118,20 @@ export interface OrderDTO {
   paid: number;
   balance: number;
   unsentCount: number;
+  customerId: string | null;
+  pointsRedeemed: number;
+  pointsEarned: number;
+  shareToken: string | null;
+}
+
+export interface CustomerLookup {
+  id: string;
+  name: string | null;
+  phone: string;
+  address: string | null;
+  points: number;
+  visits: number;
+  lastVisitAt: string | null;
 }
 
 export interface SettingsDTO {
@@ -142,6 +156,9 @@ export interface SettingsDTO {
   roundOff: boolean;
   billPrefix: string;
   upiId: string | null;
+  loyaltyEnabled: boolean;
+  loyaltyEarnPercent: number;
+  loyaltyMinRedeem: number;
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;

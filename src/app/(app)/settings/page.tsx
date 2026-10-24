@@ -12,7 +12,8 @@ import { calculateBill } from "@/lib/billing";
 import { formatDateTime, label } from "@/lib/utils";
 import type { SettingsDTO } from "@/lib/types";
 
-type Tab = "restaurant" | "tax" | "bill" | "staff" | "activity";
+type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "staff" | "activity";
+const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "staff", "activity"];
 
 const TIMEZONES = ["Asia/Kolkata", "Asia/Dubai", "Asia/Kathmandu", "Asia/Dhaka", "Asia/Colombo", "Asia/Singapore", "Europe/London", "America/New_York", "Australia/Sydney"];
 
@@ -196,6 +197,38 @@ function TaxTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: Set
           />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function LoyaltyTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
+  const { form: f, set, save, saving, changed } = useSettingsForm(settings, onSaved, ["loyaltyEnabled", "loyaltyEarnPercent", "loyaltyMinRedeem"]);
+  const earn = Number(f.loyaltyEarnPercent) || 0;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title="Loyalty points"
+          description="Bring guests back: every paid bill with a phone number earns points, and points can be used as money off a later bill. 1 point = ₹1."
+        />
+        <CardContent className="space-y-4">
+          <Toggle checked={Boolean(f.loyaltyEnabled)} onChange={(v) => set({ loyaltyEnabled: v })} label="Give loyalty points" description="Customers are saved from the phone number on their bill, whether this is on or off." />
+          {f.loyaltyEnabled && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Points earned (% of the bill)" hint={`A ₹1,000 bill earns ${Math.floor(earn * 10)} points`}>
+                <Input type="number" min={0} max={100} step="0.5" value={String(f.loyaltyEarnPercent)} onChange={(e) => set({ loyaltyEarnPercent: Number(e.target.value) })} />
+              </Field>
+              <Field label="Points needed before they can be used" hint="So small balances are not used on every bill">
+                <Input type="number" min={0} step="1" value={String(f.loyaltyMinRedeem)} onChange={(e) => set({ loyaltyMinRedeem: Number(e.target.value) })} />
+              </Field>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Tip>
+        On the order screen, add the customer&apos;s phone number. The cashier sees their points and can tap “Use points”. After payment, send the bill on WhatsApp: it shows the points they earned.
+      </Tip>
+      <SaveBar saving={saving} changed={changed} onSave={save} />
     </div>
   );
 }
@@ -403,7 +436,7 @@ function SettingsView() {
   const router = useRouter();
   const sp = useSearchParams();
   const requested = sp.get("tab") as Tab | null;
-  const [tab, setTab] = useState<Tab>(requested && ["restaurant", "tax", "bill", "staff", "activity"].includes(requested) ? requested : "restaurant");
+  const [tab, setTab] = useState<Tab>(requested && TABS.includes(requested) ? requested : "restaurant");
   const [settings, setSettings] = useState<SettingsDTO | null>(null);
 
   useEffect(() => {
@@ -433,6 +466,7 @@ function SettingsView() {
           { value: "restaurant", label: "Restaurant" },
           { value: "tax", label: "Tax & charges" },
           { value: "bill", label: "Bill design" },
+          { value: "loyalty", label: "Loyalty" },
           { value: "staff", label: "Staff" },
           { value: "activity", label: "Activity history" },
         ]}
@@ -440,6 +474,7 @@ function SettingsView() {
       {tab === "restaurant" && <RestaurantTab key={settings.id + "r"} settings={settings} onSaved={saved} />}
       {tab === "tax" && <TaxTab key={settings.id + "t"} settings={settings} onSaved={saved} />}
       {tab === "bill" && <BillDesigner settings={settings} onChange={saved} />}
+      {tab === "loyalty" && <LoyaltyTab key={settings.id + "l"} settings={settings} onSaved={saved} />}
       {tab === "staff" && <StaffTab />}
       {tab === "activity" && <ActivityTab />}
     </div>

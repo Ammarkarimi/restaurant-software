@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 // Read lazily (not at import time) so a missing secret can never break `next build`;
 // it fails at sign-in instead, with a clear message.
-function getJwtSecret(): Uint8Array {
+export function getJwtSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET;
   if (!secret && process.env.NODE_ENV === "production") {
     throw new Error("JWT_SECRET environment variable is required in production");

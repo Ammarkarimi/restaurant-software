@@ -30,3 +30,8 @@ export type PublicSettings = ReturnType<typeof publicSettings>;
 export function logoUrl(s: Pick<SettingsRecord, "logoPath" | "updatedAt">) {
   return s.logoPath ? `/api/settings/logo?v=${new Date(s.updatedAt).getTime()}` : null;
 }
+
+/** The logo URL for pages guests open without signing in. */
+export function publicLogoUrl(slug: string, s: Pick<SettingsRecord, "logoPath" | "updatedAt">) {
+  return s.logoPath ? `/api/public/logo/${slug}?v=${new Date(s.updatedAt).getTime()}` : null;
+}

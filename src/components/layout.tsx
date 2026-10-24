@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   Armchair,
   UserCircle,
+  Users,
   UtensilsCrossed,
   X,
 } from "lucide-react";
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/", label: "Tables", icon: LayoutGrid, hint: "Take orders & bill" },
   { href: "/bills", label: "Bills", icon: ReceiptText, hint: "All orders & reprints" },
   { href: "/menu", label: "Menu", icon: BookOpen, hint: "Dishes & prices" },
+  { href: "/customers", label: "Customers", icon: Users, hint: "Regulars & loyalty", admin: true },
   { href: "/tables", label: "Table setup", icon: Armchair, hint: "Areas & tables", admin: true },
   { href: "/reports", label: "Reports", icon: BarChart3, hint: "Sales summary", admin: true },
   { href: "/settings", label: "Settings", icon: Settings, hint: "Bill design, tax, staff", admin: true },

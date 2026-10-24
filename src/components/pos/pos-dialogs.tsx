@@ -8,7 +8,8 @@ import { FoodMark } from "@/components/food-mark";
 import { round2 } from "@/lib/billing";
 import { parseVariants } from "@/lib/menu";
 import { cn, formatCurrency, label } from "@/lib/utils";
-import type { MenuItemDTO, OrderItemDTO, TableDTO } from "@/lib/types";
+import { api } from "@/lib/client";
+import type { CustomerLookup, MenuItemDTO, OrderItemDTO, TableDTO } from "@/lib/types";
 
 export function PortionDialog({ item, onPick, onClose }: { item: MenuItemDTO; onPick: (variant: string, price: number) => void; onClose: () => void }) {
   const variants = parseVariants(item.variants);
@@ -121,7 +122,32 @@ export function CustomerDialog({
 }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [matches, setMatches] = useState<CustomerLookup[]>([]);
+  const [lookup, setLookup] = useState("");
   const set = (p: Partial<CustomerForm>) => setForm((f) => ({ ...f, ...p }));
+
+  // Known guests: look them up as the phone number or name is typed.
+  useEffect(() => {
+    const q = lookup.trim();
+    if (q.length < 3) {
+      setMatches([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      api<{ customers: CustomerLookup[] }>(`/api/customers?q=${encodeURIComponent(q)}`).then(
+        (r) => setMatches(r.customers.slice(0, 5)),
+        () => setMatches([])
+      );
+    }, 250);
+    return () => clearTimeout(t);
+  }, [lookup]);
+
+  function pick(c: CustomerLookup) {
+    set({ customerName: c.name ?? form.customerName, customerPhone: c.phone, customerAddress: c.address ?? form.customerAddress });
+    setLookup("");
+    setMatches([]);
+  }
+
   return (
     <Modal
       open
@@ -165,12 +191,47 @@ export function CustomerDialog({
             )}
           </>
         )}
+        <Field label="Phone" optional hint="Saves the customer, for loyalty points and WhatsApp bills">
+          <Input
+            type="tel"
+            value={form.customerPhone}
+            onChange={(e) => {
+              set({ customerPhone: e.target.value });
+              setLookup(e.target.value);
+            }}
+            autoFocus
+          />
+        </Field>
         <Field label="Customer name" optional>
-          <Input value={form.customerName} onChange={(e) => set({ customerName: e.target.value })} autoFocus />
+          <Input
+            value={form.customerName}
+            onChange={(e) => {
+              set({ customerName: e.target.value });
+              setLookup(e.target.value);
+            }}
+          />
         </Field>
-        <Field label="Phone" optional>
-          <Input type="tel" value={form.customerPhone} onChange={(e) => set({ customerPhone: e.target.value })} />
-        </Field>
+        {matches.length > 0 && (
+          <div className="sm:col-span-2">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Known customers — tap to fill in</p>
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {matches.map((c) => (
+                <li key={c.id}>
+                  <button type="button" onClick={() => pick(c)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-primary-50">
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-slate-900">{c.name || "No name"}</span>
+                      <span className="block truncate text-sm text-slate-500">{c.phone}{c.address ? ` · ${c.address}` : ""}</span>
+                    </span>
+                    <span className="shrink-0 text-right text-xs text-slate-500">
+                      {c.visits} visit{c.visits === 1 ? "" : "s"}
+                      {c.points > 0 && <span className="block font-semibold text-emerald-700">{c.points} points</span>}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {isDelivery && (
           <Field label="Delivery address" className="sm:col-span-2">
             <Textarea rows={2} value={form.customerAddress} onChange={(e) => set({ customerAddress: e.target.value })} />
@@ -312,6 +373,66 @@ export function ChargesDialog({
           <Input type="number" min={0} step="0.01" inputMode="decimal" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
         </Field>
       </div>
+    </Modal>
+  );
+}
+
+export function PointsDialog({
+  balance,
+  maxUsable,
+  minRedeem,
+  initial,
+  onSave,
+  onClose,
+}: {
+  balance: number;
+  maxUsable: number;
+  minRedeem: number;
+  initial: number;
+  onSave: (points: number) => Promise<void> | void;
+  onClose: () => void;
+}) {
+  const most = Math.max(0, Math.floor(Math.min(balance, maxUsable)));
+  const [value, setValue] = useState(initial ? String(initial) : String(most));
+  const [saving, setSaving] = useState(false);
+  const n = Math.floor(Number(value) || 0);
+  const tooFew = balance < minRedeem;
+  async function save(points: number) {
+    setSaving(true);
+    try {
+      await onSave(points);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Use loyalty points"
+      description={`The customer has ${balance} points. 1 point = ${formatCurrency(1)} off.`}
+      size="sm"
+      footer={
+        <>
+          {initial > 0 && (
+            <Button variant="ghost" className="mr-auto text-red-600" onClick={() => save(0)}>
+              Don&apos;t use points
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button loading={saving} disabled={tooFew || n <= 0 || n > most} onClick={() => save(n)}>
+            Use {n > 0 ? n : ""} points
+          </Button>
+        </>
+      }
+    >
+      {tooFew ? (
+        <Tip tone="warning">Points can be used once the customer has {minRedeem} points.</Tip>
+      ) : (
+        <Field label="Points to use" hint={`At most ${most} on this bill`}>
+          <Input type="number" min={1} max={most} step="1" inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+        </Field>
+      )}
     </Modal>
   );
 }

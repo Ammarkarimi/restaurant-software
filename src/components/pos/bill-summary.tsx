@@ -10,6 +10,7 @@ export function BillSummary({
   serviceChargePercent,
   onDiscountClick,
   onChargesClick,
+  pointsAction,
   discountLabel,
   className,
 }: {
@@ -21,6 +22,8 @@ export function BillSummary({
   onDiscountClick?: () => void;
   /** Edits packing / delivery charges; shown as a link for takeaway and delivery. */
   onChargesClick?: () => void;
+  /** "Use loyalty points (120)" when the customer has points to use. */
+  pointsAction?: { label: string; onClick: () => void };
   discountLabel?: string;
   className?: string;
 }) {
@@ -48,11 +51,24 @@ export function BillSummary({
           </div>
         )
       )}
-      {totals.pointsDiscount > 0 && (
-        <div className={row}>
-          <span className="text-slate-600">Loyalty points used</span>
-          <span className="text-emerald-700">− {formatCurrency(totals.pointsDiscount)}</span>
-        </div>
+      {totals.pointsDiscount > 0 ? (
+        pointsAction ? (
+          <button type="button" onClick={pointsAction.onClick} className={cn(row, "w-full text-left")}>
+            <span className="text-slate-600 underline-offset-2 hover:underline">Loyalty points used</span>
+            <span className="text-emerald-700">− {formatCurrency(totals.pointsDiscount)}</span>
+          </button>
+        ) : (
+          <div className={row}>
+            <span className="text-slate-600">Loyalty points used</span>
+            <span className="text-emerald-700">− {formatCurrency(totals.pointsDiscount)}</span>
+          </div>
+        )
+      ) : (
+        pointsAction && (
+          <button type="button" onClick={pointsAction.onClick} className={cn(row, "w-full text-left")}>
+            <span className="font-semibold text-emerald-700 underline-offset-2 hover:underline">+ {pointsAction.label}</span>
+          </button>
+        )
       )}
       {totals.serviceCharge > 0 && (
         <div className={row}>

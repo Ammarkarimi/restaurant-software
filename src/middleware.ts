@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { COOKIE_NAME, PLATFORM_COOKIE_NAME, verifyPlatformToken, verifySessionToken } from "@/lib/session";
 
 // Pages and APIs anyone can open without signing in.
-const publicPaths = ["/login", "/api/auth/login"];
+// "/b" is a bill sent to a guest on WhatsApp, "/m" the QR menu, "/api/public" what those pages load.
+const publicPaths = ["/login", "/api/auth/login", "/b", "/m", "/api/public"];
 
 // The software provider's panel. It has its own sign-in; restaurant accounts never get in.
 const platformPaths = ["/platform", "/api/platform"];

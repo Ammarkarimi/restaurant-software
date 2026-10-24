@@ -36,6 +36,7 @@ model Restaurant {
   payments             Payment[]
   activities           ActivityLog[]
   subscriptionPayments SubscriptionPayment[]
+  customers            Customer[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -96,6 +97,9 @@ model RestaurantSettings {
   roundOff             Boolean    @default(true)
   billPrefix           String     @default("")
   upiId                String? // printed as a QR code on the bill so guests can pay
+  loyaltyEnabled       Boolean    @default(false)
+  loyaltyEarnPercent   Float      @default(5) // points earned = this % of the bill; 1 point = 1 rupee off
+  loyaltyMinRedeem     Float      @default(100) // points a guest needs before they can use them
   logoPath             String?
   billTemplate         String     @default("{}") // JSON, see src/lib/bill-template.ts
   updatedAt            DateTime   @updatedAt
@@ -165,6 +169,7 @@ model Order {
   // Set to tableId while the order is running and cleared when it is paid or cancelled,
   // so the database itself refuses two running orders on one table.
   activeTableId        String?     @unique
+  customerId           String?
   customerName         String?
   customerPhone        String?
   customerAddress      String?
@@ -173,6 +178,8 @@ model Order {
   discountType         String      @default("percent") // percent, amount
   discountValue        Float       @default(0)
   discountReason       String?
+  pointsRedeemed       Float       @default(0) // loyalty points used on this bill
+  pointsEarned         Float       @default(0) // loyalty points given when it was paid
   // Tax rules copied from settings when the order is opened, so later changes
   // to settings never alter this bill.
   taxMode              String      @default("gst")
@@ -203,6 +210,7 @@ model Order {
   cancelledAt          DateTime?
   table                DiningTable? @relation("TableOrders", fields: [tableId], references: [id], onDelete: SetNull)
   activeTable          DiningTable? @relation("ActiveTableOrder", fields: [activeTableId], references: [id], onDelete: SetNull)
+  customer             Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items                OrderItem[]
   payments             Payment[]
   restaurant           Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -252,6 +260,29 @@ model Payment {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, paidAt])
+}
+
+// A guest the restaurant knows by phone number: saved automatically from paid bills.
+model Customer {
+  id           String     @id @default(cuid())
+  restaurantId String
+  phone        String // digits only, without country code for Indian mobiles
+  name         String?
+  address      String?
+  email        String?
+  birthday     String? // "YYYY-MM-DD"
+  notes        String?
+  points       Float      @default(0) // loyalty points balance
+  visits       Int        @default(0)
+  totalSpent   Float      @default(0)
+  lastVisitAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, phone])
+  @@index([restaurantId, lastVisitAt])
 }
 
 model ActivityLog {
