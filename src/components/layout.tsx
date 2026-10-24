@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  ChefHat,
   BookOpen,
   HelpCircle,
   LayoutGrid,
@@ -31,6 +32,7 @@ const NAV = [
   { href: "/menu", label: "Menu", icon: BookOpen, hint: "Dishes & prices" },
   { href: "/customers", label: "Customers", icon: Users, hint: "Regulars & loyalty", admin: true },
   { href: "/cash", label: "Cash & expenses", icon: Wallet, hint: "Expenses, day close" },
+  { href: "/kitchen", label: "Kitchen screen", icon: ChefHat, hint: "Tickets for the cooks" },
   { href: "/tables", label: "Table setup", icon: Armchair, hint: "Areas & tables", admin: true },
   { href: "/reports", label: "Reports", icon: BarChart3, hint: "Sales summary", admin: true },
   { href: "/settings", label: "Settings", icon: Settings, hint: "Bill design, tax, staff", admin: true },

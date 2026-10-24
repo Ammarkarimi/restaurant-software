@@ -54,6 +54,7 @@ function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
       )}
       <span className="flex items-center justify-between text-sm">
         <b>{formatCurrency(o.total)}</b>
+        {o.ready > 0 && <span className="rounded-full bg-emerald-600 px-2 text-xs font-bold text-white">{o.ready} ready</span>}
         {o.unsent > 0 && <span className="rounded-full bg-red-600 px-2 text-xs font-bold text-white">{o.unsent} new</span>}
       </span>
     </Link>
@@ -175,6 +176,11 @@ export default function TablesPage() {
                         STATUS_STYLE[o?.status ?? "free"]
                       )}
                     >
+                      {o && o.ready > 0 && (
+                        <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-2 text-[11px] font-bold text-white" title="Dishes ready in the kitchen">
+                          {o.ready} ready
+                        </span>
+                      )}
                       {o && o.unsent > 0 && (
                         <span className="absolute right-1.5 top-1.5 rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white" title="Items not sent to the kitchen">
                           {o.unsent}

@@ -64,7 +64,7 @@ model Staff {
   email        String        @unique
   passwordHash String
   name         String
-  role         String        @default("staff") // admin = owner / manager, staff = cashier / captain
+  role         String        @default("staff") // admin = owner / manager, staff = cashier / captain, kitchen = kitchen screen only
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -160,62 +160,62 @@ model MenuItem {
 }
 
 model Order {
-  id                   String      @id @default(cuid())
+  id                   String       @id @default(cuid())
   restaurantId         String
   number               Int // counts up per restaurant
-  type                 String      @default("dine_in") // dine_in, takeaway, delivery
-  source               String      @default("counter") // counter, phone, zomato, swiggy, app, qr
+  type                 String       @default("dine_in") // dine_in, takeaway, delivery
+  source               String       @default("counter") // counter, phone, zomato, swiggy, app, qr
   sourceRef            String? // the order id on Zomato / Swiggy / the other app
-  status               String      @default("open") // open, billed, settled, cancelled
+  status               String       @default("open") // open, billed, settled, cancelled
   tableId              String?
   // Set to tableId while the order is running and cleared when it is paid or cancelled,
   // so the database itself refuses two running orders on one table.
-  activeTableId        String?     @unique
+  activeTableId        String?      @unique
   customerId           String?
   customerName         String?
   customerPhone        String?
   customerAddress      String?
-  guests               Int         @default(0)
+  guests               Int          @default(0)
   notes                String?
-  discountType         String      @default("percent") // percent, amount
-  discountValue        Float       @default(0)
+  discountType         String       @default("percent") // percent, amount
+  discountValue        Float        @default(0)
   discountReason       String?
-  pointsRedeemed       Float       @default(0) // loyalty points used on this bill
-  pointsEarned         Float       @default(0) // loyalty points given when it was paid
+  pointsRedeemed       Float        @default(0) // loyalty points used on this bill
+  pointsEarned         Float        @default(0) // loyalty points given when it was paid
   // Tax rules copied from settings when the order is opened, so later changes
   // to settings never alter this bill.
-  taxMode              String      @default("gst")
-  taxName              String      @default("Tax")
-  pricesIncludeTax     Boolean     @default(false)
-  serviceChargePercent Float       @default(0)
-  roundOff             Boolean     @default(true)
-  packingCharge        Float       @default(0)
-  deliveryCharge       Float       @default(0)
-  chargeTaxRate        Float       @default(0) // tax rate on packing and delivery charges
+  taxMode              String       @default("gst")
+  taxName              String       @default("Tax")
+  pricesIncludeTax     Boolean      @default(false)
+  serviceChargePercent Float        @default(0)
+  roundOff             Boolean      @default(true)
+  packingCharge        Float        @default(0)
+  deliveryCharge       Float        @default(0)
+  chargeTaxRate        Float        @default(0) // tax rate on packing and delivery charges
   billNumber           String?
   // Totals saved when the bill is printed and again when it is paid.
-  subtotal             Float       @default(0)
-  discountAmount       Float       @default(0)
-  serviceCharge        Float       @default(0)
-  chargesAmount        Float       @default(0)
-  taxAmount            Float       @default(0)
-  roundOffAmount       Float       @default(0)
-  total                Float       @default(0)
+  subtotal             Float        @default(0)
+  discountAmount       Float        @default(0)
+  serviceCharge        Float        @default(0)
+  chargesAmount        Float        @default(0)
+  taxAmount            Float        @default(0)
+  roundOffAmount       Float        @default(0)
+  total                Float        @default(0)
   businessDate         String? // "YYYY-MM-DD" in the restaurant's time zone, set when paid
   cancelReason         String?
   createdById          String?
   createdByName        String?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
   billedAt             DateTime?
   settledAt            DateTime?
   cancelledAt          DateTime?
   table                DiningTable? @relation("TableOrders", fields: [tableId], references: [id], onDelete: SetNull)
   activeTable          DiningTable? @relation("ActiveTableOrder", fields: [activeTableId], references: [id], onDelete: SetNull)
-  customer             Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer             Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items                OrderItem[]
   payments             Payment[]
-  restaurant           Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant           Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, number])
   @@unique([restaurantId, billNumber])
@@ -225,26 +225,28 @@ model Order {
 }
 
 model OrderItem {
-  id           String     @id @default(cuid())
-  restaurantId String
-  orderId      String
-  menuItemId   String?
-  name         String // copied from the menu so later menu edits never change old bills
-  variant      String?
-  categoryName String?
-  foodType     String     @default("veg")
-  price        Float // unit price
-  quantity     Int        @default(1)
-  taxRate      Float      @default(0)
-  note         String? // "less spicy", "no onion"
-  kotNumber    Int? // null = not sent to the kitchen yet
-  sentAt       DateTime?
-  status       String     @default("active") // active, cancelled
-  cancelReason String?
-  createdAt    DateTime   @default(now())
-  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id            String     @id @default(cuid())
+  restaurantId  String
+  orderId       String
+  menuItemId    String?
+  name          String // copied from the menu so later menu edits never change old bills
+  variant       String?
+  categoryName  String?
+  foodType      String     @default("veg")
+  price         Float // unit price
+  quantity      Int        @default(1)
+  taxRate       Float      @default(0)
+  note          String? // "less spicy", "no onion"
+  kotNumber     Int? // null = not sent to the kitchen yet
+  sentAt        DateTime?
+  kitchenStatus String     @default("new") // on the kitchen screen: new (cooking), ready, served
+  readyAt       DateTime?
+  status        String     @default("active") // active, cancelled
+  cancelReason  String?
+  createdAt     DateTime   @default(now())
+  order         Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem      MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, orderId])
 }

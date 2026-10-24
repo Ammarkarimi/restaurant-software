@@ -49,6 +49,7 @@ export interface OrderSummary {
   total: number;
   itemCount: number;
   unsent: number;
+  ready: number;
 }
 
 export interface OrderItemDTO {
@@ -64,6 +65,7 @@ export interface OrderItemDTO {
   note: string | null;
   kotNumber: number | null;
   sentAt: string | null;
+  kitchenStatus: string;
   status: string;
   cancelReason: string | null;
   createdAt: string;
@@ -162,4 +164,21 @@ export interface SettingsDTO {
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;
+}
+
+/** A kitchen order ticket on the kitchen screen. */
+export interface KitchenTicket {
+  key: string;
+  kotNumber: number;
+  orderId: string;
+  orderNumber: number;
+  type: string;
+  source: string;
+  sourceRef: string | null;
+  table: string | null;
+  customerName: string | null;
+  notes: string | null;
+  sentAt: string;
+  status: "new" | "ready";
+  items: Array<{ id: string; name: string; variant: string | null; quantity: number; note: string | null; cancelled: boolean; kitchenStatus: string }>;
 }

@@ -18,5 +18,5 @@ export async function POST(request: NextRequest) {
     await prisma.staff.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(body.newPassword) } });
     await logActivity(user, "Changed own password");
     return NextResponse.json({ success: true });
-  });
+  }, { kitchen: true });
 }

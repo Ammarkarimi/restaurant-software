@@ -133,6 +133,11 @@ export const LABELS: Record<string, string> = {
   // roles
   admin: "Owner / Manager",
   staff: "Cashier / Captain",
+  kitchen: "Kitchen screen only",
+  // kitchen screen
+  new: "Cooking",
+  ready: "Ready",
+  served: "Served",
 };
 
 export function label(key: string | null | undefined): string {

@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const updated = await prisma.menuItem.update({ where: { id }, data: { available } });
     await logActivity(user, available ? "Marked item available" : "Marked item sold out", item.name);
     return NextResponse.json({ item: updated });
-  });
+  }, { kitchen: true });
 }
 
 export async function DELETE(_request: NextRequest, { params }: Params) {

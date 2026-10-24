@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function SignedInLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
+  if (session.role === "kitchen") redirect("/kitchen");
 
   const { settings, restaurant } = await runForRestaurant(session.restaurantId, async () => ({
     settings: await getSettings(),

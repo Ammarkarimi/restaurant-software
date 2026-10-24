@@ -9,7 +9,7 @@ type Params = { params: Promise<{ id: string }> };
 
 const schema = z.object({
   name: z.string().trim().min(1).optional(),
-  role: z.enum(["admin", "staff"]).optional(),
+  role: z.enum(["admin", "staff", "kitchen"]).optional(),
   active: z.boolean().optional(),
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
 });
@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const body = schema.parse(await request.json());
     const staff = await prisma.staff.findFirst({ where: { id } });
     if (!staff) fail("Staff member not found", 404);
-    if ((body.role === "staff" || body.active === false) && staff.role === "admin") await assertKeepsAnOwner(id);
+    if (((body.role && body.role !== "admin") || body.active === false) && staff.role === "admin") await assertKeepsAnOwner(id);
 
     const updated = await prisma.staff.update({
       where: { id },

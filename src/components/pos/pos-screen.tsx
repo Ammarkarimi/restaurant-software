@@ -211,6 +211,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   }, [activeItems, cart, order, rules?.taxMode, rules?.pricesIncludeTax, rules?.serviceChargePercent, rules?.roundOff, charges?.packingCharge, charges?.deliveryCharge, charges?.taxRate]);
 
   const sentItems = activeItems.filter((i) => i.kotNumber !== null);
+  const readyItems = sentItems.filter((i) => i.kitchenStatus === "ready");
   const unsentItems = activeItems.filter((i) => i.kotNumber === null);
   const cancelledItems = (order?.items ?? []).filter((i) => i.status === "cancelled");
   const newCount = unsentItems.length + cart.length;
@@ -340,6 +341,15 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     setDialog(null);
     toast(`Paid · Bill ${r.order.billNumber}${tableName ? ` · ${tableName} is free now` : ""}`);
     showSavedOrder(r.order.id);
+  }
+
+  async function markServed() {
+    if (!order) return;
+    await run("served", async () => {
+      await api("/api/kitchen", { method: "PATCH", body: { itemIds: readyItems.map((i) => i.id), status: "served" } });
+      const r = await api<{ order: OrderDTO }>(`/api/orders/${order.id}`);
+      setOrder(r.order);
+    });
   }
 
   async function patchOrder(body: Record<string, unknown>, message?: string) {
@@ -671,6 +681,16 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             </ul>
           </>
         )}
+        {readyItems.length > 0 && editable && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+            <span>
+              {readyItems.length} dish{readyItems.length === 1 ? " is" : "es are"} ready in the kitchen
+            </span>
+            <Button size="sm" variant="success" loading={busy === "served"} onClick={markServed}>
+              Served
+            </Button>
+          </div>
+        )}
         {sentItems.length > 0 && (
           <>
             <p className="pt-3 text-xs font-bold uppercase tracking-wide text-slate-400">Sent to kitchen</p>
@@ -678,7 +698,14 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               {sentItems.map((i) =>
                 lineRow(i.id, i, {
                   onMinus: editable ? () => changeSaved(i, i.quantity - 1) : undefined,
-                  tag: <span className="text-slate-400">· KOT {i.kotNumber}{i.sentAt ? ` at ${formatTime(i.sentAt, shell.timezone)}` : ""}</span>,
+                  tag: (
+                    <span className="text-slate-400">
+                      · KOT {i.kotNumber}
+                      {i.sentAt ? ` at ${formatTime(i.sentAt, shell.timezone)}` : ""}
+                      {i.kitchenStatus === "ready" && <b className="text-emerald-600"> · Ready</b>}
+                      {i.kitchenStatus === "served" && <span> · Served</span>}
+                    </span>
+                  ),
                   busyKey: `item-${i.id}`,
                 })
               )}

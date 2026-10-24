@@ -36,6 +36,8 @@ export async function GET() {
         total: t.total,
         itemCount: t.itemCount,
         unsent: o.items.filter((i) => i.status === "active" && i.kotNumber === null).length,
+        // Dishes the kitchen marked ready that are not served yet.
+        ready: o.items.filter((i) => i.status === "active" && i.kotNumber !== null && i.kitchenStatus === "ready").length,
       };
     });
     const byTable = new Map(summaries.filter((s) => s.tableId).map((s) => [s.tableId!, s]));

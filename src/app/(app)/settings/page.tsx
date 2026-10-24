@@ -318,6 +318,7 @@ function StaffTab() {
                 <Select value={s.role} onChange={(e) => update(s, { role: e.target.value }, "Access changed")} className="min-h-9 w-48 py-1 text-sm" aria-label="Access">
                   <option value="staff">Cashier / Captain</option>
                   <option value="admin">Owner / Manager</option>
+                  <option value="kitchen">Kitchen screen only</option>
                 </Select>
                 <Button size="sm" variant="outline" onClick={() => (setResetFor(s), setNewPassword(""))}>
                   <KeyRound className="h-4 w-4" /> Reset password
@@ -349,6 +350,7 @@ function StaffTab() {
             <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
               <option value="staff">Cashier / Captain — orders, KOT, bills, payments</option>
               <option value="admin">Owner / Manager — everything incl. reports, menu & settings</option>
+              <option value="kitchen">Kitchen — only the kitchen screen (for a tablet in the kitchen)</option>
             </Select>
           </Field>
           <div className="flex justify-end gap-2">

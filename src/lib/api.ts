@@ -56,12 +56,16 @@ export function isAdmin(user: SessionUser | null | undefined) {
 
 export async function withAuth<T>(
   handler: (user: SessionUser) => Promise<T>,
-  opts: { admin?: boolean } = {}
+  opts: { admin?: boolean; kitchen?: boolean } = {}
 ): Promise<T | NextResponse> {
   try {
     const session = await getSession();
     if (!session) return unauthorized();
     if (opts.admin && !isAdmin(session)) return forbidden();
+    // Kitchen accounts only use the kitchen screen.
+    if (session.role === "kitchen" && !opts.kitchen) {
+      return NextResponse.json({ error: "This account can only use the kitchen screen." }, { status: 403 });
+    }
     // Everything the handler reads or writes is limited to this person's restaurant.
     return await runForRestaurant(session.restaurantId, () => handler(session));
   } catch (error) {

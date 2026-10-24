@@ -18,6 +18,7 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ auto?: s
 export default async function PrintBillPage({ params, searchParams }: Props) {
   const session = await getSession();
   if (!session) redirect("/login");
+  if (session.role === "kitchen") redirect("/kitchen");
   const { id } = await params;
   const { auto } = await searchParams;
 

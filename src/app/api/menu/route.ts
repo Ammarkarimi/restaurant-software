@@ -10,5 +10,5 @@ export async function GET() {
       include: { items: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } },
     });
     return NextResponse.json({ categories });
-  });
+  }, { kitchen: true });
 }
