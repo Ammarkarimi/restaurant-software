@@ -174,7 +174,10 @@ export function KitchenScreen({ restaurantName, timezone, userName, kitchenOnly 
             {cooking.length} cooking · {ready.length} ready to serve · {userName}
           </p>
         </div>
-        <span className="ml-auto text-2xl font-bold tabular-nums">{clock}</span>
+        {/* The clock ticks in the browser; the server's minute may differ. */}
+        <span className="ml-auto text-2xl font-bold tabular-nums" suppressHydrationWarning>
+          {clock}
+        </span>
         <button
           onClick={() => {
             const next = !sound;
