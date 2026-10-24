@@ -15,6 +15,7 @@ interface PosData {
   tables: Array<TableDTO & { order: OrderSummary | null; extraBills: number }>;
   otherOrders: OrderSummary[];
   stats: { sales: number; bills: number; guests: number; running: number; runningValue: number };
+  lowStock: string[];
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -149,6 +150,13 @@ export default function TablesPage() {
           tone="primary"
         />
       </div>
+
+      {isAdmin && data.lowStock.length > 0 && (
+        <Link href="/stock" className="block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:border-amber-300">
+          <b>Running low:</b> {data.lowStock.slice(0, 6).join(", ")}
+          {data.lowStock.length > 6 && ` and ${data.lowStock.length - 6} more`}. Tap to see stock.
+        </Link>
+      )}
 
       {(calls.length > 0 || qrOrders.length > 0) && (
         <section className="space-y-2">

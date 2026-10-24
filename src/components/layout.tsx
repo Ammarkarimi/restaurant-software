@@ -19,6 +19,7 @@ import {
   Users,
   UtensilsCrossed,
   Wallet,
+  Warehouse,
   X,
 } from "lucide-react";
 import { cn, label } from "@/lib/utils";
@@ -33,6 +34,7 @@ const NAV = [
   { href: "/customers", label: "Customers", icon: Users, hint: "Regulars & loyalty", admin: true },
   { href: "/cash", label: "Cash & expenses", icon: Wallet, hint: "Expenses, day close" },
   { href: "/kitchen", label: "Kitchen screen", icon: ChefHat, hint: "Tickets for the cooks" },
+  { href: "/stock", label: "Stock & recipes", icon: Warehouse, hint: "Ingredients, purchases", admin: true },
   { href: "/tables", label: "Table setup", icon: Armchair, hint: "Areas & tables", admin: true },
   { href: "/reports", label: "Reports", icon: BarChart3, hint: "Sales summary", admin: true },
   { href: "/settings", label: "Settings", icon: Settings, hint: "Bill design, tax, staff", admin: true },

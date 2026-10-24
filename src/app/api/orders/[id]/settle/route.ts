@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { round2 } from "@/lib/billing";
 import { todayKey } from "@/lib/dates";
 import { recordVisit } from "@/lib/customers";
+import { takeStockForOrder } from "@/lib/stock";
 import { activeItems, assertEditable, loadOrder, nextNumber, saveTotals, sendUnsentToKitchen, serializeOrder, totalsOf } from "@/lib/orders";
 import { PAYMENT_METHODS, formatCurrency, label } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const now = new Date();
       const visit = await recordVisit(tx, order, total, settings);
+      await takeStockForOrder(tx, { ...(await loadOrder(id, tx)), billNumber }, todayKey(settings.timezone), user.name);
       const updated = await saveTotals(tx, await loadOrder(id, tx), {
         ...visit,
         status: "settled",

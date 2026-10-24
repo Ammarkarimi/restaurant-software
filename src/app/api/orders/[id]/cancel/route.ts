@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
 import { todayKey } from "@/lib/dates";
 import { reverseVisit } from "@/lib/customers";
+import { returnStockForOrder } from "@/lib/stock";
 import { loadOrder, saveTotals, serializeOrder } from "@/lib/orders";
 import { formatCurrency } from "@/lib/utils";
 
@@ -29,7 +30,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      if (order.status === "settled") await reverseVisit(tx, order);
+      if (order.status === "settled") {
+        await reverseVisit(tx, order);
+        await returnStockForOrder(tx, order, todayKey(settings.timezone), user.name);
+      }
       return saveTotals(tx, order, {
         status: "cancelled",
         cancelReason: reason,

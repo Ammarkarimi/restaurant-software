@@ -39,6 +39,9 @@ model Restaurant {
   customers            Customer[]
   expenses             Expense[]
   dayCloses            DayClose[]
+  stockItems           StockItem[]
+  stockEntries         StockEntry[]
+  recipeLines          RecipeLine[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -159,6 +162,7 @@ model MenuItem {
   updatedAt    DateTime     @updatedAt
   category     MenuCategory @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
+  recipeLines  RecipeLine[]
   restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, categoryId])
@@ -335,6 +339,63 @@ model DayClose {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, date])
+}
+
+// Something the kitchen keeps in stock: paneer, oil, milk, chicken, cups…
+model StockItem {
+  id           String       @id @default(cuid())
+  restaurantId String
+  name         String
+  unit         String       @default("kg") // kg, g, L, ml, pcs, dozen, pack, box, bottle
+  quantity     Float        @default(0) // in stock now
+  lowAt        Float? // show a warning when stock falls to this level
+  costPerUnit  Float        @default(0) // last purchase price, for the stock value
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  entries      StockEntry[]
+  recipeLines  RecipeLine[]
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, name])
+}
+
+// Every change to stock: purchases, what bills used, wastage and stock counts.
+model StockEntry {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  stockItemId   String
+  type          String // purchase, used, returned, wastage, count
+  quantity      Float // + adds stock, − takes it out
+  balance       Float // in stock after this entry
+  cost          Float? // money paid, for purchases
+  supplier      String?
+  note          String?
+  orderId       String? // the bill that used it
+  date          String // business day, "YYYY-MM-DD"
+  createdByName String
+  createdAt     DateTime   @default(now())
+  stockItem     StockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, stockItemId, createdAt])
+  @@index([restaurantId, date])
+  @@index([restaurantId, orderId])
+}
+
+// What one dish uses from stock, so paid bills take it out automatically.
+model RecipeLine {
+  id           String     @id @default(cuid())
+  restaurantId String
+  menuItemId   String
+  variant      String? // null = every portion; otherwise only this portion (e.g. "Full")
+  stockItemId  String
+  quantity     Float // per one dish, in the stock item's unit
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  stockItem    StockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, menuItemId])
 }
 
 model ActivityLog {

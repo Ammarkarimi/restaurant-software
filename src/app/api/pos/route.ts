@@ -5,17 +5,21 @@ import { getSettings } from "@/lib/settings";
 import { todayKey } from "@/lib/dates";
 import { ACTIVE_STATUSES, orderInclude, totalsOf } from "@/lib/orders";
 import { round2 } from "@/lib/billing";
+import { isAdmin } from "@/lib/api";
+import { isLow } from "@/lib/stock";
 
 /** Everything the Tables screen needs: the floor, running orders and today's numbers. */
 export async function GET() {
-  return withAuth(async () => {
+  return withAuth(async (user) => {
     const settings = await getSettings();
     const today = todayKey(settings.timezone);
-    const [tables, running, todayOrders] = await Promise.all([
+    const [tables, running, todayOrders, stock] = await Promise.all([
       prisma.diningTable.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
       prisma.order.findMany({ where: { status: { in: ACTIVE_STATUSES } }, include: orderInclude, orderBy: { createdAt: "asc" } }),
       prisma.order.findMany({ where: { status: "settled", businessDate: today }, select: { total: true, guests: true } }),
+      isAdmin(user) ? prisma.stockItem.findMany({ where: { active: true, lowAt: { not: null } }, select: { name: true, quantity: true, lowAt: true } }) : [],
     ]);
+    const lowStock = stock.filter(isLow).map((s) => s.name);
 
     const summaries = running.map((o) => {
       const t = totalsOf(o);
@@ -57,6 +61,7 @@ export async function GET() {
         running: summaries.length,
         runningValue: round2(summaries.reduce((sum, o) => sum + o.total, 0)),
       },
+      lowStock,
     });
   });
 }
