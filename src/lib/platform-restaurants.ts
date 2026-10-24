@@ -46,6 +46,21 @@ export async function assertEmailFree(email: string) {
   }
 }
 
+/**
+ * The active owner / manager accounts of one restaurant can also manage another
+ * (one owner, several outlets). Returns the people who got access.
+ */
+export async function linkOwnersTo(restaurantId: string, fromRestaurantId: string) {
+  const [target, owners] = await Promise.all([
+    rawPrisma.restaurant.findUnique({ where: { id: restaurantId }, select: { id: true } }),
+    rawPrisma.staff.findMany({ where: { restaurantId: fromRestaurantId, role: "admin", active: true }, select: { id: true, name: true, email: true } }),
+  ]);
+  if (!target) fail("Restaurant not found", 404);
+  if (owners.length === 0) fail("That restaurant has no active owner / manager account");
+  await rawPrisma.outletAccess.createMany({ data: owners.map((o) => ({ staffId: o.id, restaurantId })), skipDuplicates: true });
+  return owners;
+}
+
 /** Every restaurant with its usage and payment position, plus totals for the dashboard. */
 export async function platformOverview() {
   const month = currentMonth();
@@ -135,14 +150,28 @@ export async function platformRestaurantDetail(id: string) {
   });
   if (!restaurant) fail("Restaurant not found", 404);
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [bills30d, billsAll, sales30d] = await Promise.all([
+  const [bills30d, billsAll, sales30d, sharedWith, alsoManages] = await Promise.all([
     rawPrisma.order.count({ where: { restaurantId: id, status: "settled", settledAt: { gte: since } } }),
     rawPrisma.order.count({ where: { restaurantId: id, status: "settled" } }),
     rawPrisma.order.aggregate({ where: { restaurantId: id, status: "settled", settledAt: { gte: since } }, _sum: { total: true } }),
+    // Owners of other restaurants who can also manage this one
+    rawPrisma.outletAccess.findMany({
+      where: { restaurantId: id },
+      select: { id: true, staff: { select: { name: true, email: true, restaurant: { select: { id: true, name: true } } } } },
+    }),
+    // Other restaurants this restaurant's owners can manage
+    rawPrisma.outletAccess.findMany({
+      where: { staff: { restaurantId: id } },
+      select: { id: true, staff: { select: { name: true } }, restaurant: { select: { id: true, name: true } } },
+    }),
   ]);
   const { subscriptionPayments, _count, ...rest } = restaurant;
   return {
     ...rest,
+    outlets: {
+      sharedWith: sharedWith.map((a) => ({ id: a.id, name: a.staff.name, email: a.staff.email, restaurant: a.staff.restaurant })),
+      alsoManages: alsoManages.map((a) => ({ id: a.id, name: a.staff.name, restaurant: a.restaurant })),
+    },
     payments: subscriptionPayments,
     usage: { tables: _count.tables, menuItems: _count.menuItems, bills30d, billsAll, sales30d: sales30d._sum.total ?? 0 },
     subscription: subscriptionSummary(restaurant, subscriptionPayments, currentMonth()),

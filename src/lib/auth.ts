@@ -39,8 +39,33 @@ export async function getSession(): Promise<SessionUser | null> {
   // Removed or disabled staff lose access immediately, role changes apply,
   // and a paused restaurant is signed out everywhere.
   const staff = await rawPrisma.staff.findUnique({ where: { id: session.id }, include: { restaurant: true } });
-  if (!staff || !staff.active || staff.restaurant.status !== "active") return null;
+  if (!staff || !staff.active) return null;
+  if (session.restaurantId && session.restaurantId !== staff.restaurantId) {
+    // An owner working in another of their outlets: they are its owner / manager while there.
+    const access = await rawPrisma.outletAccess.findUnique({
+      where: { staffId_restaurantId: { staffId: staff.id, restaurantId: session.restaurantId } },
+      include: { restaurant: { select: { status: true } } },
+    });
+    if (!access || access.restaurant.status !== "active" || staff.role !== "admin") return null;
+    return { id: staff.id, email: staff.email, name: staff.name, role: "admin", restaurantId: session.restaurantId };
+  }
+  if (staff.restaurant.status !== "active") return null;
   return { id: staff.id, email: staff.email, name: staff.name, role: staff.role, restaurantId: staff.restaurantId };
+}
+
+/** The restaurants a person can work in: their own, plus outlets they were given. */
+export async function outletsFor(staffId: string) {
+  const staff = await rawPrisma.staff.findUnique({
+    where: { id: staffId },
+    select: {
+      role: true,
+      restaurant: { select: { id: true, name: true, status: true } },
+      outlets: { select: { restaurant: { select: { id: true, name: true, status: true } } } },
+    },
+  });
+  if (!staff) return [];
+  const all = [staff.restaurant, ...(staff.role === "admin" ? staff.outlets.map((o) => o.restaurant) : [])];
+  return all.filter((r) => r.status === "active").map((r) => ({ id: r.id, name: r.name }));
 }
 
 export async function requireSession(): Promise<SessionUser> {

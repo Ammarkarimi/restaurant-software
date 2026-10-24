@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, outletsFor } from "@/lib/auth";
 import { prisma, runForRestaurant } from "@/lib/db";
 import { getSettings, logoUrl } from "@/lib/settings";
 import { todayKey } from "@/lib/dates";
@@ -14,6 +14,7 @@ export default async function SignedInLayout({ children }: { children: React.Rea
   if (!session) redirect("/login");
   if (session.role === "kitchen") redirect("/kitchen");
 
+  const outlets = session.role === "admin" ? await outletsFor(session.id) : [];
   const { settings, restaurant } = await runForRestaurant(session.restaurantId, async () => ({
     settings: await getSettings(),
     restaurant: await prisma.restaurant.findUniqueOrThrow({
@@ -41,6 +42,7 @@ export default async function SignedInLayout({ children }: { children: React.Rea
         today: todayKey(settings.timezone),
         logoUrl: logoUrl(settings),
         subscriptionNotice,
+        outlets: outlets.length > 1 ? outlets : [],
       }}
     >
       {children}

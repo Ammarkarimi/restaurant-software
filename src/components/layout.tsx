@@ -77,6 +77,26 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <p className="text-xs text-slate-500">Restaurant manager</p>
         </div>
       </div>
+      {settings.outlets && settings.outlets.length > 1 && (
+        <div className="border-b border-slate-100 px-5 py-3">
+          <label htmlFor="outlet" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Outlet
+          </label>
+          <select
+            id="outlet"
+            value={user.restaurantId}
+            onChange={async (e) => {
+              const res = await fetch("/api/auth/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId: e.target.value }) });
+              if (res.ok) window.location.href = "/";
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-primary-500"
+          >
+            {settings.outlets.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {NAV.filter((n) => !n.admin || isAdmin).map((item) => {

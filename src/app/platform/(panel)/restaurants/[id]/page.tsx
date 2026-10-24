@@ -159,7 +159,7 @@ export default function PlatformRestaurantPage() {
               <li key={st.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="min-w-0">
                   <span className="font-semibold text-slate-900">{st.name}</span>{" "}
-                  <Badge variant={st.role === "admin" ? "purple" : "default"}>{st.role === "admin" ? "Owner / manager" : "Cashier / captain"}</Badge>
+                  <Badge variant={st.role === "admin" ? "purple" : "default"}>{st.role === "admin" ? "Owner / manager" : st.role === "kitchen" ? "Kitchen screen" : "Cashier / captain"}</Badge>
                   {!st.active && <Badge variant="danger" className="ml-1">Switched off</Badge>}
                   <span className="block break-all text-sm text-slate-500">
                     {st.email} · {st.lastLoginAt ? `last signed in ${formatDateTime(st.lastLoginAt)}` : "never signed in"}
@@ -176,6 +176,8 @@ export default function PlatformRestaurantPage() {
           </p>
         </CardContent>
       </Card>
+
+      <OutletsCard restaurant={restaurant} onChange={setRestaurant} />
 
       <DetailsForm restaurant={restaurant} onSaved={setRestaurant} />
 
@@ -263,6 +265,98 @@ export default function PlatformRestaurantPage() {
         />
       )}
     </div>
+  );
+}
+
+/** One owner, several restaurants: who else can manage this outlet, and which outlets this owner also runs. */
+function OutletsCard({ restaurant, onChange }: { restaurant: RestaurantDetail; onChange: (r: RestaurantDetail) => void }) {
+  const [all, setAll] = useState<Array<{ id: string; name: string; city: string | null }> | null>(null);
+  const [from, setFrom] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { sharedWith, alsoManages } = restaurant.outlets;
+
+  async function link() {
+    setBusy(true);
+    setError("");
+    try {
+      onChange(await api<RestaurantDetail>(`/api/platform/restaurants/${restaurant.id}/outlets`, { body: { fromRestaurantId: from } }));
+      setFrom("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function unlink(accessId: string) {
+    setError("");
+    try {
+      onChange(await api<RestaurantDetail>(`/api/platform/restaurants/${restaurant.id}/outlets?access=${accessId}`, { method: "DELETE" }));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Same owner, more outlets"
+        description="If one owner runs several restaurants, give their sign-in access here. They switch outlets from their menu and see all outlets' sales together."
+      />
+      <CardContent className="space-y-4">
+        {sharedWith.length > 0 && (
+          <div>
+            <p className="mb-1 text-sm font-semibold text-slate-700">Also managed by</p>
+            <ul className="divide-y divide-slate-100">
+              {sharedWith.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="text-sm">
+                    <b>{a.name}</b> <span className="text-slate-500">({a.email}) · owner of </span>
+                    <Link href={`/platform/restaurants/${a.restaurant.id}`} className="font-semibold text-primary-700 underline">{a.restaurant.name}</Link>
+                  </span>
+                  <Button size="sm" variant="ghost" className="text-red-600" onClick={() => unlink(a.id)}>Remove access</Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {alsoManages.length > 0 && (
+          <div>
+            <p className="mb-1 text-sm font-semibold text-slate-700">This restaurant&apos;s owners also manage</p>
+            <ul className="divide-y divide-slate-100">
+              {alsoManages.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span>
+                    <Link href={`/platform/restaurants/${a.restaurant.id}`} className="font-semibold text-primary-700 underline">{a.restaurant.name}</Link>
+                    <span className="text-slate-500"> · {a.name}</span>
+                  </span>
+                  <Button size="sm" variant="ghost" className="text-red-600" onClick={() => unlink(a.id)}>Remove access</Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="flex flex-wrap items-end gap-2">
+          <Field label="Let the owner of this restaurant manage it too" className="min-w-64 flex-1">
+            <Select
+              value={from}
+              onFocus={() => !all && api<{ restaurants: Array<{ id: string; name: string; city: string | null }> }>("/api/platform/restaurants").then((r) => setAll(r.restaurants))}
+              onChange={(e) => setFrom(e.target.value)}
+            >
+              <option value="">Choose a restaurant…</option>
+              {(all ?? []).filter((r) => r.id !== restaurant.id).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                  {r.city ? ` · ${r.city}` : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button variant="outline" loading={busy} disabled={!from} onClick={link}>Give access</Button>
+        </div>
+        {error && <Tip tone="danger">{error}</Tip>}
+      </CardContent>
+    </Card>
   );
 }
 

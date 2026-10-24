@@ -165,6 +165,10 @@ export interface RestaurantDetail {
   staff: Array<{ id: string; name: string; email: string; role: string; active: boolean; lastLoginAt: string | null }>;
   payments: Array<{ id: string; month: string; amount: number; clearsMonth: boolean; method: string; reference: string | null; notes: string | null; paidOn: string }>;
   usage: { tables: number; menuItems: number; bills30d: number; billsAll: number; sales30d: number };
+  outlets: {
+    sharedWith: Array<{ id: string; name: string; email: string; restaurant: { id: string; name: string } }>;
+    alsoManages: Array<{ id: string; name: string; restaurant: { id: string; name: string } }>;
+  };
   subscription: {
     months: Array<{ month: string; status: string; paid: number; due: number }>;
     currentMonth: string;

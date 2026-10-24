@@ -15,6 +15,17 @@ type Report = Omit<SalesReport, "cancelled"> & {
   cancelled: { count: number; value: number; orders: Array<{ id: string; number: number; billNumber: string | null; total: number; cancelReason: string | null; cancelledAt: string | null; createdByName: string | null; table: { name: string } | null }> };
 };
 
+interface OutletRow {
+  id: string;
+  name: string;
+  current: boolean;
+  sales: number;
+  bills: number;
+  guests: number;
+  averageBill: number;
+  expenses: number;
+}
+
 const SERIES = "#ea580c";
 const GRID = "#e2e8f0";
 const AXIS = "#64748b";
@@ -77,13 +88,16 @@ export default function ReportsPage() {
   const [from, setFrom] = useState(addDays(settings.today, -6));
   const [to, setTo] = useState(settings.today);
   const [data, setData] = useState<Report | null>(null);
+  const [outlets, setOutlets] = useState<OutletRow[]>([]);
   const [error, setError] = useState("");
+  const multiOutlet = (settings.outlets?.length ?? 0) > 1;
 
   useEffect(() => {
     if (!isAdmin) return;
     setData(null);
     api<Report>(`/api/reports?from=${from}&to=${to}`).then(setData, (e) => setError(e.message));
-  }, [from, to, isAdmin]);
+    if (multiOutlet) api<{ outlets: OutletRow[] }>(`/api/reports/outlets?from=${from}&to=${to}`).then((r) => setOutlets(r.outlets), () => setOutlets([]));
+  }, [from, to, isAdmin, multiOutlet]);
 
   if (!isAdmin) return <Tip tone="warning">Only the owner / manager can see reports.</Tip>;
 
@@ -120,6 +134,44 @@ export default function ReportsPage() {
       </Card>
 
       {error && <Tip tone="danger">{error}</Tip>}
+      {outlets.length > 1 && (
+        <Card>
+          <CardHeader title="All your outlets" description={`Paid bills from ${formatDate(from)} to ${formatDate(to)}. The rest of this page is for the outlet you are in.`} />
+          <CardContent className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-[15px]">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
+                  <th className="py-2 font-semibold">Outlet</th>
+                  <th className="py-2 text-right font-semibold">Sales</th>
+                  <th className="py-2 text-right font-semibold">Bills</th>
+                  <th className="py-2 text-right font-semibold">Average bill</th>
+                  <th className="py-2 text-right font-semibold">Expenses</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outlets.map((o) => (
+                  <tr key={o.id} className="border-b border-slate-100">
+                    <td className="py-2 font-semibold">
+                      {o.name} {o.current && <span className="text-xs font-normal text-primary-700">(you are here)</span>}
+                    </td>
+                    <td className="py-2 text-right">{formatCurrency(o.sales)}</td>
+                    <td className="py-2 text-right">{o.bills}</td>
+                    <td className="py-2 text-right">{formatCurrency(o.averageBill)}</td>
+                    <td className="py-2 text-right">{formatCurrency(o.expenses)}</td>
+                  </tr>
+                ))}
+                <tr className="font-bold">
+                  <td className="py-2">All outlets</td>
+                  <td className="py-2 text-right">{formatCurrency(outlets.reduce((s, o) => s + o.sales, 0))}</td>
+                  <td className="py-2 text-right">{outlets.reduce((s, o) => s + o.bills, 0)}</td>
+                  <td className="py-2 text-right">—</td>
+                  <td className="py-2 text-right">{formatCurrency(outlets.reduce((s, o) => s + o.expenses, 0))}</td>
+                </tr>
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
       {!data ? (
         !error && <Loading />
       ) : (

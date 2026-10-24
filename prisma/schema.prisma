@@ -42,6 +42,7 @@ model Restaurant {
   stockItems           StockItem[]
   stockEntries         StockEntry[]
   recipeLines          RecipeLine[]
+  outletAccess         OutletAccess[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -62,19 +63,33 @@ model SubscriptionPayment {
 }
 
 model Staff {
-  id           String        @id @default(cuid())
+  id           String         @id @default(cuid())
   restaurantId String
-  email        String        @unique
+  email        String         @unique
   passwordHash String
   name         String
-  role         String        @default("staff") // admin = owner / manager, staff = cashier / captain, kitchen = kitchen screen only
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  role         String         @default("staff") // admin = owner / manager, staff = cashier / captain, kitchen = kitchen screen only
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   lastLoginAt  DateTime?
   activities   ActivityLog[]
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  outlets      OutletAccess[]
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
+  @@index([restaurantId])
+}
+
+// An owner who runs more than one restaurant: their sign-in can also manage these outlets.
+model OutletAccess {
+  id           String     @id @default(cuid())
+  staffId      String
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  staff        Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, restaurantId])
   @@index([restaurantId])
 }
 

@@ -14,6 +14,8 @@ export interface ShellSettings {
   logoUrl: string | null;
   /** Shown to owners when the software subscription is overdue. */
   subscriptionNotice?: string | null;
+  /** Owners who run several restaurants can switch between them. */
+  outlets?: Array<{ id: string; name: string }>;
 }
 
 type ToastTone = "success" | "error" | "info";
