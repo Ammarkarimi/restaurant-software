@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Ban, Download, IndianRupee, Percent, ReceiptText, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button, Card, CardContent, CardHeader, EmptyState, Input, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
@@ -228,6 +229,27 @@ export default function ReportsPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              {data.expenses.total > 0 && (
+                <Card>
+                  <CardHeader
+                    title="Expenses"
+                    description={`Sales ${formatCurrency(data.totals.sales)} − expenses ${formatCurrency(data.expenses.total)} = ${formatCurrency(data.totals.sales - data.expenses.total)}`}
+                    action={
+                      <Link href="/cash">
+                        <Button size="sm" variant="outline">Cash & expenses</Button>
+                      </Link>
+                    }
+                  />
+                  <CardContent>
+                    <ul className="grid gap-x-8 sm:grid-cols-2">
+                      {data.expenses.byCategory.map((e) => (
+                        <ShareRow key={e.category} name={e.category} value={formatCurrency(e.amount)} share={e.amount / data.expenses.byCategory[0].amount} />
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card>

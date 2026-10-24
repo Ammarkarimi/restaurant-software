@@ -114,6 +114,7 @@ export const LABELS: Record<string, string> = {
   upi: "UPI / QR",
   card: "Card",
   online: "Paid online / app",
+  bank: "Bank transfer",
   other: "Other",
   // order sources
   counter: "Walk-in / counter",

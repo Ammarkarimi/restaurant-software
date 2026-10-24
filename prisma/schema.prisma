@@ -37,6 +37,8 @@ model Restaurant {
   activities           ActivityLog[]
   subscriptionPayments SubscriptionPayment[]
   customers            Customer[]
+  expenses             Expense[]
+  dayCloses            DayClose[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -283,6 +285,48 @@ model Customer {
 
   @@unique([restaurantId, phone])
   @@index([restaurantId, lastVisitAt])
+}
+
+// Money paid out: vegetables, gas, salary advance… "cash" means it came out of the till.
+model Expense {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  date          String // business day, "YYYY-MM-DD"
+  category      String
+  amount        Float
+  method        String     @default("cash") // cash, upi, card, bank
+  paidTo        String?
+  notes         String?
+  createdById   String?
+  createdByName String
+  createdAt     DateTime   @default(now())
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+}
+
+// End of the day: the cash in the drawer counted against what it should be.
+model DayClose {
+  id           String     @id @default(cuid())
+  restaurantId String
+  date         String // business day, "YYYY-MM-DD"
+  openingCash  Float // in the drawer when the day started
+  cashSales    Float
+  cashExpenses Float
+  expectedCash Float // opening + cash sales − cash expenses
+  countedCash  Float
+  difference   Float // counted − expected; negative = short
+  cashLeft     Float // left in the drawer for tomorrow
+  sales        Float // all payment methods
+  bills        Int
+  summary      String     @default("{}") // JSON: payments by method, expenses by category
+  notes        String?
+  closedById   String?
+  closedByName String
+  closedAt     DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date])
 }
 
 model ActivityLog {

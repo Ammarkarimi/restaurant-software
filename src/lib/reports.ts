@@ -27,14 +27,16 @@ export async function settledOrders(range: ReportRange) {
 }
 
 export async function salesReport(range: ReportRange) {
-  const [orders, cancelled] = await Promise.all([
+  const [orders, cancelled, expenseRows] = await Promise.all([
     settledOrders(range),
     prisma.order.findMany({
       where: { status: "cancelled", businessDate: { gte: range.from, lte: range.to } },
       select: { id: true, number: true, billNumber: true, total: true, cancelReason: true, cancelledAt: true, createdByName: true, table: { select: { name: true } } },
       orderBy: { cancelledAt: "desc" },
     }),
+    prisma.expense.groupBy({ by: ["category"], where: { date: { gte: range.from, lte: range.to } }, _sum: { amount: true } }),
   ]);
+  const expenses = expenseRows.map((e) => ({ category: e.category, amount: round2(e._sum.amount ?? 0) })).sort((a, b) => b.amount - a.amount);
 
   const days = new Map<string, { date: string; sales: number; bills: number }>();
   for (let d = range.from; d <= range.to && days.size < 400; d = addDays(d, 1)) days.set(d, { date: d, sales: 0, bills: 0 });
@@ -129,6 +131,7 @@ export async function salesReport(range: ReportRange) {
     categories: [...categories.values()].map(r2).sort((a, b) => b.amount - a.amount),
     taxes: [...taxes.values()].map(r2).sort((a, b) => a.rate - b.rate),
     staff: [...staff.values()].map(r2).sort((a, b) => b.sales - a.sales),
+    expenses: { total: round2(expenses.reduce((sum, e) => sum + e.amount, 0)), byCategory: expenses },
     cancelled: {
       count: cancelled.length,
       value: round2(cancelled.reduce((sum, o) => sum + o.total, 0)),
