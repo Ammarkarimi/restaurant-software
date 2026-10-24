@@ -1,4 +1,4 @@
-// Small in-memory limiter for login and the public booking form. It is per
+// Small in-memory limiter for sign-in and the guest QR menu (orders, waiter calls). It is per
 // server instance, which is enough to slow down password guessing and spam.
 const hits = new Map<string, { count: number; resetAt: number }>();
 

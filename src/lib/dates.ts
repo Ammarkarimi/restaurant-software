@@ -26,24 +26,6 @@ export function diffDays(fromKey: string, toKey: string): number {
   return Math.round((dateFromKey(toKey).getTime() - dateFromKey(fromKey).getTime()) / DAY_MS);
 }
 
-/** Number of nights charged for a stay. Same-day stays count as one night. */
-export function nightsBetween(checkIn: Date | string, checkOut: Date | string): number {
-  return Math.max(1, diffDays(toDateKey(checkIn), toDateKey(checkOut)));
-}
-
-/** Each night of a stay, as the date key of the evening the guest sleeps there. */
-export function eachNight(checkIn: Date | string, checkOut: Date | string): string[] {
-  const start = toDateKey(checkIn);
-  const count = nightsBetween(checkIn, checkOut);
-  return Array.from({ length: count }, (_, i) => addDays(start, i));
-}
-
-/** Friday and Saturday nights are treated as the weekend. */
-export function isWeekendNight(key: string): boolean {
-  const day = dateFromKey(key).getUTCDay();
-  return day === 5 || day === 6;
-}
-
 /** Today's date in the restaurant's timezone (servers usually run in UTC). */
 export function todayKey(timeZone = "Asia/Kolkata", now = new Date()): string {
   try {
@@ -56,11 +38,6 @@ export function todayKey(timeZone = "Asia/Kolkata", now = new Date()): string {
   } catch {
     return toDateKey(now);
   }
-}
-
-/** Stays overlap when one starts before the other ends (checkout day is free). */
-export function rangesOverlap(aIn: string, aOut: string, bIn: string, bOut: string): boolean {
-  return aIn < bOut && bIn < aOut;
 }
 
 export function formatDateKey(key: Date | string, opts: Intl.DateTimeFormatOptions = {}): string {

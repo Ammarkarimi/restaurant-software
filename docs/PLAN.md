@@ -95,11 +95,24 @@ Same as the hotel software:
 | **My account** | Change own password |
 | **Print pages** | Bill (58 / 80 mm thermal or A4) and KOT |
 
-### Left for later (not in version 1)
+### Version 2: what restaurants asked for next
 
-Inventory and recipes, online ordering (Zomato / Swiggy integration), QR
-table ordering, loyalty, multiple outlets under one owner, a kitchen
-display screen (KDS). The data model leaves room for each of these.
+| Feature | What it does |
+|---|---|
+| **Packing & delivery charges** | Usual charges in settings, added to takeaway / delivery orders, editable per order, taxed like the food |
+| **Zomato / Swiggy orders** | Order source and the app's order ID on the order, kitchen ticket, bill and reports; “Paid online / app” payment |
+| **Split bill, move, merge** | Move chosen dishes (and quantities) to a separate bill, another table, or a running table |
+| **Customers & loyalty** | Customers from phone numbers on paid bills; points earned as a % of the bill and used as money off; reversed when a paid bill is cancelled |
+| **WhatsApp e-bills** | A signed link to the bill that guests open without signing in |
+| **Expenses & day close** | Money paid out, and the cash drawer counted against opening cash + cash sales − cash expenses |
+| **Kitchen screen (KDS)** | Live tickets, ready / served, sold-out switch, kitchen-only accounts |
+| **QR menu & table ordering** | Guests see the menu, order, call a waiter or ask for the bill; staff confirm guest orders before the kitchen gets them |
+| **Stock & recipes** | Ingredients, purchases, wastage, counts; recipes take ingredients out when bills are paid |
+| **Several outlets** | One owner sign-in for several restaurants, with an outlet switcher and a combined report |
+
+Online order *integration* with Zomato / Swiggy (orders arriving by
+themselves) needs a partner agreement with each app; until then their orders
+are typed in with the source and app order ID.
 
 ## 4. Technical plan
 
@@ -121,6 +134,12 @@ outside a request for a known restaurant throws an error, so a missed check
 fails loudly instead of leaking data. The owner panel uses a separate, raw
 client.
 
+Guest pages (QR menu, shared bills) find the restaurant by its slug or by a
+signed bill link with the raw client, then switch to the restaurant-scoped
+client for everything else. An owner with several outlets carries the chosen
+outlet in their session; every request re-checks that their `OutletAccess`
+still exists.
+
 ### Data model
 
 ```
@@ -132,6 +151,11 @@ Restaurant ─┬─ Staff (admin = owner/manager, staff = cashier/captain)
             │    │    tax snapshot, bill number, totals snapshot)
             │    ├─ OrderItem (name/portion/price snapshot, qty, note, KOT number)
             │    └─ Payment (cash / UPI / card, split allowed)
+            ├─ Customer (phone, visits, spend, loyalty points)
+            ├─ Expense, DayClose (cash drawer per business day)
+            ├─ StockItem ── StockEntry (purchase / used / returned / wastage / count)
+            ├─ RecipeLine (dish [+ portion] → stock item, quantity per plate)
+            ├─ OutletAccess (an owner of another restaurant who may manage this one)
             ├─ ActivityLog
             └─ SubscriptionPayment (what the restaurant pays us)
 ```

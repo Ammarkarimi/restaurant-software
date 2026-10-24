@@ -10,7 +10,8 @@
 import bcrypt from "bcryptjs";
 import { currentRestaurantId, prisma, rawPrisma, runForRestaurant } from "../src/lib/db";
 import { addDays, todayKey } from "../src/lib/dates";
-import { calculateBill } from "../src/lib/billing";
+import { calculateBill, round2 } from "../src/lib/billing";
+import { usageFor } from "../src/lib/stock";
 import { DEFAULT_BILL_TEMPLATE } from "../src/lib/bill-template";
 import { monthRange } from "../src/lib/subscription";
 
@@ -139,6 +140,12 @@ async function seedDemo() {
         defaultTaxRate: 5,
         serviceChargePercent: 0,
         roundOff: true,
+        packingCharge: 20,
+        deliveryCharge: 30,
+        loyaltyEnabled: true,
+        loyaltyEarnPercent: 5,
+        loyaltyMinRedeem: 50,
+        qrOrderingEnabled: true,
         billPrefix: "SG",
         upiId: "spicegarden@okhdfc",
         billTemplate: JSON.stringify({ ...DEFAULT_BILL_TEMPLATE, headerText: "North Indian · Tandoor · Biryani", showUpiQr: true }),
@@ -187,6 +194,15 @@ async function seedDemo() {
     let kotSeq = 0;
     const rules = { taxMode: "gst", pricesIncludeTax: false, serviceChargePercent: 0, roundOff: true };
 
+    // Regular guests, so the customer list and loyalty points have history.
+    const regulars = [
+      ["Anita Desai", "9822011223"], ["Vikram Joshi", "9823344556"], ["Sneha Kulkarni", "9890011122"], ["Arjun Nair", "9765432109"],
+      ["Meera Iyer", "9811122233"], ["Rahul Patil", "9850098765"], ["Pooja Shah", "9767788990"], ["Karan Mehta", "9881234567"],
+      ["Neha Gupta", "9922113344"], ["Amit Deshpande", "9960011223"], ["Divya Rao", "9545566778"], ["Sameer Khan", "9673344221"],
+    ];
+    const customerIds = new Map<string, string>();
+    const soldItems = new Map<string, Array<{ menuItemId: string | null; variant: string | null; quantity: number }>>();
+
     async function createOrder(opts: { day: string; hour: number; minute: number; type: string; tableId: string | null; status: "settled" | "open" | "billed" | "cancelled"; staff: typeof owner }) {
       const count = 2 + Math.floor(rand() * 5);
       const lines = Array.from({ length: count }, () => {
@@ -195,7 +211,17 @@ async function seedDemo() {
         return { menuItemId: d.id, name: d.name, variant, categoryName: d.category, foodType: d.foodType, price, quantity: 1 + Math.floor(rand() * (d.category === "Breads" ? 4 : 2)), taxRate: 5 };
       });
       const discount = rand() < 0.15 ? { type: "percent", value: pick([5, 10]) } : { type: "percent", value: 0 };
-      const totals = calculateBill(lines, rules, discount);
+      // Takeaway and delivery come from the counter, phone or the apps; the apps already charge packing.
+      const source = opts.type === "dine_in" ? "counter" : pick(["counter", "phone", "zomato", "zomato", "swiggy", "swiggy"]);
+      const fromApp = source === "zomato" || source === "swiggy";
+      const packingCharge = opts.type !== "dine_in" && !fromApp ? 20 : 0;
+      const deliveryCharge = opts.type === "delivery" && !fromApp ? 30 : 0;
+      const regular = opts.type !== "dine_in" || rand() < 0.3 ? (fromApp ? null : pick(regulars)) : null;
+      const charges = [
+        { name: "Packing charge", amount: packingCharge, taxRate: 5 },
+        { name: "Delivery charge", amount: deliveryCharge, taxRate: 5 },
+      ];
+      const totals = calculateBill(lines, rules, discount, { charges });
       const createdAt = at(opts.day, opts.hour, opts.minute);
       const settledAt = new Date(createdAt.getTime() + (35 + Math.floor(rand() * 40)) * 60_000);
       const kot = ++kotSeq;
@@ -206,12 +232,18 @@ async function seedDemo() {
           restaurantId,
           number: ++orderSeq,
           type: opts.type,
+          source,
+          sourceRef: fromApp ? String(Math.floor(100000 + rand() * 899999)) : null,
           status: opts.status,
           tableId: opts.tableId,
           activeTableId: paid || opts.status === "cancelled" ? null : opts.tableId,
           guests: opts.type === "dine_in" ? 1 + Math.floor(rand() * 5) : 0,
-          customerName: opts.type === "dine_in" ? null : pick(["Anita", "Vikram", "Sneha", "Arjun", "Meera"]),
-          customerPhone: opts.type === "dine_in" ? null : `98${Math.floor(10000000 + rand() * 89999999)}`,
+          customerName: regular ? regular[0] : fromApp ? pick(["Aditi", "Rohan", "Ishaan", "Kavya"]) : null,
+          customerPhone: regular ? regular[1] : null,
+          packingCharge,
+          deliveryCharge,
+          chargeTaxRate: 5,
+          chargesAmount: totals.chargesTotal,
           discountType: discount.type,
           discountValue: discount.value,
           discountReason: discount.value ? "Regular customer" : null,
@@ -235,8 +267,18 @@ async function seedDemo() {
         },
       });
       if (paid) {
-        const method = rand() < 0.55 ? "upi" : rand() < 0.7 ? "cash" : "card";
+        const method = fromApp ? "online" : rand() < 0.55 ? "upi" : rand() < 0.7 ? "cash" : "card";
         await prisma.payment.create({ data: { restaurantId, orderId: order.id, amount: totals.total, method, receivedBy: opts.staff.name, paidAt: settledAt } });
+        soldItems.set(opts.day, [...(soldItems.get(opts.day) ?? []), ...lines]);
+        if (regular) {
+          const earned = Math.floor(totals.total * 0.05);
+          const id = customerIds.get(regular[1]);
+          const customer = id
+            ? await prisma.customer.update({ where: { id }, data: { visits: { increment: 1 }, totalSpent: { increment: totals.total }, points: { increment: earned }, lastVisitAt: settledAt } })
+            : await prisma.customer.create({ data: { restaurantId, phone: regular[1], name: regular[0], visits: 1, totalSpent: totals.total, points: earned, lastVisitAt: settledAt, createdAt: settledAt } });
+          customerIds.set(regular[1], customer.id);
+          await prisma.order.update({ where: { id: order.id }, data: { customerId: customer.id, pointsEarned: earned } });
+        }
       }
       return order;
     }
@@ -284,13 +326,169 @@ async function seedDemo() {
     await createOrder({ day: today, hour: startHour, minute: 30, type: "dine_in", tableId: tableRows[10].id, status: "open", staff: owner });
     await createOrder({ day: today, hour: startHour, minute: 40, type: "takeaway", tableId: null, status: "open", staff: cashier });
 
+    // The kitchen marked the first running table's dishes ready; a guest ordered and called a waiter from the T7 QR code.
+    await prisma.orderItem.updateMany({ where: { order: { activeTableId: tableRows[1].id } }, data: { kitchenStatus: "ready", readyAt: new Date() } });
+    const qrTable = tableRows[6];
+    const guestOrder = await prisma.order.create({
+      data: {
+        restaurantId,
+        number: ++orderSeq,
+        type: "dine_in",
+        source: "qr",
+        tableId: qrTable.id,
+        activeTableId: qrTable.id,
+        customerName: "Farhan",
+        createdByName: `Guest at ${qrTable.name} (Farhan)`,
+        taxMode: "gst",
+        chargeTaxRate: 5,
+        items: {
+          create: [dishes[0], dishes[12]].map((d) => ({ restaurantId, menuItemId: d.id, name: d.name, variant: d.options[0][0], categoryName: d.category, foodType: d.foodType, price: d.options[0][1], quantity: 1, taxRate: 5, byGuest: true })),
+        },
+      },
+      include: { items: true },
+    });
+    await prisma.order.update({ where: { id: guestOrder.id }, data: { subtotal: guestOrder.items.reduce((s, i) => s + i.price, 0) } });
+    await prisma.diningTable.update({ where: { id: qrTable.id }, data: { callType: "waiter", callAt: new Date(Date.now() - 2 * 60_000) } });
+
+    // Expenses and closed days
+    const expenseKinds: Array<[string, number, string | null]> = [
+      ["Vegetables & fruit", 1800, "Ramesh Sabziwala"],
+      ["Dairy", 1200, "Amul parlour"],
+      ["Meat & fish", 2500, "Fresh Meat Mart"],
+      ["Gas / fuel", 950, null],
+      ["Cleaning", 300, null],
+      ["Staff salary / advance", 2000, "Ravi (advance)"],
+    ];
+    let cashLeft = 2000;
+    for (let back = 14; back >= 1; back--) {
+      const day = addDays(today, -back);
+      const todays = expenseKinds.filter((_, i) => i < 3 || rand() < 0.3);
+      for (const [category, base, paidTo] of todays) {
+        await prisma.expense.create({
+          data: { restaurantId, date: day, category, amount: Math.round(base * (0.7 + rand() * 0.6)), method: rand() < 0.75 ? "cash" : "upi", paidTo, createdById: owner.id, createdByName: owner.name, createdAt: at(day, 10, Math.floor(rand() * 50)) },
+        });
+      }
+      const payments = await prisma.payment.findMany({ where: { order: { status: "settled", businessDate: day } } });
+      const expenses = await prisma.expense.findMany({ where: { date: day } });
+      const cashSales = round2(payments.filter((x) => x.method === "cash").reduce((s, x) => s + x.amount, 0));
+      const cashExpenses = round2(expenses.filter((x) => x.method === "cash").reduce((s, x) => s + x.amount, 0));
+      const expectedCash = round2(cashLeft + cashSales - cashExpenses);
+      const countedCash = rand() < 0.75 ? expectedCash : round2(expectedCash - pick([50, 100, 20, -10]));
+      const byMethod = new Map<string, { method: string; amount: number; count: number }>();
+      for (const x of payments) {
+        const m = byMethod.get(x.method) ?? { method: x.method, amount: 0, count: 0 };
+        m.amount = round2(m.amount + x.amount);
+        m.count += 1;
+        byMethod.set(x.method, m);
+      }
+      const settledToday = await prisma.order.findMany({ where: { status: "settled", businessDate: day }, select: { total: true, discountAmount: true, taxAmount: true } });
+      await prisma.dayClose.create({
+        data: {
+          restaurantId,
+          date: day,
+          openingCash: cashLeft,
+          cashSales,
+          cashExpenses,
+          expectedCash,
+          countedCash,
+          difference: round2(countedCash - expectedCash),
+          cashLeft: 2000,
+          sales: round2(settledToday.reduce((s, o) => s + o.total, 0)),
+          bills: settledToday.length,
+          summary: JSON.stringify({ payments: [...byMethod.values()], expenses: [], discount: 0, tax: 0, cancelled: 0 }),
+          closedById: owner.id,
+          closedByName: owner.name,
+          closedAt: at(day, 23, 45),
+        },
+      });
+      cashLeft = 2000;
+    }
+
+    // Stock and recipes: opening stock two weeks ago, purchases, and what the paid bills used each day.
+    const stockList: Array<[name: string, unit: string, cost: number, opening: number, lowAt: number]> = [
+      ["Paneer", "kg", 320, 12, 3],
+      ["Chicken", "kg", 240, 20, 5],
+      ["Mutton", "kg", 650, 8, 2],
+      ["Basmati rice", "kg", 110, 40, 10],
+      ["Butter", "kg", 520, 6, 1.5],
+      ["Cream", "L", 220, 6, 1.5],
+      ["Cooking oil", "L", 145, 30, 8],
+      ["Milk", "L", 60, 15, 4],
+      ["Atta (wheat flour)", "kg", 42, 40, 10],
+      ["Maida", "kg", 45, 25, 6],
+    ];
+    const stockIds = new Map<string, string>();
+    for (const [name, unit, costPerUnit, , lowAt] of stockList) {
+      const item = await prisma.stockItem.create({ data: { restaurantId, name, unit, costPerUnit, lowAt } });
+      stockIds.set(name, item.id);
+    }
+    const recipeFor: Array<[dish: string, variant: string | null, stock: string, qty: number]> = [
+      ["Paneer Tikka", null, "Paneer", 0.2],
+      ["Paneer Butter Masala", null, "Paneer", 0.18],
+      ["Paneer Butter Masala", null, "Butter", 0.02],
+      ["Paneer Butter Masala", null, "Cream", 0.03],
+      ["Chicken Tikka", "Half", "Chicken", 0.25],
+      ["Chicken Tikka", "Full", "Chicken", 0.5],
+      ["Chicken 65", null, "Chicken", 0.3],
+      ["Butter Chicken", "Half", "Chicken", 0.2],
+      ["Butter Chicken", "Full", "Chicken", 0.4],
+      ["Butter Chicken", null, "Butter", 0.03],
+      ["Butter Chicken", null, "Cream", 0.04],
+      ["Mutton Rogan Josh", null, "Mutton", 0.3],
+      ["Mutton Biryani", null, "Mutton", 0.25],
+      ["Mutton Biryani", null, "Basmati rice", 0.15],
+      ["Chicken Biryani", "Half", "Chicken", 0.15],
+      ["Chicken Biryani", "Full", "Chicken", 0.3],
+      ["Chicken Biryani", null, "Basmati rice", 0.15],
+      ["Veg Biryani", null, "Basmati rice", 0.15],
+      ["Jeera Rice", null, "Basmati rice", 0.12],
+      ["Steamed Rice", null, "Basmati rice", 0.12],
+      ["Butter Naan", null, "Maida", 0.08],
+      ["Butter Naan", null, "Butter", 0.01],
+      ["Garlic Naan", null, "Maida", 0.08],
+      ["Tandoori Roti", null, "Atta (wheat flour)", 0.07],
+      ["Lachha Paratha", null, "Atta (wheat flour)", 0.09],
+      ["Masala Chai", null, "Milk", 0.12],
+      ["Sweet Lassi", null, "Milk", 0.25],
+    ];
+    const recipe = [];
+    for (const [dish, variant, stock, quantity] of recipeFor) {
+      const d = dishes.find((x) => x.name === dish)!;
+      recipe.push(await prisma.recipeLine.create({ data: { restaurantId, menuItemId: d.id, variant, stockItemId: stockIds.get(stock)!, quantity } }));
+    }
+    const balance = new Map<string, number>();
+    const entry = async (stockItemId: string, type: string, quantity: number, date: string, extra: { cost?: number; supplier?: string; note?: string } = {}) => {
+      const next = Math.round(((balance.get(stockItemId) ?? 0) + quantity) * 1000) / 1000;
+      balance.set(stockItemId, next);
+      await prisma.stockEntry.create({ data: { restaurantId, stockItemId, type, quantity: Math.round(quantity * 1000) / 1000, balance: next, date, createdByName: owner.name, createdAt: at(date, 9, 30), ...extra } });
+    };
+    const start = addDays(today, -15);
+    for (const [name, , , opening] of stockList) await entry(stockIds.get(name)!, "count", opening, start, { note: "Opening stock" });
+    for (let back = 14; back >= 0; back--) {
+      const day = addDays(today, -back);
+      // Buy back up to the opening level every few days, except a couple of items left running low today.
+      if (back % 3 === 0 && back > 0) {
+        for (const [name, , costPerUnit, opening] of stockList) {
+          const id = stockIds.get(name)!;
+          const need = Math.round((opening - (balance.get(id) ?? 0)) * 10) / 10;
+          if (need > 0) await entry(id, "purchase", need, day, { cost: Math.round(need * costPerUnit), supplier: name === "Paneer" || name === "Milk" ? "Amul Dairy" : "Metro Cash & Carry" });
+        }
+      }
+      for (const [stockItemId, quantity] of usageFor(soldItems.get(day) ?? [], recipe)) await entry(stockItemId, "used", -quantity, day, { note: `Bills of ${day}` });
+    }
+    await entry(stockIds.get("Cream")!, "wastage", -0.5, today, { note: "Spoiled" });
+    for (const [id, quantity] of balance) await prisma.stockItem.update({ where: { id }, data: { quantity } });
+
     await rawPrisma.restaurant.update({ where: { id: restaurantId }, data: { orderSeq, billSeq, kotSeq } });
     // The demo restaurant has paid its software subscription up to this month.
     for (const month of monthRange(addDays(today, -60).slice(0, 7), today.slice(0, 7))) {
       await rawPrisma.subscriptionPayment.create({ data: { restaurantId, month, amount: 999, method: "upi", paidOn: new Date(`${month}-05T00:00:00Z`) } });
     }
     await prisma.activityLog.create({ data: { restaurantId, staffId: owner.id, staffName: owner.name, action: "Demo data loaded", details: `${orderSeq} orders` } });
-    console.log(`Demo restaurant created: ${tableRows.length} tables, ${dishes.length} dishes, ${orderSeq} orders.`);
+    await prisma.staff.create({
+      data: { restaurantId, email: "kitchen@spicegarden.test", passwordHash: await bcrypt.hash("kitchen123", 10), name: "Kitchen Tablet", role: "kitchen" },
+    });
+    console.log(`Demo restaurant created: ${tableRows.length} tables, ${dishes.length} dishes, ${orderSeq} orders, ${customerIds.size} regular customers, ${stockList.length} stock items.`);
   });
 }
 
@@ -300,6 +498,7 @@ async function main() {
     console.log("Sign in at /login with:");
     console.log("  Owner / manager:   owner@spicegarden.test / owner123");
     console.log("  Cashier / captain: cashier@spicegarden.test / cashier123");
+    console.log("  Kitchen screen:    kitchen@spicegarden.test / kitchen123");
   } else {
     console.log("Nothing to seed. Create restaurants and their owner sign-ins from the owner panel at /platform.");
   }
