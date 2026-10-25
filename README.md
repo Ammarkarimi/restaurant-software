@@ -90,6 +90,23 @@ The owner panel is at <http://localhost:3000/platform> (sign in with the
    see a polite reminder. **Pause** a restaurant to stop its staff signing in;
    nothing is deleted.
 
+## Landing page and demo enquiries
+
+Visitors who are not signed in see the landing page at `/` (also at `/welcome`): the
+product tour video, every feature, questions and an **Ask for a free demo** form. Staff
+who are signed in go straight to their Tables screen.
+
+Each enquiry appears in the owner panel under **Enquiries** (call, WhatsApp, notes,
+status, **Add as restaurant**). To also get each one by email:
+
+1. Sign up at <https://resend.com> with the email that should receive enquiries and
+   create an API key (*API Keys → Create API Key*, sending access).
+2. In Vercel add `RESEND_API_KEY` (the key) and `ENQUIRY_EMAIL_TO` (that email), then redeploy.
+3. In the owner panel open **Enquiries → Send a test email**.
+
+Without your own domain, Resend only delivers to the email you signed up with. To send to
+any address, verify a domain in Resend and set `EMAIL_FROM`, e.g. `Restaurant Manager <hello@yourdomain.com>`.
+
 ## Deploying (Vercel + Postgres)
 
 The live project is **restaurant-software** on Vercel, connected to this repository:

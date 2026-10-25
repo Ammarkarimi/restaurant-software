@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Phone, Plus, Trash2 } from "lucide-react";
+import { Mail, MessageCircle, Phone, Plus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Loading, PageHeader, Select, Tabs, Textarea, Tip } from "@/components/ui";
 import { api, whatsappLink } from "@/lib/client";
 import { formatDateTime } from "@/lib/utils";
@@ -96,13 +96,62 @@ function LeadCard({ lead, onChange, onDelete }: { lead: Lead; onChange: (l: Lead
   );
 }
 
+/** Where new enquiries are emailed, with a button to send a test email. */
+function EmailStatus({ email }: { email: { to: string | null; ready: boolean } }) {
+  const [state, setState] = useState<{ busy?: boolean; sent?: string; error?: string }>({});
+  async function test() {
+    setState({ busy: true });
+    try {
+      const r = await api<{ to: string }>("/api/platform/leads/test-email", { method: "POST" });
+      setState({ sent: r.to });
+    } catch (e) {
+      setState({ error: (e as Error).message });
+    }
+  }
+  if (!email.ready) {
+    return (
+      <Tip tone="warning">
+        Email alerts are not switched on yet, so new enquiries only appear here.
+        {email.to ? ` To get them at ${email.to}, add RESEND_API_KEY` : " To get them by email, add RESEND_API_KEY and ENQUIRY_EMAIL_TO"} in the
+        Vercel project settings (Environment Variables), then redeploy.
+      </Tip>
+    );
+  }
+  return (
+    <Tip tone={state.error ? "danger" : "success"}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Mail className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1">
+          {state.sent
+            ? `Test email sent to ${state.sent}. It can take a minute; the first one may land in Spam.`
+            : state.error || (
+                <>
+                  Every new enquiry is also emailed to <b>{email.to}</b>.
+                </>
+              )}
+        </span>
+        <Button size="sm" variant="outline" onClick={test} disabled={state.busy}>
+          {state.busy ? "Sending…" : "Send a test email"}
+        </Button>
+      </div>
+    </Tip>
+  );
+}
+
 export default function EnquiriesPage() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [email, setEmail] = useState<{ to: string | null; ready: boolean } | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
-    api<{ leads: Lead[] }>("/api/platform/leads").then((r) => setLeads(r.leads), (e) => setError(e.message));
+    api<{ leads: Lead[]; email: { to: string | null; ready: boolean } }>("/api/platform/leads").then(
+      (r) => {
+        setLeads(r.leads);
+        setEmail(r.email);
+      },
+      (e) => setError(e.message)
+    );
   }, []);
   useEffect(() => load(), [load]);
 
@@ -114,6 +163,7 @@ export default function EnquiriesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Enquiries" description="Restaurants that asked for a free demo on your website. Call or WhatsApp them, then add them as a restaurant." />
+      {email && <EmailStatus email={email} />}
       <Tabs<Filter>
         value={filter}
         onChange={setFilter}
