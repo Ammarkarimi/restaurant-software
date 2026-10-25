@@ -426,3 +426,19 @@ model ActivityLog {
 
   @@index([restaurantId, createdAt])
 }
+
+// Someone asked for a demo on the public landing page. Seen by the software provider in /platform.
+model Lead {
+  id             String   @id @default(cuid())
+  name           String
+  restaurantName String?
+  phone          String
+  city           String?
+  message        String?
+  status         String   @default("new") // new, contacted, won, lost
+  notes          String? // the provider's own notes
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, createdAt])
+}

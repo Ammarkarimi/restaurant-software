@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, Field, Input, PageHeader, Select, Textarea, Tip, Toggle } from "@/components/ui";
@@ -15,13 +16,23 @@ interface Created {
 }
 
 export default function NewRestaurantPage() {
+  return (
+    <Suspense>
+      <NewRestaurantForm />
+    </Suspense>
+  );
+}
+
+function NewRestaurantForm() {
   const thisMonth = monthOf(localToday());
+  // Coming from an enquiry: start with what they told us.
+  const sp = useSearchParams();
   const [form, setForm] = useState({
-    name: "",
-    city: "",
-    ownerName: "",
+    name: sp.get("name") ?? "",
+    city: sp.get("city") ?? "",
+    ownerName: sp.get("owner") ?? "",
     ownerEmail: "",
-    contactPhone: "",
+    contactPhone: sp.get("phone") ?? "",
     monthlyFee: "",
     billingStart: thisMonth,
     password: "",

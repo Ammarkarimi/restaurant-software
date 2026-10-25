@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Test print" };
 /** A sample bill in the saved design, to check the printer and paper size. */
 export default async function SampleBillPage({ searchParams }: { searchParams: Promise<{ auto?: string }> }) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/api/auth/logout");
   const { auto } = await searchParams;
   const settings = await runForRestaurant(session.restaurantId, () => getSettings());
   const template = parseBillTemplate(settings.billTemplate);

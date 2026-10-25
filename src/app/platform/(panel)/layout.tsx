@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { getPlatformSession } from "@/lib/platform";
+import { rawPrisma } from "@/lib/db";
 import { SignOutButton } from "@/components/platform-ui";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: { absolute: "Owner panel" }, robots: 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const session = await getPlatformSession();
   if (!session) redirect("/platform/login");
+  const newEnquiries = await rawPrisma.lead.count({ where: { status: "new" } });
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -22,6 +24,10 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           </Link>
           <nav className="ml-auto flex items-center gap-1 text-sm font-semibold">
             <Link href="/platform" className="rounded-lg px-3 py-2 hover:bg-slate-800">Restaurants</Link>
+            <Link href="/platform/enquiries" className="flex items-center gap-1.5 rounded-lg px-3 py-2 hover:bg-slate-800">
+              Enquiries
+              {newEnquiries > 0 && <span className="rounded-full bg-primary-500 px-1.5 text-xs font-bold text-white">{newEnquiries}</span>}
+            </Link>
             <Link href="/platform/restaurants/new" className="hidden rounded-lg px-3 py-2 hover:bg-slate-800 sm:block">Add restaurant</Link>
             <SignOutButton />
           </nav>

@@ -18,7 +18,7 @@ type Props = { params: Promise<{ date: string }>; searchParams: Promise<{ auto?:
 /** End-of-day summary (Z report) for the thermal printer. */
 export default async function PrintDayPage({ params, searchParams }: Props) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/api/auth/logout");
   if (session.role !== "admin") notFound();
   const { date } = await params;
   const { auto } = await searchParams;

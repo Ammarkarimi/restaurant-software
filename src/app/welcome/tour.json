@@ -1,0 +1,65 @@
+{
+  "duration": 232,
+  "chapters": [
+    {
+      "t": 7.8,
+      "label": "Tables at a glance"
+    },
+    {
+      "t": 12.9,
+      "label": "Taking an order"
+    },
+    {
+      "t": 29.4,
+      "label": "Kitchen ticket & screen"
+    },
+    {
+      "t": 49.7,
+      "label": "Customers, discounts & points"
+    },
+    {
+      "t": 66.5,
+      "label": "GST bill & UPI payment"
+    },
+    {
+      "t": 86.3,
+      "label": "WhatsApp e-bill"
+    },
+    {
+      "t": 95.3,
+      "label": "QR menu & table ordering"
+    },
+    {
+      "t": 126.7,
+      "label": "Zomato & Swiggy orders"
+    },
+    {
+      "t": 145.6,
+      "label": "Split bill"
+    },
+    {
+      "t": 156,
+      "label": "Customer list"
+    },
+    {
+      "t": 162.4,
+      "label": "Expenses & day close"
+    },
+    {
+      "t": 180,
+      "label": "Stock & recipes"
+    },
+    {
+      "t": 191.5,
+      "label": "Reports"
+    },
+    {
+      "t": 202.4,
+      "label": "Bill design & QR codes"
+    },
+    {
+      "t": 214.9,
+      "label": "Captain's phone"
+    }
+  ]
+}

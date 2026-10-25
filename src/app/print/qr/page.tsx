@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "QR codes" };
 /** A sheet of QR codes to print and stick on tables: one per table, plus one for the menu only. */
 export default async function PrintQrPage({ searchParams }: { searchParams: Promise<{ table?: string }> }) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/api/auth/logout");
   if (session.role !== "admin") notFound();
   const { table: only } = await searchParams;
 

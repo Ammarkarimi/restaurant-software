@@ -6,7 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Restaurant Manager",
     short_name: "Restaurant",
     description: "Billing, tables, menu, kitchen tickets and reports for your restaurant",
-    start_url: "/",
+    // Sign-in opens the Tables screen when already signed in, and skips the landing page.
+    start_url: "/login",
     scope: "/",
     display: "standalone",
     orientation: "any",

@@ -305,12 +305,12 @@ async function seedDemo() {
 
     // Earlier today: some paid bills, so "Sales today" has numbers.
     const nowHour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: TZ }).format(new Date())) % 24;
-    // Lunch starts at 11; before that there are no bills yet today.
-    for (let i = 0; i < (nowHour > 12 ? Math.min(12, (nowHour - 11) * 2) : 0); i++) {
+    // The restaurant opens at 8 for breakfast; before that there are no bills yet today.
+    for (let i = 0; i < (nowHour > 8 ? Math.min(14, (nowHour - 8) * 3) : 0); i++) {
       const type = rand() < 0.7 ? "dine_in" : "takeaway";
       await createOrder({
         day: today,
-        hour: 11 + Math.floor(rand() * (nowHour - 12)),
+        hour: 8 + Math.floor(rand() * (nowHour - 8)),
         minute: Math.floor(rand() * 60),
         type,
         tableId: type === "dine_in" ? pick(tableRows).id : null,

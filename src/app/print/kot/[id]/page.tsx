@@ -17,7 +17,7 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ kot?: st
 /** Kitchen order ticket: what to cook, for which table. No prices. */
 export default async function PrintKotPage({ params, searchParams }: Props) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/api/auth/logout");
   const { id } = await params;
   const { kot, auto } = await searchParams;
 
