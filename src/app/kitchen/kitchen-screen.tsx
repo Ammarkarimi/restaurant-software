@@ -7,9 +7,22 @@ import { ArrowLeft, Bell, BellOff, Check, ChefHat, CircleSlash, LogOut, Maximize
 import { api } from "@/lib/client";
 import { ding } from "@/lib/ding";
 import { cn, label } from "@/lib/utils";
+import { addonText } from "@/lib/menu";
 import type { CategoryDTO, KitchenTicket } from "@/lib/types";
 
 const SOUND_KEY = "kitchen:sound";
+const STATION_KEY = "kitchen:station";
+
+/** The tickets one station sees: only its own dishes ("" = the main kitchen, "all" = everything). */
+function forStation(tickets: KitchenTicket[], station: string, stations: string[]): KitchenTicket[] {
+  if (station === "all") return tickets;
+  const stationOf = (s: string | null) => (s && stations.includes(s) ? s : "");
+  return tickets.flatMap((t) => {
+    const items = t.items.filter((i) => stationOf(i.station) === station);
+    if (!items.some((i) => !i.cancelled)) return [];
+    return [{ ...t, items, status: items.some((i) => !i.cancelled && i.kitchenStatus === "new") ? "new" : "ready" } as KitchenTicket];
+  });
+}
 
 function minutes(from: string, now: number) {
   return Math.max(0, Math.floor((now - new Date(from).getTime()) / 60_000));
@@ -59,6 +72,7 @@ function Ticket({ t, now, onItem, onAll }: { t: KitchenTicket; now: number; onIt
                   {i.name}
                   {i.variant && <span className="font-normal text-slate-300"> ({i.variant})</span>}
                 </span>
+                {addonText(i.addons) && <span className="block text-base font-semibold text-sky-300">+ {addonText(i.addons)}</span>}
                 {i.note && <span className="block text-sm font-semibold text-amber-300">** {i.note}</span>}
                 {i.cancelled && <span className="block text-sm font-bold text-red-400">CANCELLED — do not make</span>}
               </span>
@@ -88,36 +102,63 @@ function Ticket({ t, now, onItem, onAll }: { t: KitchenTicket; now: number; onIt
   );
 }
 
-export function KitchenScreen({ restaurantName, timezone, userName, kitchenOnly }: { restaurantName: string; timezone: string; userName: string; kitchenOnly: boolean }) {
+export function KitchenScreen({
+  restaurantName,
+  timezone,
+  userName,
+  kitchenOnly,
+  stations,
+}: {
+  restaurantName: string;
+  timezone: string;
+  userName: string;
+  kitchenOnly: boolean;
+  stations: string[];
+}) {
   const router = useRouter();
   const [tickets, setTickets] = useState<KitchenTicket[] | null>(null);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [sound, setSound] = useState(true);
   const [soldOut, setSoldOut] = useState<CategoryDTO[] | null>(null);
+  const [station, setStation] = useState("all");
   const seen = useRef<Set<string> | null>(null);
+  const stationRef = useRef(station);
+  stationRef.current = station;
 
   useEffect(() => {
     try {
       setSound(localStorage.getItem(SOUND_KEY) !== "off");
+      const saved = localStorage.getItem(STATION_KEY);
+      if (saved !== null && (saved === "all" || saved === "" || stations.includes(saved))) setStation(saved);
     } catch {
       // private mode
     }
-  }, []);
+  }, [stations]);
+
+  function chooseStation(s: string) {
+    setStation(s);
+    seen.current = null;
+    try {
+      localStorage.setItem(STATION_KEY, s);
+    } catch {
+      // private mode
+    }
+  }
 
   const load = useCallback(() => {
     api<{ tickets: KitchenTicket[] }>("/api/kitchen").then(
       (r) => {
         setError("");
         setTickets(r.tickets);
-        const keys = new Set(r.tickets.map((t) => t.key));
+        const keys = new Set(forStation(r.tickets, stationRef.current, stations).map((t) => t.key));
         // Ding for tickets that arrived since the last look (not on the first load).
         if (seen.current && [...keys].some((k) => !seen.current!.has(k)) && soundRef.current) ding();
         seen.current = keys;
       },
       (e) => setError(e.message)
     );
-  }, []);
+  }, [stations]);
   const soundRef = useRef(sound);
   soundRef.current = sound;
 
@@ -155,8 +196,9 @@ export function KitchenScreen({ restaurantName, timezone, userName, kitchenOnly 
     await api(`/api/menu/items/${id}`, { method: "PATCH", body: { available } }).catch((e) => setError(e.message));
   }
 
-  const cooking = (tickets ?? []).filter((t) => t.status === "new");
-  const ready = (tickets ?? []).filter((t) => t.status === "ready");
+  const visible = forStation(tickets ?? [], station, stations);
+  const cooking = visible.filter((t) => t.status === "new");
+  const ready = visible.filter((t) => t.status === "ready");
   const clock = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", timeZone: timezone }).format(now);
 
   return (
@@ -169,7 +211,9 @@ export function KitchenScreen({ restaurantName, timezone, userName, kitchenOnly 
         )}
         <ChefHat className="h-7 w-7 text-amber-400" />
         <div className="min-w-0">
-          <p className="truncate text-lg font-bold">{restaurantName} · Kitchen</p>
+          <p className="truncate text-lg font-bold">
+            {restaurantName} · {station === "all" ? "Kitchen" : station || "Main kitchen"}
+          </p>
           <p className="text-xs text-slate-400">
             {cooking.length} cooking · {ready.length} ready to serve · {userName}
           </p>
@@ -218,6 +262,25 @@ export function KitchenScreen({ restaurantName, timezone, userName, kitchenOnly 
         )}
       </header>
 
+      {stations.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-b border-slate-800 px-4 py-2">
+          <span className="self-center text-sm text-slate-400">This screen shows:</span>
+          {[
+            { id: "all", name: "All stations" },
+            { id: "", name: "Main kitchen" },
+            ...stations.map((s) => ({ id: s, name: s })),
+          ].map((s) => (
+            <button
+              key={s.id || "main"}
+              onClick={() => chooseStation(s.id)}
+              className={cn("rounded-xl px-3 py-1.5 text-sm font-semibold", station === s.id ? "bg-amber-500 text-slate-900" : "bg-slate-800 hover:bg-slate-700")}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && <p className="mx-4 mt-3 rounded-xl bg-red-600/20 px-4 py-2 text-red-200">{error}</p>}
 
       {soldOut && (
@@ -246,7 +309,7 @@ export function KitchenScreen({ restaurantName, timezone, userName, kitchenOnly 
 
       {!tickets ? (
         <p className="p-10 text-center text-slate-400">Loading…</p>
-      ) : tickets.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-slate-400">
           <ChefHat className="h-16 w-16 text-slate-600" />
           <p className="text-xl font-semibold">No orders to cook</p>

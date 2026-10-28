@@ -46,6 +46,11 @@ const schema = z
     loyaltyMinRedeem: z.coerce.number().int().min(0).max(1_000_000),
     qrMenuEnabled: z.boolean(),
     qrOrderingEnabled: z.boolean(),
+    kitchenStations: z
+      .array(z.string().trim().min(1, "A station needs a name").max(30))
+      .max(12, "At most 12 stations")
+      .refine((a) => new Set(a.map((x) => x.toLowerCase())).size === a.length, "Two stations have the same name")
+      .transform((a) => JSON.stringify(a)),
     billTemplate: billTemplateSchema,
   })
   .partial();

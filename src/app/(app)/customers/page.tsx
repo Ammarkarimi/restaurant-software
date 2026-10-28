@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, Gift, Search, Trash2, UserPlus, Users } from "lucide-react";
+import { BookUser, Download, Gift, Search, Trash2, UserPlus, Users } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, StatCard, Textarea, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { api, whatsappLink } from "@/lib/client";
-import { formatCurrency, formatDate, label } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatDateTime, label } from "@/lib/utils";
 
 interface Customer {
   id: string;
@@ -21,7 +21,24 @@ interface Customer {
   totalSpent: number;
   lastVisitAt: string | null;
   createdAt: string;
+  balance: number;
+  creditLimit: number | null;
 }
+
+interface AccountTxn {
+  id: string;
+  type: string;
+  amount: number;
+  balance: number;
+  method: string | null;
+  orderId: string | null;
+  billNumber: string | null;
+  note: string | null;
+  createdByName: string;
+  createdAt: string;
+}
+
+const TXN_LABELS: Record<string, string> = { bill: "Bill put on account", received: "Money received", refund: "Bill cancelled — given back", adjust: "Correction" };
 
 interface CustomerOrder {
   id: string;
@@ -41,6 +58,136 @@ interface Stats {
   repeat: number;
   points: number;
   spent: number;
+  owing: number;
+  due: number;
+}
+
+/** "Owes ₹450" / "Wallet ₹200" */
+function BalanceBadge({ balance }: { balance: number }) {
+  if (balance < 0) return <Badge variant="danger">Owes {formatCurrency(-balance)}</Badge>;
+  if (balance > 0) return <Badge variant="info">Wallet {formatCurrency(balance)}</Badge>;
+  return null;
+}
+
+/** Pay later and wallet: what they owe or have paid in, money received, credit limit, history. */
+function AccountPanel({ customer, upiId, onChanged }: { customer: Customer; upiId: string | null; onChanged: () => void }) {
+  const { toast, settings } = useApp();
+  const [txns, setTxns] = useState<AccountTxn[] | null>(null);
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("cash");
+  const [note, setNote] = useState("");
+  const [limit, setLimit] = useState(customer.creditLimit === null ? "" : String(customer.creditLimit));
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api<{ txns: AccountTxn[] }>(`/api/customers/${customer.id}/account`).then((r) => setTxns(r.txns), () => setTxns([]));
+  }, [customer.id]);
+  useEffect(() => load(), [load]);
+
+  async function receive() {
+    setSaving("receive");
+    try {
+      const r = await api<{ balance: number }>(`/api/customers/${customer.id}/account`, { body: { type: "received", amount: Number(amount), method, note: note.trim() || null } });
+      toast(`${formatCurrency(Number(amount))} received. ${r.balance < 0 ? `Still owes ${formatCurrency(-r.balance)}` : r.balance > 0 ? `Wallet ${formatCurrency(r.balance)}` : "Nothing owed now"}`);
+      setAmount("");
+      setNote("");
+      load();
+      onChanged();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function saveLimit() {
+    setSaving("limit");
+    try {
+      await api(`/api/customers/${customer.id}`, { method: "PATCH", body: { creditLimit: limit === "" ? null : Number(limit) } });
+      toast(limit === "" ? "Credit limit removed" : `Credit limit ${formatCurrency(Number(limit))}`);
+      onChanged();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const owes = customer.balance < 0 ? -customer.balance : 0;
+  const reminder = `Hello${customer.name ? ` ${customer.name}` : ""}, this is ${settings.restaurantName}. ${formatCurrency(owes)} is due on your account.${upiId ? ` You can pay by UPI to ${upiId}.` : ""} Thank you!`;
+
+  return (
+    <div className="space-y-4 rounded-xl border border-slate-200 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 font-semibold text-slate-900">
+          <BookUser className="h-4 w-4 text-violet-600" /> Account (pay later & wallet)
+        </p>
+        <p className={cn("text-lg font-bold", customer.balance < 0 ? "text-red-700" : customer.balance > 0 ? "text-violet-700" : "text-slate-600")}>
+          {customer.balance < 0 ? `Owes ${formatCurrency(owes)}` : customer.balance > 0 ? `Wallet ${formatCurrency(customer.balance)}` : "Nothing owed"}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label={owes ? "Money received" : "Add money to wallet"} className="w-36">
+          <Input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={owes ? String(owes) : "0"} />
+        </Field>
+        <Field label="Paid by" className="w-36">
+          <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+            {["cash", "upi", "card", "bank"].map((m) => (
+              <option key={m} value={m}>{label(m)}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Note" optional className="min-w-40 flex-1">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} />
+        </Field>
+        <Button variant="outline" disabled={!(Number(amount) > 0)} loading={saving === "receive"} onClick={receive}>
+          Save
+        </Button>
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Credit limit" optional hint="How much they may owe. Empty = only the owner / manager can let them pay later." className="w-72">
+          <Input type="number" min={0} step="1" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="No limit set" />
+        </Field>
+        <Button variant="outline" loading={saving === "limit"} disabled={limit === (customer.creditLimit === null ? "" : String(customer.creditLimit))} onClick={saveLimit}>
+          Save limit
+        </Button>
+        {owes > 0 && (
+          <a href={whatsappLink(customer.phone, reminder)} target="_blank" rel="noopener noreferrer" className="ml-auto">
+            <Button variant="outline" className="text-emerald-700">Remind on WhatsApp</Button>
+          </a>
+        )}
+      </div>
+      {txns && txns.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold text-slate-600">Account history ({txns.length})</summary>
+          <ul className="mt-2 max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 text-sm">
+            {txns.map((t) => (
+              <li key={t.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                <span className="min-w-0">
+                  <span className="block font-semibold text-slate-800">
+                    {TXN_LABELS[t.type] ?? t.type}
+                    {t.billNumber && ` · Bill ${t.billNumber}`}
+                    {t.method && ` · ${label(t.method)}`}
+                  </span>
+                  <span className="block text-xs text-slate-500">
+                    {formatDateTime(t.createdAt, settings.timezone)} · {t.createdByName}
+                    {t.note && ` · ${t.note}`}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <b className={t.amount < 0 ? "text-red-700" : "text-emerald-700"}>
+                    {t.amount < 0 ? "−" : "+"}
+                    {formatCurrency(Math.abs(t.amount))}
+                  </b>
+                  <span className="block text-xs text-slate-500">balance {formatCurrency(t.balance)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
 }
 
 const EXPORT_URL = "/api/customers/export";
@@ -72,7 +219,7 @@ function CustomerForm({ value, onChange }: { value: typeof EMPTY; onChange: (v: 
   );
 }
 
-function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+function CustomerDetail({ id, upiId, onClose, onChanged }: { id: string; upiId: string | null; onClose: () => void; onChanged: () => void }) {
   const { toast, confirm, settings } = useApp();
   const [data, setData] = useState<{ customer: Customer; orders: CustomerOrder[] } | null>(null);
   const [form, setForm] = useState(EMPTY);
@@ -145,6 +292,14 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
       ) : (
         <div className="space-y-6">
           <CustomerForm value={form} onChange={setForm} />
+          <AccountPanel
+            customer={c}
+            upiId={upiId}
+            onChanged={() => {
+              load();
+              onChanged();
+            }}
+          />
           <div className="rounded-xl border border-slate-200 p-4">
             <p className="flex items-center gap-2 font-semibold text-slate-900">
               <Gift className="h-4 w-4 text-emerald-600" /> Loyalty points: {c.points}
@@ -204,6 +359,11 @@ export default function CustomersPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(EMPTY);
+  const [upiId, setUpiId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAdmin) api<{ settings: { upiId: string | null } }>("/api/settings").then((r) => setUpiId(r.settings.upiId), () => null);
+  }, [isAdmin]);
 
   const load = useCallback(() => {
     const p = new URLSearchParams({ sort });
@@ -252,11 +412,14 @@ export default function CustomersPage() {
       />
 
       {data && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <StatCard title="Customers" value={data.stats.count} icon={<Users className="h-5 w-5" />} tone="primary" />
           <StatCard title="Came back" value={data.stats.repeat} subtitle="2 or more visits" tone="green" />
           <StatCard title="Total spent" value={formatCurrency(data.stats.spent)} tone="sky" />
           <StatCard title="Points not used yet" value={Math.round(data.stats.points)} icon={<Gift className="h-5 w-5" />} tone="amber" />
+          <button onClick={() => setSort("owes")} className="text-left">
+            <StatCard title="Due from customers" value={formatCurrency(data.stats.due)} subtitle={`${data.stats.owing} customer${data.stats.owing === 1 ? "" : "s"} · tap to see`} icon={<BookUser className="h-5 w-5" />} tone="red" />
+          </button>
         </div>
       )}
 
@@ -270,6 +433,7 @@ export default function CustomersPage() {
           <option value="spent">Most spent first</option>
           <option value="visits">Most visits first</option>
           <option value="points">Most points first</option>
+          <option value="owes">Owe money (pay later)</option>
         </Select>
       </Card>
 
@@ -298,6 +462,7 @@ export default function CustomersPage() {
                     <span>{c.visits} visit{c.visits === 1 ? "" : "s"}</span>
                     <b className="text-slate-900">{formatCurrency(c.totalSpent)}</b>
                     {c.points > 0 && <Badge variant="success">{c.points} pts</Badge>}
+                    <BalanceBadge balance={c.balance} />
                   </span>
                 </button>
               </li>
@@ -306,7 +471,7 @@ export default function CustomersPage() {
         </Card>
       )}
 
-      {open && <CustomerDetail id={open} onClose={() => setOpen(null)} onChanged={load} />}
+      {open && <CustomerDetail id={open} upiId={upiId} onClose={() => setOpen(null)} onChanged={load} />}
 
       <Modal open={adding} onClose={() => setAdding(false)} title="Add a customer" size="lg">
         <form onSubmit={add} className="space-y-4">

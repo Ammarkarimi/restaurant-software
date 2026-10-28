@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const updated = await prisma.$transaction(async (tx) => {
       if (order.status === "settled") {
-        await reverseVisit(tx, order);
+        await reverseVisit(tx, order, todayKey(settings.timezone), user.name);
         await returnStockForOrder(tx, order, todayKey(settings.timezone), user.name);
       }
       return saveTotals(tx, order, {

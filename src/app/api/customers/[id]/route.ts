@@ -34,6 +34,8 @@ const patchSchema = customerSchema.partial().extend({
   // Give or take back points by hand, e.g. a goodwill gesture.
   pointsChange: z.coerce.number().int().min(-10_000_000).max(10_000_000).optional(),
   pointsReason: z.string().trim().max(200).optional(),
+  // Most they may owe when paying later; null = only the owner / manager can let them owe.
+  creditLimit: z.coerce.number().min(0).max(100_000_000).nullable().optional(),
 });
 
 export async function PATCH(request: NextRequest, { params }: Params) {
@@ -56,8 +58,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           birthday: text(body.birthday),
           notes: text(body.notes),
           ...(body.pointsChange && { points: Math.max(0, round2(customer.points + body.pointsChange)) }),
+          ...(body.creditLimit !== undefined && { creditLimit: body.creditLimit }),
         },
       });
+      if (body.creditLimit !== undefined && body.creditLimit !== customer.creditLimit) {
+        await logActivity(user, "Changed credit limit", `${updated.name ?? updated.phone}: ${body.creditLimit === null ? "none" : body.creditLimit}`);
+      }
       if (body.pointsChange) {
         await logActivity(user, "Changed loyalty points", `${updated.name ?? updated.phone}: ${body.pointsChange > 0 ? "+" : ""}${body.pointsChange} (${body.pointsReason})`);
       }

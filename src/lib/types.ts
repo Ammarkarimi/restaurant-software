@@ -14,6 +14,10 @@ export interface MenuItemDTO {
   taxRate: number | null;
   available: boolean;
   sortOrder: number;
+  /** JSON ids of the add-on groups offered with the dish. */
+  addonGroupIds: string;
+  showOnline: boolean;
+  imageUrl: string | null;
 }
 
 export interface CategoryDTO {
@@ -21,7 +25,43 @@ export interface CategoryDTO {
   name: string;
   sortOrder: number;
   active: boolean;
+  /** Kitchen station that cooks this category; null = the main kitchen. */
+  station: string | null;
   items: MenuItemDTO[];
+}
+
+export interface AddonGroupDTO {
+  id: string;
+  name: string;
+  minSelect: number;
+  maxSelect: number;
+  /** JSON [{ name, price }] */
+  options: string;
+  sortOrder: number;
+}
+
+export interface PriceListDTO {
+  id: string;
+  name: string;
+  active: boolean;
+  adjustPercent: number;
+  roundTo: number;
+  areas: string;
+  orderTypes: string;
+  sources: string;
+  days: string;
+  startTime: string | null;
+  endTime: string | null;
+  categoryIds: string;
+  overrides: string;
+  sortOrder: number;
+}
+
+/** What GET /api/menu returns. */
+export interface MenuResponse {
+  categories: CategoryDTO[];
+  addonGroups: AddonGroupDTO[];
+  priceLists: PriceListDTO[];
 }
 
 export interface TableDTO {
@@ -68,6 +108,9 @@ export interface OrderItemDTO {
   quantity: number;
   taxRate: number;
   note: string | null;
+  /** JSON [{ group, name, price }]; already part of `price`. */
+  addons: string;
+  station: string | null;
   byGuest: boolean;
   kotNumber: number | null;
   sentAt: string | null;
@@ -105,6 +148,9 @@ export interface OrderDTO {
   discountType: string;
   discountValue: number;
   discountReason: string | null;
+  discountMax: number | null;
+  offerId: string | null;
+  complimentary: boolean;
   taxMode: string;
   taxName: string;
   pricesIncludeTax: boolean;
@@ -140,6 +186,9 @@ export interface CustomerLookup {
   points: number;
   visits: number;
   lastVisitAt: string | null;
+  /** More than 0 = money paid in advance, less than 0 = they owe. */
+  balance: number;
+  creditLimit: number | null;
 }
 
 export interface SettingsDTO {
@@ -169,6 +218,8 @@ export interface SettingsDTO {
   loyaltyMinRedeem: number;
   qrMenuEnabled: boolean;
   qrOrderingEnabled: boolean;
+  /** JSON names of kitchen stations. */
+  kitchenStations: string;
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;
@@ -188,5 +239,23 @@ export interface KitchenTicket {
   notes: string | null;
   sentAt: string;
   status: "new" | "ready";
-  items: Array<{ id: string; name: string; variant: string | null; quantity: number; note: string | null; cancelled: boolean; kitchenStatus: string }>;
+  items: Array<{ id: string; name: string; variant: string | null; quantity: number; note: string | null; addons: string; station: string | null; cancelled: boolean; kitchenStatus: string }>;
+}
+
+export interface OfferDTO {
+  id: string;
+  name: string;
+  code: string | null;
+  type: string;
+  value: number;
+  maxDiscount: number | null;
+  minBill: number;
+  orderTypes: string;
+  days: string;
+  startTime: string | null;
+  endTime: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  active: boolean;
+  timesUsed: number;
 }

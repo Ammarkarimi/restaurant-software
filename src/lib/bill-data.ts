@@ -3,14 +3,14 @@ import type { FullOrder } from "./orders";
 import { activeItems, totalsOf } from "./orders";
 import { formatCurrency } from "./utils";
 
-/** Merges identical lines (same dish, portion, price and note) so the bill stays short. */
+/** Merges identical lines (same dish, portion, add-ons, price and note) so the bill stays short. */
 export function billItems(order: FullOrder) {
   const merged = new Map<string, BillData["items"][number]>();
   for (const i of activeItems(order.items)) {
-    const key = [i.menuItemId ?? i.name, i.variant, i.price, i.note].join("|");
+    const key = [i.menuItemId ?? i.name, i.variant, i.addons, i.price, i.note].join("|");
     const line = merged.get(key);
     if (line) line.quantity += i.quantity;
-    else merged.set(key, { name: i.name, variant: i.variant, foodType: i.foodType, quantity: i.quantity, price: i.price, note: i.note });
+    else merged.set(key, { name: i.name, variant: i.variant, foodType: i.foodType, quantity: i.quantity, price: i.price, note: i.note, addons: i.addons });
   }
   return [...merged.values()];
 }
@@ -35,8 +35,11 @@ export function billDataFor(order: FullOrder, currency: string): BillData {
     taxName: order.taxName,
     pricesIncludeTax: order.pricesIncludeTax,
     serviceChargePercent: order.serviceChargePercent,
-    discountLabel:
-      order.discountValue > 0 ? (order.discountType === "percent" ? `${order.discountValue}%` : formatCurrency(order.discountValue, currency)) : null,
+    discountLabel: order.complimentary
+      ? "Complimentary"
+      : order.discountValue > 0
+        ? [order.offerId && order.discountReason?.replace(/^Offer: /, ""), order.discountType === "percent" ? `${order.discountValue}%` : formatCurrency(order.discountValue, currency)].filter(Boolean).join(" · ")
+        : null,
     payments: order.payments.map((p) => ({ method: p.method, amount: p.amount })),
     status: order.status,
   };

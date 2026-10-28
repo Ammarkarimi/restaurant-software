@@ -3,7 +3,8 @@ import { z } from "zod";
 import { currentRestaurantId, prisma, type Db } from "./db";
 import { fail } from "./api";
 import { calculateBill, paidAmount, round2, type BillCharge, type BillRules } from "./billing";
-import { priceFor } from "./menu";
+import { addonText, addonsTotal, chooseAddons, groupsForItem, parseList } from "./menu";
+import { activeLists, menuPrice } from "./pricing";
 import type { SettingsRecord } from "./settings";
 import { billShareToken } from "./share";
 
@@ -56,7 +57,7 @@ export function totalsOf(order: FullOrder) {
   return calculateBill(
     activeItems(order.items),
     rulesOf(order),
-    { type: order.discountType, value: order.discountValue },
+    { type: order.discountType, value: order.discountValue, max: order.discountMax },
     { charges: chargesOf(order), pointsDiscount: order.pointsRedeemed }
   );
 }
@@ -136,16 +137,39 @@ export const newItemSchema = z
     price: z.coerce.number().min(0).max(10_000_000).optional(),
     quantity: z.coerce.number().int().min(1, "Quantity must be at least 1").max(999),
     note: z.string().trim().max(200).optional().nullable(),
+    // Add-ons chosen for the dish, by group and option name. Prices come from the menu.
+    addons: z
+      .array(z.object({ groupId: z.string().min(1).max(40), name: z.string().trim().min(1).max(60) }))
+      .max(30)
+      .default([]),
   })
   .refine((i) => i.menuItemId || (i.name && i.price !== undefined), "Each item needs a menu item, or a name and price");
 
-export type NewItem = z.infer<typeof newItemSchema>;
+export type NewItem = z.input<typeof newItemSchema>;
 
-/** Turns items from the till into order lines, taking prices from the menu (never from the browser). */
-export async function buildLines(db: Db, items: NewItem[], settings: SettingsRecord) {
+/** Where an order is taken, for special prices (area, order type, app, happy hours). */
+export interface LineContext {
+  area?: string | null;
+  type: string;
+  source: string;
+  /** A guest ordering from the QR / online menu: staff-only dishes are refused. */
+  guest?: boolean;
+}
+
+/**
+ * Turns items from the till into order lines. Prices come from the menu (never from the browser):
+ * the dish or portion price, changed by any special price list in force, plus the add-ons chosen.
+ */
+export async function buildLines(db: Db, items: NewItem[], settings: SettingsRecord, context: LineContext) {
   const ids = [...new Set(items.map((i) => i.menuItemId).filter((x): x is string => !!x))];
   const menu = await db.menuItem.findMany({ where: { id: { in: ids } }, include: { category: true } });
   const byId = new Map(menu.map((m) => [m.id, m]));
+  const groupIds = [...new Set(menu.flatMap((m) => parseList(m.addonGroupIds)))];
+  const [groups, lists] = await Promise.all([
+    groupIds.length ? db.addonGroup.findMany({ where: { id: { in: groupIds } } }) : Promise.resolve([]),
+    db.priceList.findMany({ where: { active: true } }),
+  ]);
+  const inForce = activeLists(lists, { ...context, timezone: settings.timezone });
 
   return items.map((i) => {
     if (!i.menuItemId) {
@@ -159,23 +183,30 @@ export async function buildLines(db: Db, items: NewItem[], settings: SettingsRec
         quantity: i.quantity,
         taxRate: settings.defaultTaxRate,
         note: i.note || null,
+        addons: "[]",
+        station: null,
       };
     }
     const m = byId.get(i.menuItemId);
     if (!m) fail("An item on this order is no longer on the menu. Please remove it and add it again.");
     if (!m.available) fail(`${m.name} is marked as sold out today.`);
-    const price = priceFor(m, i.variant);
+    if (context.guest && (!m.showOnline || !m.category.active)) fail(`${m.name} is not on the menu right now.`);
+    const { price } = menuPrice(m, i.variant, inForce);
     if (price === null) fail(`Please choose a portion for ${m.name}.`);
+    const chosen = chooseAddons(m.name, groupsForItem(m, groups), i.addons ?? []);
+    if ("error" in chosen) fail(chosen.error);
     return {
       menuItemId: m.id,
       name: m.name,
       variant: i.variant || null,
       categoryName: m.category.name,
       foodType: m.foodType,
-      price,
+      price: round2(price + addonsTotal(chosen.addons)),
       quantity: i.quantity,
       taxRate: m.taxRate ?? settings.defaultTaxRate,
       note: i.note || null,
+      addons: JSON.stringify(chosen.addons),
+      station: m.category.station,
     };
   });
 }
@@ -199,6 +230,11 @@ export function isUniqueViolation(error: unknown, field?: string) {
   return Array.isArray(target) ? target.some((t) => t.includes(field)) : String(target).includes(field);
 }
 
-export function itemSummary(lines: Array<{ name: string; variant: string | null; quantity: number }>) {
-  return lines.map((l) => `${l.quantity} × ${l.name}${l.variant ? ` (${l.variant})` : ""}`).join(", ");
+export function itemSummary(lines: Array<{ name: string; variant: string | null; quantity: number; addons?: string }>) {
+  return lines
+    .map((l) => {
+      const extras = addonText(l.addons);
+      return `${l.quantity} × ${l.name}${l.variant ? ` (${l.variant})` : ""}${extras ? ` + ${extras}` : ""}`;
+    })
+    .join(", ");
 }

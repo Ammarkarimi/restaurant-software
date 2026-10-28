@@ -6,7 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
 import { round2 } from "@/lib/billing";
 import { todayKey } from "@/lib/dates";
-import { recordVisit } from "@/lib/customers";
+import { addAccountEntry, normalizePhone, recordVisit } from "@/lib/customers";
 import { takeStockForOrder } from "@/lib/stock";
 import { activeItems, assertEditable, loadOrder, nextNumber, saveTotals, sendUnsentToKitchen, serializeOrder, totalsOf } from "@/lib/orders";
 import { PAYMENT_METHODS, formatCurrency, label } from "@/lib/utils";
@@ -34,6 +34,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (activeItems(order.items).length === 0) fail("Add items before taking payment");
 
     const total = totalsOf(order).total;
+    const offer = order.offerId ? await prisma.offer.findFirst({ where: { id: order.offerId } }) : null;
+    if (offer && totalsOf(order).itemsTotal < offer.minBill) {
+      fail(`The offer “${offer.name}” needs a bill of ${formatCurrency(offer.minBill, settings.currency)}. Add items or take the offer off.`);
+    }
     const paying = round2(body.payments.reduce((sum, p) => sum + p.amount, 0));
     if (Math.abs(paying - total) > 0.01) {
       fail(
@@ -42,6 +46,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           : `The payments add up to ${formatCurrency(round2(paying - total), settings.currency)} more than the bill`
       );
     }
+
+    const onAccount = round2(body.payments.filter((p) => p.method === "account").reduce((sum, p) => sum + p.amount, 0));
+    if (onAccount > 0 && !normalizePhone(order.customerPhone)) fail("Add the customer's phone number to put the bill on their account.");
 
     const result = await prisma.$transaction(async (tx) => {
       const kotNumber = await sendUnsentToKitchen(tx, id);
@@ -53,9 +60,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const now = new Date();
       const visit = await recordVisit(tx, order, total, settings);
+      if (onAccount > 0 && visit.customerId) {
+        await addAccountEntry(
+          tx,
+          { customerId: visit.customerId, type: "bill", amount: -onAccount, orderId: id, billNumber, date: todayKey(settings.timezone), createdByName: user.name },
+          { mayGiveCredit: user.role === "admin" }
+        );
+      }
+      if (offer) await tx.offer.update({ where: { id: offer.id }, data: { timesUsed: { increment: 1 } } });
       await takeStockForOrder(tx, { ...(await loadOrder(id, tx)), billNumber }, todayKey(settings.timezone), user.name);
       const updated = await saveTotals(tx, await loadOrder(id, tx), {
-        ...visit,
+        ...visit.data,
         status: "settled",
         billNumber,
         billedAt: order.billedAt ?? now,

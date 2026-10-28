@@ -37,6 +37,8 @@ interface Summary {
   expensesByCategory: Array<{ category: string; amount: number }>;
   cashSales: number;
   cashExpenses: number;
+  cashReceived: number;
+  received: Array<{ method: string; amount: number; count: number }>;
   openingCash: number;
   expectedCash: number;
   runningOrders: number;
@@ -298,7 +300,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
   }, [date, fill, toast]);
 
   if (!s) return <Loading />;
-  const expected = Math.round(((Number(opening) || 0) + s.cashSales - s.cashExpenses) * 100) / 100;
+  const expected = Math.round(((Number(opening) || 0) + s.cashSales + s.cashReceived - s.cashExpenses) * 100) / 100;
   const diff = counted === "" ? null : Math.round(((Number(counted) || 0) - expected) * 100) / 100;
 
   async function close() {
@@ -365,6 +367,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
             </Field>
             <div className="rounded-xl bg-slate-50 px-4 py-2">
               <Row label="+ Cash sales">{formatCurrency(s.cashSales)}</Row>
+              {s.cashReceived > 0 && <Row label="+ Cash received on customer accounts">{formatCurrency(s.cashReceived)}</Row>}
               <Row label="− Cash expenses">{formatCurrency(s.cashExpenses)}</Row>
               <Row label="Should be in the drawer" strong>
                 {formatCurrency(expected)}
@@ -411,6 +414,16 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
               <Row label="Total" strong>
                 {formatCurrency(s.sales)}
               </Row>
+              {s.received.length > 0 && (
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-sm font-semibold text-slate-600">Received on customer accounts</p>
+                  {s.received.map((r) => (
+                    <Row key={r.method} label={`${label(r.method)} (${r.count})`}>
+                      {formatCurrency(r.amount)}
+                    </Row>
+                  ))}
+                </div>
+              )}
               <p className="mt-2 text-sm text-slate-500">
                 Discounts {formatCurrency(s.discount)} · Tax {formatCurrency(s.tax)}
                 {s.cancelled > 0 && ` · ${s.cancelled} cancelled`}

@@ -10,10 +10,11 @@ import { BillDesigner } from "./bill-designer";
 import { api } from "@/lib/client";
 import { calculateBill } from "@/lib/billing";
 import { formatDateTime, label } from "@/lib/utils";
+import { parseList } from "@/lib/menu";
 import type { SettingsDTO } from "@/lib/types";
 
-type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "staff" | "activity";
-const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "staff", "activity"];
+type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "kitchen" | "staff" | "activity";
+const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "kitchen", "staff", "activity"];
 
 const TIMEZONES = ["Asia/Kolkata", "Asia/Dubai", "Asia/Kathmandu", "Asia/Dhaka", "Asia/Colombo", "Asia/Singapore", "Europe/London", "America/New_York", "Australia/Sydney"];
 
@@ -227,6 +228,69 @@ function LoyaltyTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s:
       </Card>
       <Tip>
         On the order screen, add the customer&apos;s phone number. The cashier sees their points and can tap “Use points”. After payment, send the bill on WhatsApp: it shows the points they earned.
+      </Tip>
+      <SaveBar saving={saving} changed={changed} onSave={save} />
+    </div>
+  );
+}
+
+function KitchenTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
+  const { toast } = useApp();
+  const saved = parseList(settings.kitchenStations);
+  const [stations, setStations] = useState<string[]>(saved);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const changed = JSON.stringify(stations) !== JSON.stringify(saved);
+  function add() {
+    const n = name.trim();
+    if (!n) return;
+    if (stations.some((s) => s.toLowerCase() === n.toLowerCase())) return toast(`${n} is already a station`, "info");
+    setStations([...stations, n]);
+    setName("");
+  }
+  async function save() {
+    setSaving(true);
+    try {
+      const r = await api<{ settings: SettingsDTO }>("/api/settings", { method: "PATCH", body: { kitchenStations: stations } });
+      onSaved(r.settings);
+      toast("Kitchen stations saved");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title="Kitchen stations"
+          description="When different people cook different things — tandoor, Chinese, bar, desserts — each station gets its own kitchen ticket with only its dishes, and can show only its dishes on its kitchen screen."
+        />
+        <CardContent className="space-y-4">
+          {stations.length === 0 ? (
+            <p className="text-sm text-slate-500">No stations: every dish goes on one kitchen ticket. That is right for most small kitchens.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              <li className="flex items-center justify-between px-3 py-2 text-[15px] text-slate-500">Main kitchen <span className="text-xs">for categories without a station</span></li>
+              {stations.map((st, i) => (
+                <li key={st} className="flex items-center justify-between gap-2 px-3 py-2 text-[15px] font-semibold">
+                  {st}
+                  <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setStations(stations.filter((_, j) => j !== i))} aria-label={`Remove ${st}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="e.g. Tandoor, Bar, Chinese" maxLength={30} aria-label="New station name" />
+            <Button variant="outline" onClick={add} disabled={!name.trim()}>Add station</Button>
+          </div>
+        </CardContent>
+      </Card>
+      <Tip>
+        Then open <b>Menu</b>, choose a category and pick its station (for example Breads → Tandoor, Beverages → Bar). Each station&apos;s ticket prints on its own slip; on a station&apos;s kitchen screen tap its name at the top.
       </Tip>
       <SaveBar saving={saving} changed={changed} onSave={save} />
     </div>
@@ -504,6 +568,7 @@ function SettingsView() {
           { value: "bill", label: "Bill design" },
           { value: "loyalty", label: "Loyalty" },
           { value: "qr", label: "QR menu" },
+          { value: "kitchen", label: "Kitchen" },
           { value: "staff", label: "Staff" },
           { value: "activity", label: "Activity history" },
         ]}
@@ -513,6 +578,7 @@ function SettingsView() {
       {tab === "bill" && <BillDesigner settings={settings} onChange={saved} />}
       {tab === "loyalty" && <LoyaltyTab key={settings.id + "l"} settings={settings} onSaved={saved} />}
       {tab === "qr" && <QrTab key={settings.id + "q"} settings={settings} onSaved={saved} />}
+      {tab === "kitchen" && <KitchenTab key={settings.id + "k"} settings={settings} onSaved={saved} />}
       {tab === "staff" && <StaffTab />}
       {tab === "activity" && <ActivityTab />}
     </div>

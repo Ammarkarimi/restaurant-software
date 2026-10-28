@@ -18,6 +18,10 @@ const schema = z.object({
         variant: z.string().trim().max(40).optional().nullable(),
         quantity: z.coerce.number().int().min(1).max(20),
         note: z.string().trim().max(120).optional().nullable(),
+        addons: z
+          .array(z.object({ groupId: z.string().min(1).max(40), name: z.string().trim().min(1).max(60) }))
+          .max(20)
+          .default([]),
       })
     )
     .min(1, "Add something to your order")
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const guest = { id: null, name: `Guest at ${table.name}${body.name ? ` (${body.name})` : ""}` };
       try {
         const result = await prisma.$transaction(async (tx) => {
-          const lines = (await buildLines(tx, body.items, settings)).map((l) => ({ ...l, byGuest: true }));
+          const lines = (await buildLines(tx, body.items, settings, { area: table.area, type: "dine_in", source: "qr", guest: true })).map((l) => ({ ...l, byGuest: true }));
           const running = await tx.order.findFirst({ where: { activeTableId: table.id, status: { in: ACTIVE_STATUSES } }, include: { items: true } });
           if (running) {
             const waiting = running.items.filter((i) => i.byGuest && i.kotNumber === null && i.status === "active").length;
@@ -76,7 +80,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           return { order: await saveTotals(tx, await loadOrder(created.id, tx)), lines };
         });
         await logActivity(guest, "Guest ordered from QR", `Order #${result.order.number} at ${table.name}: ${itemSummary(result.lines)}`);
-        return NextResponse.json({ ok: true, orderNumber: result.order.number, items: result.lines.map((l) => ({ name: l.name, variant: l.variant, quantity: l.quantity })) });
+        return NextResponse.json({ ok: true, orderNumber: result.order.number, items: result.lines.map((l) => ({ name: l.name, variant: l.variant, quantity: l.quantity, addons: l.addons })) });
       } catch (error) {
         if (isUniqueViolation(error, "activeTableId")) fail("The staff just opened this table. Please try again.", 409);
         throw error;

@@ -3,6 +3,7 @@
 import type { BillTemplate } from "@/lib/bill-template";
 import { taxRowsFor, type BillTotals } from "@/lib/billing";
 import { amountInWords } from "@/lib/words";
+import { addonText } from "@/lib/menu";
 import { cn, formatAmount, label } from "@/lib/utils";
 
 export interface BillProfile {
@@ -30,7 +31,7 @@ export interface BillData {
   customerPhone: string | null;
   customerAddress: string | null;
   date: string | Date;
-  items: Array<{ name: string; variant: string | null; foodType: string; quantity: number; price: number; note: string | null }>;
+  items: Array<{ name: string; variant: string | null; foodType: string; quantity: number; price: number; note: string | null; addons?: string }>;
   totals: BillTotals;
   taxMode: string;
   taxName: string;
@@ -170,6 +171,7 @@ export function BillView({
               {t.showFoodTypeMark && <FoodDot type={i.foodType} />}
               {i.name}
               {i.variant && ` (${i.variant})`}
+              {addonText(i.addons) && <span className="block opacity-80">+ {addonText(i.addons)}</span>}
               {t.showItemNotes && i.note && <span className="block italic opacity-75">- {i.note}</span>}
             </td>
             <td className={cn("text-right", a4 ? "px-2 py-1.5" : "py-0.5 pl-1")}>{i.quantity}</td>

@@ -6,7 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { customerSchema, normalizePhone } from "@/lib/customers";
 import { isUniqueViolation } from "@/lib/orders";
 
-const lookupFields = { id: true, name: true, phone: true, address: true, points: true, visits: true, lastVisitAt: true } as const;
+const lookupFields = { id: true, name: true, phone: true, address: true, points: true, visits: true, lastVisitAt: true, balance: true, creditLimit: true } as const;
 
 /**
  * Owners: the customer list, searchable and sortable.
@@ -29,15 +29,25 @@ export async function GET(request: NextRequest) {
 
     const sort = sp.get("sort");
     const orderBy: Prisma.CustomerOrderByWithRelationInput =
-      sort === "spent" ? { totalSpent: "desc" } : sort === "visits" ? { visits: "desc" } : sort === "points" ? { points: "desc" } : { lastVisitAt: { sort: "desc", nulls: "last" } };
-    const [customers, stats] = await Promise.all([
-      prisma.customer.findMany({ where: search, orderBy, take: q ? 50 : 300 }),
+      sort === "spent"
+        ? { totalSpent: "desc" }
+        : sort === "visits"
+          ? { visits: "desc" }
+          : sort === "points"
+            ? { points: "desc" }
+            : sort === "owes"
+              ? { balance: "asc" }
+              : { lastVisitAt: { sort: "desc", nulls: "last" } };
+    const where: Prisma.CustomerWhereInput = sort === "owes" ? { AND: [search ?? {}, { balance: { lt: 0 } }] } : (search ?? {});
+    const [customers, stats, dues] = await Promise.all([
+      prisma.customer.findMany({ where, orderBy, take: q ? 50 : 300 }),
       prisma.customer.aggregate({ _count: true, _sum: { points: true, totalSpent: true } }),
+      prisma.customer.aggregate({ where: { balance: { lt: 0 } }, _count: true, _sum: { balance: true } }),
     ]);
     const repeat = await prisma.customer.count({ where: { visits: { gte: 2 } } });
     return NextResponse.json({
       customers,
-      stats: { count: stats._count, repeat, points: stats._sum.points ?? 0, spent: stats._sum.totalSpent ?? 0 },
+      stats: { count: stats._count, repeat, points: stats._sum.points ?? 0, spent: stats._sum.totalSpent ?? 0, owing: dues._count, due: -(dues._sum.balance ?? 0) },
     });
   });
 }

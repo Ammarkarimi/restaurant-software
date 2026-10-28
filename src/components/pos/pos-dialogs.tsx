@@ -2,26 +2,146 @@
 
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
-import { Banknote, CreditCard, Minus, Plus, QrCode, Smartphone, Split, Trash2 } from "lucide-react";
+import { Banknote, BookUser, CreditCard, Minus, Plus, QrCode, Smartphone, Split, Trash2 } from "lucide-react";
 import { Button, Field, Input, Modal, Select, Textarea, Tip } from "@/components/ui";
 import { FoodMark } from "@/components/food-mark";
 import { round2 } from "@/lib/billing";
-import { parseVariants } from "@/lib/menu";
+import { addonsTotal, choiceHint, chooseAddons, parseAddonOptions, parseVariants, type AddonGroupData, type ChosenAddon } from "@/lib/menu";
 import { cn, formatCurrency, label } from "@/lib/utils";
 import { api } from "@/lib/client";
-import type { CustomerLookup, MenuItemDTO, OrderItemDTO, TableDTO } from "@/lib/types";
+import type { CustomerLookup, MenuItemDTO, OfferDTO, OrderItemDTO, TableDTO } from "@/lib/types";
+import { offerProblem, offerRules, offerValue } from "@/lib/offers";
 
-export function PortionDialog({ item, onPick, onClose }: { item: MenuItemDTO; onPick: (variant: string, price: number) => void; onClose: () => void }) {
+/** A dish with portions or add-ons: choose them, see the price, add to the order. */
+export function ItemOptionsDialog({
+  item,
+  groups,
+  priceOf,
+  onAdd,
+  onClose,
+}: {
+  item: Pick<MenuItemDTO, "name" | "variants" | "foodType" | "description">;
+  groups: AddonGroupData[];
+  /** The dish or portion price under any special prices in force. */
+  priceOf: (variant: string | null) => number | null;
+  onAdd: (choice: { variant: string | null; addons: ChosenAddon[]; picks: Array<{ groupId: string; name: string }>; unitPrice: number; quantity: number }) => void;
+  onClose: () => void;
+}) {
   const variants = parseVariants(item.variants);
+  const [variant, setVariant] = useState<string | null>(variants.length === 1 ? variants[0].name : null);
+  const [picked, setPicked] = useState<Record<string, string[]>>({});
+  const [quantity, setQuantity] = useState(1);
+  const [tried, setTried] = useState(false);
+
+  const picks = Object.entries(picked).flatMap(([groupId, names]) => names.map((name) => ({ groupId, name })));
+  const result = chooseAddons(item.name, groups, picks);
+  const base = variants.length ? (variant ? priceOf(variant) : null) : priceOf(null);
+  const extras = "addons" in result ? addonsTotal(result.addons) : addonsTotal(groups.flatMap((g) => parseAddonOptions(g.options).filter((o) => picked[g.id]?.includes(o.name)).map((o) => ({ group: g.name, ...o }))));
+  const unitPrice = round2((base ?? 0) + extras);
+  const message = "error" in result ? result.error.replace(`${item.name}: `, "") : null;
+  const problem = variants.length && !variant ? "Choose a portion" : message ? message[0].toUpperCase() + message.slice(1) : null;
+
+  function toggle(g: AddonGroupData, name: string) {
+    setPicked((p) => {
+      const mine = p[g.id] ?? [];
+      if (mine.includes(name)) return { ...p, [g.id]: mine.filter((n) => n !== name) };
+      // Pick-one groups swap the choice; others stop at their maximum.
+      if (g.maxSelect === 1) return { ...p, [g.id]: [name] };
+      if (g.maxSelect > 0 && mine.length >= g.maxSelect) return p;
+      return { ...p, [g.id]: [...mine, name] };
+    });
+  }
+
+  function add() {
+    setTried(true);
+    if (problem || !("addons" in result) || base === null) return;
+    onAdd({ variant, addons: result.addons, picks, unitPrice, quantity });
+  }
+
   return (
-    <Modal open onClose={onClose} title={<span className="flex items-center gap-2"><FoodMark type={item.foodType} /> {item.name}</span>} description="Choose a portion" size="sm">
-      <div className="grid gap-2">
-        {variants.map((v) => (
-          <Button key={v.name} variant="outline" size="lg" className="justify-between" onClick={() => onPick(v.name, v.price)}>
-            <span>{v.name}</span>
-            <span>{formatCurrency(v.price)}</span>
+    <Modal
+      open
+      onClose={onClose}
+      title={<span className="flex items-center gap-2"><FoodMark type={item.foodType} /> {item.name}</span>}
+      description={item.description ?? undefined}
+      size="md"
+      footer={
+        <div className="flex w-full items-center gap-3">
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="One less">
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className="w-8 text-center text-lg font-bold">{quantity}</span>
+            <button type="button" onClick={() => setQuantity((q) => Math.min(99, q + 1))} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="One more">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+          <Button size="lg" className="ml-auto" onClick={add} disabled={tried && !!problem}>
+            Add · {formatCurrency(unitPrice * quantity)}
           </Button>
-        ))}
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        {variants.length > 0 && (
+          <div>
+            <p className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
+              Portion <span className="rounded-full bg-amber-100 px-2 text-xs text-amber-800">Required</span>
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {variants.map((v) => {
+                const price = priceOf(v.name);
+                return (
+                  <button
+                    key={v.name}
+                    type="button"
+                    onClick={() => setVariant(v.name)}
+                    className={cn("flex items-center justify-between rounded-xl border-2 px-3 py-2.5 text-left text-[15px] font-semibold transition", variant === v.name ? "border-primary-500 bg-primary-50" : "border-slate-200 hover:border-primary-300")}
+                  >
+                    <span>{v.name}</span>
+                    <span>
+                      {price !== null && price !== v.price && <s className="mr-1 text-xs font-normal text-slate-400">{formatCurrency(v.price)}</s>}
+                      {formatCurrency(price ?? v.price)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {groups.map((g) => {
+          const mine = picked[g.id] ?? [];
+          return (
+            <div key={g.id}>
+              <p className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold text-slate-700">
+                {g.name}
+                <span className={cn("rounded-full px-2 text-xs", g.minSelect > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")}>{choiceHint(g)}</span>
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {parseAddonOptions(g.options).map((o) => {
+                  const on = mine.includes(o.name);
+                  return (
+                    <button
+                      key={o.name}
+                      type="button"
+                      onClick={() => toggle(g, o.name)}
+                      className={cn("flex items-center justify-between gap-2 rounded-xl border-2 px-3 py-2 text-left text-[15px] transition", on ? "border-primary-500 bg-primary-50 font-semibold" : "border-slate-200 hover:border-primary-300")}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center border-2", g.maxSelect === 1 ? "rounded-full" : "rounded", on ? "border-primary-600 bg-primary-600" : "border-slate-300")}>
+                          {on && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                        </span>
+                        {o.name}
+                      </span>
+                      <span className="text-sm text-slate-600">{o.price > 0 ? `+${formatCurrency(o.price)}` : "Free"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        {tried && problem && <Tip tone="warning">{problem}</Tip>}
       </div>
     </Modal>
   );
@@ -251,28 +371,43 @@ export function CustomerDialog({
 export function DiscountDialog({
   initial,
   itemsTotal,
+  offers,
+  offerContext,
+  currentOfferId,
+  onApplyOffer,
   onSave,
   onClose,
 }: {
   initial: { type: string; value: number; reason: string };
   itemsTotal: number;
+  /** Saved offers; null while they load. */
+  offers: OfferDTO[] | null;
+  offerContext: { type: string; timezone: string; today: string };
+  currentOfferId: string | null;
+  onApplyOffer: (o: { offerId: string | null } | { offerCode: string }) => Promise<void>;
   onSave: (d: { type: string; value: number; reason: string }) => Promise<void> | void;
   onClose: () => void;
 }) {
   const [type, setType] = useState(initial.type);
-  const [value, setValue] = useState(initial.value ? String(initial.value) : "");
-  const [reason, setReason] = useState(initial.reason);
-  const [saving, setSaving] = useState(false);
+  const [value, setValue] = useState(initial.value && !currentOfferId ? String(initial.value) : "");
+  const [reason, setReason] = useState(currentOfferId ? "" : initial.reason);
+  const [code, setCode] = useState("");
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const n = Number(value) || 0;
   const amount = type === "percent" ? round2((itemsTotal * Math.min(n, 100)) / 100) : Math.min(n, itemsTotal);
   const invalid = n < 0 || (type === "percent" && n > 100);
+  const listed = (offers ?? []).filter((o) => o.active && !o.code);
 
-  async function save(v: number) {
-    setSaving(true);
+  async function run(key: string, fn: () => Promise<void> | void) {
+    setSaving(key);
+    setError("");
     try {
-      await onSave({ type, value: v, reason: reason.trim() });
+      await fn();
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }
 
@@ -280,44 +415,83 @@ export function DiscountDialog({
     <Modal
       open
       onClose={onClose}
-      title="Discount"
+      title="Discount & offers"
       description={`On items worth ${formatCurrency(itemsTotal)}`}
-      size="sm"
+      size="md"
       footer={
         <>
-          {initial.value > 0 && (
-            <Button variant="ghost" className="mr-auto text-red-600" onClick={() => save(0)}>
+          {(initial.value > 0 || currentOfferId) && (
+            <Button variant="ghost" className="mr-auto text-red-600" loading={saving === "remove"} onClick={() => run("remove", () => (currentOfferId ? onApplyOffer({ offerId: null }) : onSave({ type, value: 0, reason: "" })))}>
               Remove discount
             </Button>
           )}
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button loading={saving} disabled={invalid} onClick={() => save(n)}>Apply</Button>
+          <Button loading={saving === "manual"} disabled={invalid || n <= 0} onClick={() => run("manual", () => onSave({ type, value: n, reason: reason.trim() }))}>
+            Apply discount
+          </Button>
         </>
       }
     >
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          {(["percent", "amount"] as const).map((t) => (
-            <Button key={t} variant={type === t ? "primary" : "outline"} onClick={() => setType(t)}>
-              {t === "percent" ? "Percent (%)" : "Fixed amount"}
-            </Button>
-          ))}
-        </div>
-        {type === "percent" && (
-          <div className="flex flex-wrap gap-2">
-            {[5, 10, 15, 20, 25].map((p) => (
-              <Button key={p} size="sm" variant={n === p ? "secondary" : "outline"} onClick={() => setValue(String(p))}>
-                {p}%
+      <div className="space-y-5">
+        {(listed.length > 0 || (offers ?? []).some((o) => o.active && o.code)) && (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-slate-700">Offers</p>
+            {listed.map((o) => {
+              const problem = offerProblem(o, { ...offerContext, itemsTotal });
+              const applied = currentOfferId === o.id;
+              return (
+                <div key={o.id} className={cn("flex items-center gap-3 rounded-xl border px-3 py-2", applied ? "border-emerald-400 bg-emerald-50" : "border-slate-200")}>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-900">
+                      {o.name} <span className="font-normal text-primary-700">· {offerValue(o)}</span>
+                    </p>
+                    <p className={cn("text-xs", problem ? "text-amber-700" : "text-slate-500")}>{problem ?? (offerRules(o) || "Any bill")}</p>
+                  </div>
+                  {applied ? (
+                    <span className="text-sm font-bold text-emerald-700">Applied</span>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled={!!problem} loading={saving === o.id} onClick={() => run(o.id, () => onApplyOffer({ offerId: o.id }))}>
+                      Apply
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+            <div className="flex gap-2">
+              <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Coupon code" aria-label="Coupon code" maxLength={20} onKeyDown={(e) => e.key === "Enter" && code.trim() && run("code", () => onApplyOffer({ offerCode: code.trim() }))} />
+              <Button variant="outline" className="whitespace-nowrap" disabled={!code.trim()} loading={saving === "code"} onClick={() => run("code", () => onApplyOffer({ offerCode: code.trim() }))}>
+                Apply code
+              </Button>
+            </div>
+          </div>
+        )}
+        {offers === null && <p className="text-sm text-slate-500">Loading offers…</p>}
+        {error && <Tip tone="danger">{error}</Tip>}
+        <div className="space-y-4 border-t border-slate-100 pt-4">
+          <p className="text-sm font-semibold text-slate-700">{listed.length ? "Or a discount by hand" : "Discount by hand"}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["percent", "amount"] as const).map((t) => (
+              <Button key={t} variant={type === t ? "primary" : "outline"} onClick={() => setType(t)}>
+                {t === "percent" ? "Percent (%)" : "Fixed amount"}
               </Button>
             ))}
           </div>
-        )}
-        <Field label={type === "percent" ? "Discount %" : "Discount amount"} hint={n > 0 && !invalid ? `Takes ${formatCurrency(amount)} off the bill` : undefined}>
-          <Input type="number" min={0} max={type === "percent" ? 100 : undefined} step="0.01" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
-        </Field>
-        <Field label="Reason" optional hint="Saved in the activity history, e.g. regular customer, food was late">
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} />
-        </Field>
+          {type === "percent" && (
+            <div className="flex flex-wrap gap-2">
+              {[5, 10, 15, 20, 25].map((p) => (
+                <Button key={p} size="sm" variant={n === p ? "secondary" : "outline"} onClick={() => setValue(String(p))}>
+                  {p}%
+                </Button>
+              ))}
+            </div>
+          )}
+          <Field label={type === "percent" ? "Discount %" : "Discount amount"} hint={n > 0 && !invalid ? `Takes ${formatCurrency(amount)} off the bill` : undefined}>
+            <Input type="number" min={0} max={type === "percent" ? 100 : undefined} step="0.01" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
+          </Field>
+          <Field label="Reason" optional hint="Saved in the activity history, e.g. regular customer, food was late">
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+        </div>
       </div>
     </Modal>
   );
@@ -372,6 +546,65 @@ export function ChargesDialog({
         <Field label="Delivery charge" hint={isDelivery ? "0 for free delivery" : "Only for delivery orders"}>
           <Input type="number" min={0} step="0.01" inputMode="decimal" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
         </Field>
+      </div>
+    </Modal>
+  );
+}
+
+export function ServiceChargeDialog({
+  current,
+  usual,
+  onSave,
+  onClose,
+}: {
+  current: number;
+  usual: number;
+  onSave: (percent: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(String(current));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const n = Number(value);
+  async function save(percent: number) {
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(percent);
+    } catch (e) {
+      setError((e as Error).message);
+      setSaving(false);
+    }
+  }
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Service charge"
+      description="Service charge is optional for guests in India. Remove it when a guest asks."
+      size="sm"
+      footer={
+        <>
+          {current > 0 && (
+            <Button variant="ghost" className="mr-auto text-red-600" loading={saving} onClick={() => save(0)}>
+              Remove
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button loading={saving} disabled={!(n >= 0 && n <= 50)} onClick={() => save(n)}>Save</Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field label="Service charge %">
+          <Input type="number" min={0} max={50} step="0.5" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+        </Field>
+        {usual > 0 && current !== usual && (
+          <Button size="sm" variant="outline" onClick={() => setValue(String(usual))}>
+            Use the usual {usual}%
+          </Button>
+        )}
+        {error && <Tip tone="danger">{error}</Tip>}
       </div>
     </Modal>
   );
@@ -479,7 +712,7 @@ interface PayRow {
   reference: string;
 }
 
-const METHOD_ICONS: Record<string, typeof Banknote> = { cash: Banknote, upi: QrCode, card: CreditCard };
+const METHOD_ICONS: Record<string, typeof Banknote> = { cash: Banknote, upi: QrCode, card: CreditCard, account: BookUser };
 
 export function PaymentDialog({
   total,
@@ -488,10 +721,20 @@ export function PaymentDialog({
   billLabel,
   currency,
   initialMethod = "cash",
+  initialRows,
+  title,
+  submitLabel = "Payment received",
+  account,
   onPay,
   onClose,
 }: {
   total: number;
+  /** The customer on the bill, so it can go on their account (pay later / wallet). Null without a phone number. */
+  account?: { name: string; balance: number; creditLimit: number | null; canGiveCredit: boolean } | null;
+  /** Start from these payments (when correcting how a paid bill was paid). */
+  initialRows?: Array<{ method: string; amount: number; reference: string | null }>;
+  title?: string;
+  submitLabel?: string;
   /** "online" for orders that Zomato / Swiggy already collected. */
   initialMethod?: string;
   upiId: string | null;
@@ -501,12 +744,20 @@ export function PaymentDialog({
   onPay: (payments: Array<{ method: string; amount: number; reference: string | null }>) => Promise<void>;
   onClose: () => void;
 }) {
-  const [rows, setRows] = useState<PayRow[]>([{ method: initialMethod, amount: String(total), reference: "" }]);
+  const [rows, setRows] = useState<PayRow[]>(
+    initialRows?.length ? initialRows.map((r) => ({ method: r.method, amount: String(r.amount), reference: r.reference ?? "" })) : [{ method: initialMethod, amount: String(total), reference: "" }]
+  );
   const [received, setReceived] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [qr, setQr] = useState<string | null>(null);
 
+  const quick = [...(initialMethod === "online" ? ["online"] : []), "cash", "upi", "card", ...(account ? ["account"] : [])];
+  const methods = ["cash", "upi", "card", "online", ...(account ? ["account"] : []), "other"];
+  const onAccount = round2(rows.filter((r) => r.method === "account").reduce((s, r) => s + (Number(r.amount) || 0), 0));
+  const afterBalance = account ? round2(account.balance - onAccount) : 0;
+  const limit = account ? (account.creditLimit ?? (account.canGiveCredit ? Infinity : 0)) : 0;
+  const overLimit = account && onAccount > 0 && afterBalance < -limit;
   const paying = round2(rows.reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const left = round2(total - paying);
   const cashRow = rows.find((r) => r.method === "cash");
@@ -545,26 +796,26 @@ export function PaymentDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Take payment · ${formatCurrency(total)}`}
+      title={title ?? `Take payment · ${formatCurrency(total)}`}
       description={billLabel}
       size="lg"
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button variant="success" size="lg" loading={saving} disabled={Math.abs(left) > 0.009 && total > 0} onClick={pay}>
-            Payment received
+          <Button variant="success" size="lg" loading={saving} disabled={(Math.abs(left) > 0.009 && total > 0) || !!overLimit} onClick={pay}>
+            {submitLabel}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <div className={cn("grid gap-2", initialMethod === "online" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
-          {(initialMethod === "online" ? ["online", "cash", "upi", "card"] : ["cash", "upi", "card"]).map((m) => {
+        <div className={cn("grid gap-2", quick.length >= 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+          {quick.map((m) => {
             const Icon = METHOD_ICONS[m] ?? Smartphone;
             const only = rows.length === 1 && rows[0].method === m;
             return (
               <Button key={m} variant={only ? "primary" : "outline"} size="lg" onClick={() => setRows([{ method: m, amount: String(total), reference: "" }])}>
-                <Icon className="h-5 w-5" /> {label(m)}
+                <Icon className="h-5 w-5" /> {m === "account" ? "Pay later" : label(m)}
               </Button>
             );
           })}
@@ -575,7 +826,7 @@ export function PaymentDialog({
             <div key={i} className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 p-3">
               <Field label="Paid by" className="w-44">
                 <Select value={r.method} onChange={(e) => setRow(i, { method: e.target.value })}>
-                  {["cash", "upi", "card", "online", "other"].map((m) => (
+                  {[...new Set([...methods, r.method])].map((m) => (
                     <option key={m} value={m}>{label(m)}</option>
                   ))}
                 </Select>
@@ -583,7 +834,7 @@ export function PaymentDialog({
               <Field label="Amount" className="w-36">
                 <Input type="number" min={0} step="0.01" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} />
               </Field>
-              {r.method !== "cash" && (
+              {r.method !== "cash" && r.method !== "account" && (
                 <Field label="Reference" optional className="min-w-36 flex-1">
                   <Input value={r.reference} onChange={(e) => setRow(i, { reference: e.target.value })} placeholder="UPI / card ref." />
                 </Field>
@@ -607,6 +858,25 @@ export function PaymentDialog({
         <div className={cn("rounded-xl px-4 py-3 text-[15px] font-semibold", Math.abs(left) <= 0.009 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
           {Math.abs(left) <= 0.009 ? "Payments match the bill." : left > 0 ? `${formatCurrency(left)} still to be paid` : `${formatCurrency(-left)} more than the bill. Reduce an amount.`}
         </div>
+
+        {account && onAccount > 0 && (
+          <div className={cn("rounded-xl border px-4 py-3 text-sm", overLimit ? "border-red-200 bg-red-50 text-red-800" : "border-violet-200 bg-violet-50 text-violet-900")}>
+            <p className="font-semibold">
+              {formatCurrency(onAccount)} goes on {account.name}&apos;s account.
+            </p>
+            <p>
+              {account.balance > 0 ? `Wallet now ${formatCurrency(account.balance)}` : account.balance < 0 ? `Already owes ${formatCurrency(-account.balance)}` : "Nothing owed now"}
+              {" → "}
+              {afterBalance >= 0 ? `wallet left ${formatCurrency(afterBalance)}` : `will owe ${formatCurrency(-afterBalance)}`}
+              {account.creditLimit !== null && ` (limit ${formatCurrency(account.creditLimit)})`}
+            </p>
+            {overLimit && (
+              <p className="mt-1 font-semibold">
+                {account.creditLimit === null ? "Only the owner / manager can let this customer pay later." : "This is more than their credit limit."}
+              </p>
+            )}
+          </div>
+        )}
 
         {cashRow && cashDue > 0 && (
           <div className="rounded-xl border border-slate-200 p-3">

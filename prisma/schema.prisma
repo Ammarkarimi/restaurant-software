@@ -43,6 +43,10 @@ model Restaurant {
   stockEntries         StockEntry[]
   recipeLines          RecipeLine[]
   outletAccess         OutletAccess[]
+  addonGroups          AddonGroup[]
+  priceLists           PriceList[]
+  offers               Offer[]
+  customerTxns         CustomerTxn[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -122,6 +126,7 @@ model RestaurantSettings {
   loyaltyMinRedeem     Float      @default(100) // points a guest needs before they can use them
   qrMenuEnabled        Boolean    @default(true) // guests can open the menu from a QR code
   qrOrderingEnabled    Boolean    @default(false) // guests can order from the table QR code; staff confirm
+  kitchenStations      String     @default("[]") // JSON names of cooking stations, e.g. ["Tandoor", "Bar"]; each prints its own kitchen ticket
   logoPath             String?
   billTemplate         String     @default("{}") // JSON, see src/lib/bill-template.ts
   updatedAt            DateTime   @updatedAt
@@ -153,6 +158,7 @@ model MenuCategory {
   name         String
   sortOrder    Int        @default(0)
   active       Boolean    @default(true)
+  station      String? // the kitchen station that cooks it; null = the main kitchen
   createdAt    DateTime   @default(now())
   items        MenuItem[]
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -161,24 +167,27 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id           String       @id @default(cuid())
-  restaurantId String
-  categoryId   String
-  name         String
-  shortCode    String? // typed at the counter for quick search, e.g. "PBM"
-  description  String?
-  price        Float // used when the item has no portions
-  variants     String       @default("[]") // JSON [{ "name": "Half", "price": 180 }]
-  foodType     String       @default("veg") // veg, non_veg, egg
-  taxRate      Float? // null = the restaurant's default rate
-  available    Boolean      @default(true) // false = sold out today
-  sortOrder    Int          @default(0)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  category     MenuCategory @relation(fields: [categoryId], references: [id])
-  orderItems   OrderItem[]
-  recipeLines  RecipeLine[]
-  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  restaurantId  String
+  categoryId    String
+  name          String
+  shortCode     String? // typed at the counter for quick search, e.g. "PBM"
+  description   String?
+  price         Float // used when the item has no portions
+  variants      String       @default("[]") // JSON [{ "name": "Half", "price": 180 }]
+  foodType      String       @default("veg") // veg, non_veg, egg
+  taxRate       Float? // null = the restaurant's default rate
+  available     Boolean      @default(true) // false = sold out today
+  addonGroupIds String       @default("[]") // JSON ids of the add-on groups offered with it, in order
+  imagePath     String? // photo shown on the QR menu
+  showOnline    Boolean      @default(true) // false = only staff see it, not the QR / online menu
+  sortOrder     Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  category      MenuCategory @relation(fields: [categoryId], references: [id])
+  orderItems    OrderItem[]
+  recipeLines   RecipeLine[]
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, categoryId])
 }
@@ -204,6 +213,9 @@ model Order {
   discountType         String       @default("percent") // percent, amount
   discountValue        Float        @default(0)
   discountReason       String?
+  discountMax          Float? // most a percent discount may take off (from an offer)
+  offerId              String? // the offer the discount came from
+  complimentary        Boolean      @default(false) // on the house: nothing to pay, kept apart in reports
   pointsRedeemed       Float        @default(0) // loyalty points used on this bill
   pointsEarned         Float        @default(0) // loyalty points given when it was paid
   // Tax rules copied from settings when the order is opened, so later changes
@@ -261,6 +273,8 @@ model OrderItem {
   quantity      Int        @default(1)
   taxRate       Float      @default(0)
   note          String? // "less spicy", "no onion"
+  addons        String     @default("[]") // JSON [{ "group": "Toppings", "name": "Extra cheese", "price": 40 }]; included in price
+  station       String? // kitchen station the ticket goes to; null = the main kitchen
   byGuest       Boolean    @default(false) // ordered by the guest from the table QR code
   kotNumber     Int? // null = not sent to the kitchen yet
   sentAt        DateTime?
@@ -293,7 +307,7 @@ model Payment {
 
 // A guest the restaurant knows by phone number: saved automatically from paid bills.
 model Customer {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   restaurantId String
   phone        String // digits only, without country code for Indian mobiles
   name         String?
@@ -301,14 +315,17 @@ model Customer {
   email        String?
   birthday     String? // "YYYY-MM-DD"
   notes        String?
-  points       Float      @default(0) // loyalty points balance
-  visits       Int        @default(0)
-  totalSpent   Float      @default(0)
+  points       Float         @default(0) // loyalty points balance
+  balance      Float         @default(0) // money on their account: more than 0 = paid in advance (wallet), less than 0 = they owe
+  creditLimit  Float? // most they may owe; null = no limit
+  txns         CustomerTxn[]
+  visits       Int           @default(0)
+  totalSpent   Float         @default(0)
   lastVisitAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   orders       Order[]
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, phone])
   @@index([restaurantId, lastVisitAt])
@@ -441,4 +458,90 @@ model Lead {
   updatedAt      DateTime @updatedAt
 
   @@index([status, createdAt])
+}
+
+// A group of extras offered with dishes: "Toppings" (pick any), "Choose your drink" (pick 1)…
+model AddonGroup {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String
+  minSelect    Int        @default(0) // 1 or more = the guest must choose
+  maxSelect    Int        @default(0) // 0 = no limit
+  options      String     @default("[]") // JSON [{ "name": "Extra cheese", "price": 40 }]
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// Different prices for an area (AC hall), an order type, an app (Zomato / Swiggy) or a time (happy hours).
+model PriceList {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  name          String
+  active        Boolean    @default(true)
+  adjustPercent Float      @default(0) // +10 = 10% dearer, -20 = 20% off; dishes with their own price below ignore it
+  roundTo       Float      @default(1) // round changed prices to this (1, 5, 10)
+  areas         String     @default("[]") // JSON table areas; empty = any
+  orderTypes    String     @default("[]") // JSON dine_in / takeaway / delivery; empty = any
+  sources       String     @default("[]") // JSON counter / zomato / swiggy…; empty = any
+  days          String     @default("[]") // JSON 0 (Sunday) … 6; empty = every day
+  startTime     String? // "17:00"; with endTime, only between these times
+  endTime       String?
+  categoryIds   String     @default("[]") // JSON menu categories it changes; empty = the whole menu
+  overrides     String     @default("{}") // JSON { menuItemId: { "price": 300, "variants": { "Full": 420 } } }
+  sortOrder     Int        @default(0) // the first matching list wins
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// A saved discount: "10% off above ₹1000", "WELCOME50" coupon, weekday lunch offer…
+model Offer {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String
+  code         String? // coupon code guests say or show; null = staff pick it from the list
+  type         String     @default("percent") // percent, amount
+  value        Float
+  maxDiscount  Float? // most a percent offer takes off
+  minBill      Float      @default(0) // items total needed
+  orderTypes   String     @default("[]") // JSON; empty = any
+  days         String     @default("[]") // JSON 0 (Sunday) … 6; empty = every day
+  startTime    String?
+  endTime      String?
+  validFrom    String? // "YYYY-MM-DD"
+  validTo      String?
+  active       Boolean    @default(true)
+  timesUsed    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// Money on a customer's account: bills put on account (pay later), money received, wallet top-ups.
+model CustomerTxn {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  customerId    String
+  type          String // bill (put on account), received (money paid in), refund, adjust
+  amount        Float // + adds to their balance, − takes from it
+  balance       Float // their balance after this entry
+  method        String? // how money was received: cash, upi, card, bank
+  orderId       String?
+  billNumber    String?
+  note          String?
+  date          String // business day, "YYYY-MM-DD"
+  createdByName String
+  createdAt     DateTime   @default(now())
+  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, customerId, createdAt])
+  @@index([restaurantId, date])
 }

@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, Check, Minus, Plus, ReceiptText, Search, ShoppingBag, UtensilsCrossed, X } from "lucide-react";
 import { FoodMark } from "@/components/food-mark";
 import { Button, Field, Input, Modal, Tip } from "@/components/ui";
+import { ItemOptionsDialog } from "@/components/pos/pos-dialogs";
 import { api } from "@/lib/client";
-import { parseVariants } from "@/lib/menu";
+import { addonText, groupsForItem, parseVariants, priceFor, type AddonGroupData, type ChosenAddon } from "@/lib/menu";
 import { cn, formatCurrency, setCurrency } from "@/lib/utils";
 
 interface Dish {
@@ -16,6 +17,10 @@ interface Dish {
   variants: string;
   foodType: string;
   available: boolean;
+  /** The menu price when a special price (e.g. happy hours) changes it right now. */
+  usualPrice: number | null;
+  addonGroupIds: string;
+  imageUrl: string | null;
 }
 
 interface Line {
@@ -25,24 +30,28 @@ interface Line {
   variant: string | null;
   price: number;
   quantity: number;
+  addons: ChosenAddon[];
+  picks: Array<{ groupId: string; name: string }>;
 }
 
 interface Placed {
   at: string;
   orderNumber: number;
-  items: Array<{ name: string; variant: string | null; quantity: number }>;
+  items: Array<{ name: string; variant: string | null; quantity: number; addons?: string }>;
 }
 
 export function GuestMenu({
   slug,
   restaurant,
   categories,
+  addonGroups,
   table,
   ordering,
 }: {
   slug: string;
   restaurant: { name: string; address: string; phone: string | null; logoUrl: string | null; currency: string; taxNote: string | null };
   categories: Array<{ id: string; name: string; items: Dish[] }>;
+  addonGroups: AddonGroupData[];
   table: { token: string; name: string } | null;
   ordering: boolean;
 }) {
@@ -84,11 +93,12 @@ export function GuestMenu({
   const count = cart.reduce((s, l) => s + l.quantity, 0);
   const subtotal = cart.reduce((s, l) => s + l.price * l.quantity, 0);
 
-  function add(dish: Dish, variant: string | null, price: number) {
+  function add(dish: Dish, variant: string | null, price: number, addons: ChosenAddon[] = [], picks: Line["picks"] = [], quantity = 1) {
+    const key = `${dish.id}:${variant ?? ""}:${addons.map((a) => a.name).join("+")}`;
     setCart((c) => {
-      const same = c.find((l) => l.menuItemId === dish.id && l.variant === variant);
-      if (same) return c.map((l) => (l === same ? { ...l, quantity: Math.min(20, l.quantity + 1) } : l));
-      return [...c, { key: `${dish.id}:${variant ?? ""}`, menuItemId: dish.id, name: dish.name, variant, price, quantity: 1 }];
+      const same = c.find((l) => l.key === key);
+      if (same) return c.map((l) => (l === same ? { ...l, quantity: Math.min(20, l.quantity + quantity) } : l));
+      return [...c, { key, menuItemId: dish.id, name: dish.name, variant, price, quantity: Math.min(20, quantity), addons, picks }];
     });
   }
   function change(key: string, delta: number) {
@@ -96,7 +106,7 @@ export function GuestMenu({
   }
   function pick(dish: Dish) {
     if (!dish.available) return;
-    if (parseVariants(dish.variants).length) setPortionFor(dish);
+    if (parseVariants(dish.variants).length || groupsForItem(dish, addonGroups).length) setPortionFor(dish);
     else add(dish, null, dish.price);
   }
 
@@ -106,7 +116,7 @@ export function GuestMenu({
     setError("");
     try {
       const r = await api<{ orderNumber: number; items: Placed["items"] }>(`/api/public/order/${slug}`, {
-        body: { table: table.token, name: name.trim() || null, items: cart.map((l) => ({ menuItemId: l.menuItemId, variant: l.variant, quantity: l.quantity })) },
+        body: { table: table.token, name: name.trim() || null, items: cart.map((l) => ({ menuItemId: l.menuItemId, variant: l.variant, quantity: l.quantity, addons: l.picks })) },
       });
       const next = [{ at: new Date().toISOString(), orderNumber: r.orderNumber, items: r.items }, ...placed];
       setPlaced(next);
@@ -163,7 +173,7 @@ export function GuestMenu({
               {placed.map((p) => (
                 <li key={p.at}>
                   <span className="text-emerald-700">{new Date(p.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}:</span>{" "}
-                  {p.items.map((i) => `${i.quantity} × ${i.name}${i.variant ? ` (${i.variant})` : ""}`).join(", ")}
+                  {p.items.map((i) => `${i.quantity} × ${i.name}${i.variant ? ` (${i.variant})` : ""}${addonText(i.addons) ? ` + ${addonText(i.addons)}` : ""}`).join(", ")}
                 </li>
               ))}
             </ul>
@@ -227,19 +237,27 @@ export function GuestMenu({
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900">{d.name}</p>
                       <p className="text-sm font-semibold text-slate-700">
+                        {d.usualPrice !== null && <s className="mr-1 font-normal text-slate-400">{formatCurrency(d.usualPrice)}</s>}
                         {portions.length ? portions.map((p) => `${p.name} ${formatCurrency(p.price)}`).join(" · ") : formatCurrency(d.price)}
                       </p>
                       {d.description && <p className="mt-0.5 text-sm text-slate-500">{d.description}</p>}
+                      {groupsForItem(d, addonGroups).length > 0 && <p className="mt-0.5 text-xs text-slate-400">Customisable</p>}
                     </div>
-                    {!d.available ? (
-                      <span className="shrink-0 text-sm font-semibold text-red-600">Sold out</span>
-                    ) : (
-                      ordering && (
-                        <Button size="sm" variant={inCart ? "primary" : "outline"} className="shrink-0" onClick={() => pick(d)} aria-label={`Add ${d.name}`}>
-                          {inCart ? `${inCart} added` : "Add"} <Plus className="h-4 w-4" />
-                        </Button>
-                      )
-                    )}
+                    <div className="flex shrink-0 flex-col items-center gap-2">
+                      {d.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={d.imageUrl} alt="" loading="lazy" className="h-20 w-20 rounded-xl object-cover" />
+                      )}
+                      {!d.available ? (
+                        <span className="text-sm font-semibold text-red-600">Sold out</span>
+                      ) : (
+                        ordering && (
+                          <Button size="sm" variant={inCart ? "primary" : "outline"} onClick={() => pick(d)} aria-label={`Add ${d.name}`}>
+                            {inCart ? `${inCart} added` : "Add"} <Plus className="h-4 w-4" />
+                          </Button>
+                        )
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -264,25 +282,16 @@ export function GuestMenu({
       )}
 
       {portionFor && (
-        <Modal open onClose={() => setPortionFor(null)} title={portionFor.name} description="Choose a portion" size="sm">
-          <div className="grid gap-2">
-            {parseVariants(portionFor.variants).map((v) => (
-              <Button
-                key={v.name}
-                variant="outline"
-                size="lg"
-                className="justify-between"
-                onClick={() => {
-                  add(portionFor, v.name, v.price);
-                  setPortionFor(null);
-                }}
-              >
-                <span>{v.name}</span>
-                <span>{formatCurrency(v.price)}</span>
-              </Button>
-            ))}
-          </div>
-        </Modal>
+        <ItemOptionsDialog
+          item={portionFor}
+          groups={groupsForItem(portionFor, addonGroups)}
+          priceOf={(variant) => priceFor(portionFor, variant)}
+          onClose={() => setPortionFor(null)}
+          onAdd={(c) => {
+            add(portionFor, c.variant, c.unitPrice, c.addons, c.picks, c.quantity);
+            setPortionFor(null);
+          }}
+        />
       )}
 
       {cartOpen && (
@@ -307,6 +316,7 @@ export function GuestMenu({
               <li key={l.key} className="flex items-center gap-2 py-2">
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{l.name}{l.variant && <span className="font-normal text-slate-500"> ({l.variant})</span>}</span>
+                  {l.addons.length > 0 && <span className="block text-sm text-slate-600">+ {addonText(l.addons)}</span>}
                   <span className="text-sm text-slate-500">{formatCurrency(l.price)} each</span>
                 </span>
                 <button onClick={() => change(l.key, -1)} className="rounded-lg border border-slate-200 p-1.5" aria-label={`One less ${l.name}`}>

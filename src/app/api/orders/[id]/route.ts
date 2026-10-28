@@ -3,10 +3,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
-import { assertEditable, isUniqueViolation, loadOrder, saveTotals, serializeOrder, totalsOf } from "@/lib/orders";
+import { assertEditable, defaultCharges, isUniqueViolation, loadOrder, saveTotals, serializeOrder, totalsOf } from "@/lib/orders";
 import { getSettings } from "@/lib/settings";
 import { normalizePhone } from "@/lib/customers";
 import { ORDER_SOURCES, formatCurrency, label } from "@/lib/utils";
+import { offerProblem } from "@/lib/offers";
+import { todayKey } from "@/lib/dates";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,6 +36,14 @@ const schema = z
     sourceRef: z.string().trim().max(40).nullable(),
     // Move a dine-in order to another table (or turn it into takeaway with null).
     tableId: z.string().nullable(),
+    // Apply a saved offer (by id, or the coupon code the guest gives); null takes it off.
+    offerId: z.string().max(40).nullable(),
+    offerCode: z.string().trim().min(1).max(20),
+    // A guest who will not pay the (optional) service charge.
+    serviceChargePercent: z.coerce.number().min(0).max(50),
+    // On the house: nothing to pay, kept apart in reports.
+    complimentary: z.boolean(),
+    complimentaryReason: z.string().trim().max(200),
   })
   .partial();
 
@@ -47,6 +57,52 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (body.discountType === "percent" && (body.discountValue ?? 0) > 100) fail("A discount cannot be more than 100%");
 
     const text = (v: string | null | undefined) => (v === undefined ? undefined : v || null);
+
+    // Complimentary: a 100% discount with no charges, marked so reports keep it apart.
+    let complimentaryFields: Record<string, unknown> = {};
+    if (body.complimentary !== undefined && body.complimentary !== order.complimentary) {
+      if (user.role !== "admin") fail("Only the owner / manager can make a bill complimentary.");
+      if (body.complimentary) {
+        const why = body.complimentaryReason?.trim();
+        if (!why || why.length < 2) fail("Please give a reason, e.g. owner's guest, staff meal, food complaint");
+        complimentaryFields = {
+          complimentary: true,
+          discountType: "percent",
+          discountValue: 100,
+          discountMax: null,
+          offerId: null,
+          discountReason: `Complimentary: ${why}`,
+          pointsRedeemed: 0,
+          packingCharge: 0,
+          deliveryCharge: 0,
+          serviceChargePercent: 0,
+        };
+      } else {
+        const settings = await getSettings();
+        complimentaryFields = { complimentary: false, discountValue: 0, discountReason: null, serviceChargePercent: order.type === "dine_in" ? settings.serviceChargePercent : 0, ...defaultCharges(order.type, settings) };
+      }
+    } else if (order.complimentary && (body.discountValue !== undefined || body.offerId !== undefined || body.offerCode !== undefined || body.pointsRedeemed)) {
+      fail("This bill is complimentary. Take that off first (More actions).");
+    }
+
+    // An offer sets the discount; typing a discount by hand replaces any offer.
+    let offerFields: Record<string, unknown> = {};
+    let offerName: string | null = null;
+    if (body.offerCode !== undefined || (body.offerId !== undefined && body.offerId !== null)) {
+      const offer = body.offerCode
+        ? await prisma.offer.findFirst({ where: { code: { equals: body.offerCode, mode: "insensitive" } } })
+        : await prisma.offer.findFirst({ where: { id: body.offerId! } });
+      if (!offer) fail(body.offerCode ? `There is no offer with the code ${body.offerCode.toUpperCase()}` : "This offer was not found");
+      const settings = await getSettings();
+      const problem = offerProblem(offer, { itemsTotal: totalsOf(order).itemsTotal, type: order.type, timezone: settings.timezone, today: todayKey(settings.timezone) });
+      if (problem) fail(`${offer.name}: ${problem}`);
+      offerName = offer.name;
+      offerFields = { offerId: offer.id, discountType: offer.type, discountValue: offer.value, discountMax: offer.maxDiscount, discountReason: `Offer: ${offer.name}` };
+    } else if (body.offerId === null) {
+      offerFields = { offerId: null, discountValue: 0, discountMax: null, discountReason: null };
+    } else if (body.discountValue !== undefined || body.discountType !== undefined) {
+      offerFields = { offerId: null, discountMax: null };
+    }
     if (body.pointsRedeemed) {
       const settings = await getSettings();
       if (!settings.loyaltyEnabled) fail("Loyalty points are switched off in Settings");
@@ -71,12 +127,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     const discountChanged =
+      Object.keys(offerFields).length > 0 ||
       (body.discountValue !== undefined && body.discountValue !== order.discountValue) ||
       (body.discountType !== undefined && body.discountType !== order.discountType);
     const pointsChanged = body.pointsRedeemed !== undefined && body.pointsRedeemed !== order.pointsRedeemed;
     const chargesChanged =
       (body.packingCharge !== undefined && body.packingCharge !== order.packingCharge) ||
       (body.deliveryCharge !== undefined && body.deliveryCharge !== order.deliveryCharge);
+    const serviceChanged = body.serviceChargePercent !== undefined && body.serviceChargePercent !== order.serviceChargePercent;
+    const complimentaryChanged = Object.keys(complimentaryFields).length > 0;
 
     try {
       const updated = await prisma.$transaction(async (tx) => {
@@ -97,8 +156,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             ...(body.source && { source: body.source }),
             sourceRef: text(body.sourceRef),
             ...tableData,
+            ...offerFields,
+            ...(body.serviceChargePercent !== undefined && { serviceChargePercent: body.serviceChargePercent }),
+            ...complimentaryFields,
             // A changed bill must be printed again.
-            ...((discountChanged || chargesChanged || pointsChanged) && order.status === "billed" && { status: "open" }),
+            ...((discountChanged || chargesChanged || pointsChanged || serviceChanged || complimentaryChanged) && order.status === "billed" && { status: "open" }),
           },
         });
         return saveTotals(tx, await loadOrder(id, tx));
@@ -106,7 +168,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       if (move) await logActivity(user, "Moved order", `#${order.number} from ${move.from} to ${move.to}`);
       if (discountChanged) {
         const d = updated.discountValue > 0 ? (updated.discountType === "percent" ? `${updated.discountValue}%` : formatCurrency(updated.discountValue)) : "removed";
-        await logActivity(user, "Changed discount", `Order #${order.number}: ${d}${updated.discountReason ? ` (${updated.discountReason})` : ""}`);
+        await logActivity(user, offerName ? "Applied offer" : "Changed discount", `Order #${order.number}: ${d}${updated.discountReason ? ` (${updated.discountReason})` : ""}`);
       }
       if (chargesChanged) {
         const what = [
@@ -114,6 +176,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           updated.deliveryCharge > 0 && `delivery ${formatCurrency(updated.deliveryCharge)}`,
         ].filter(Boolean);
         await logActivity(user, "Changed charges", `Order #${order.number}: ${what.join(", ") || "removed"}`);
+      }
+      if (serviceChanged) await logActivity(user, updated.serviceChargePercent ? "Changed service charge" : "Removed service charge", `Order #${order.number}: ${updated.serviceChargePercent}%`);
+      if (complimentaryChanged) {
+        await logActivity(user, updated.complimentary ? "Made bill complimentary" : "Took off complimentary", `Order #${order.number}${updated.complimentary ? `: ${body.complimentaryReason}` : ""}`);
       }
       if (pointsChanged) await logActivity(user, "Loyalty points used", `Order #${order.number}: ${updated.pointsRedeemed} points${updated.customerName ? ` for ${updated.customerName}` : ""}`);
       if (body.source && body.source !== order.source) await logActivity(user, "Changed order source", `Order #${order.number}: ${label(body.source)}`);

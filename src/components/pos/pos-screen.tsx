@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   Ban,
   ChefHat,
+  Gift,
   Minus,
   MessageCircle,
   MessageSquare,
@@ -30,12 +31,13 @@ import {
   ChargesDialog,
   CustomerDialog,
   DiscountDialog,
+  ItemOptionsDialog,
   MoveTableDialog,
   NoteDialog,
   OpenItemDialog,
   PaymentDialog,
   PointsDialog,
-  PortionDialog,
+  ServiceChargeDialog,
   TransferDialog,
   type CustomerForm,
   type TransferTable,
@@ -43,9 +45,10 @@ import {
 import { api, whatsappLink } from "@/lib/client";
 import { normalizePhone } from "@/lib/phone";
 import { calculateBill } from "@/lib/billing";
-import { fromPrice, parseVariants } from "@/lib/menu";
+import { addonText, addonsTotal, groupsForItem, parseVariants, type ChosenAddon } from "@/lib/menu";
+import { activeLists, menuPrice } from "@/lib/pricing";
 import { cn, formatCurrency, formatTime, label } from "@/lib/utils";
-import type { CategoryDTO, CustomerLookup, MenuItemDTO, OrderDTO, OrderItemDTO, SettingsDTO, TableDTO } from "@/lib/types";
+import type { AddonGroupDTO, CategoryDTO, CustomerLookup, MenuItemDTO, MenuResponse, OfferDTO, OrderDTO, OrderItemDTO, PriceListDTO, SettingsDTO, TableDTO } from "@/lib/types";
 
 /** An item added on this screen and not saved yet. */
 interface CartLine {
@@ -58,10 +61,13 @@ interface CartLine {
   taxRate: number;
   quantity: number;
   note: string;
+  addons: ChosenAddon[];
+  /** The add-ons as the server wants them: group id and option name. */
+  picks: Array<{ groupId: string; name: string }>;
 }
 
 type Dialog =
-  | { kind: "portion"; item: MenuItemDTO }
+  | { kind: "options"; item: MenuItemDTO }
   | { kind: "open" }
   | { kind: "note"; target: { cartKey: string } | { itemId: string }; initial: string; title: string }
   | { kind: "customer" }
@@ -71,6 +77,8 @@ type Dialog =
   | { kind: "move"; tables: TableDTO[] }
   | { kind: "transfer"; tables: TransferTable[] }
   | { kind: "pay" }
+  | { kind: "repay" }
+  | { kind: "service" }
   | { kind: "more" }
   | null;
 
@@ -93,6 +101,10 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const router = useRouter();
   const { toast, confirm, isAdmin, settings: shell } = useApp();
   const [categories, setCategories] = useState<CategoryDTO[] | null>(null);
+  const [addonGroups, setAddonGroups] = useState<AddonGroupDTO[]>([]);
+  const [priceLists, setPriceLists] = useState<PriceListDTO[]>([]);
+  const [offers, setOffers] = useState<OfferDTO[] | null>(null);
+  const [clock, setClock] = useState(() => Date.now());
   const [settings, setSettings] = useState<SettingsDTO | null>(null);
   const [order, setOrder] = useState<OrderDTO | null>(null);
   const [table, setTable] = useState<TableDTO | null>(null);
@@ -110,16 +122,23 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const keySeq = useRef(1);
 
   useEffect(() => setAutoKot(readAutoPrint()), []);
+  // Happy-hour prices start and stop by the clock.
+  useEffect(() => {
+    const t = setInterval(() => setClock(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     Promise.all([
-      api<{ categories: CategoryDTO[] }>("/api/menu"),
+      api<MenuResponse>("/api/menu"),
       api<{ settings: SettingsDTO }>("/api/settings"),
       orderId ? api<{ order: OrderDTO }>(`/api/orders/${orderId}`) : Promise.resolve(null),
       newOrder?.tableId ? api<{ tables: TableDTO[] }>("/api/tables") : Promise.resolve(null),
     ]).then(
       ([m, s, o, t]) => {
         setCategories(m.categories.filter((c) => c.active));
+        setAddonGroups(m.addonGroups);
+        setPriceLists(m.priceLists);
         setSettings(s.settings);
         if (o) setOrder(o.order);
         if (t) setTable(t.tables.find((x) => x.id === newOrder?.tableId) ?? null);
@@ -144,6 +163,25 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   }, [phone, order?.status]);
   const orderType = order?.type ?? newOrder?.type ?? "dine_in";
   const tableName = order?.table?.name ?? table?.name;
+  const orderSource = order ? order.source : orderType === "dine_in" ? "counter" : draftCustomer.source;
+
+  // Special prices in force for this order: its area, type, app and the time of day. The server checks them again.
+  const inForce = useMemo(
+    () => activeLists(priceLists, { area: order?.table?.area ?? table?.area, type: orderType, source: orderSource, at: new Date(clock), timezone: settings?.timezone ?? "Asia/Kolkata" }),
+    [priceLists, order?.table?.area, table?.area, orderType, orderSource, clock, settings?.timezone]
+  );
+  const priceOf = useCallback((item: MenuItemDTO, variant: string | null) => menuPrice(item, variant, inForce).price, [inForce]);
+  /** Lowest price on the card ("from ₹180"), and the menu price when a special price changes it. */
+  const cardPrice = useCallback(
+    (item: MenuItemDTO) => {
+      const variants = parseVariants(item.variants);
+      const names = variants.length ? variants.map((v) => v.name) : [null];
+      const prices = names.map((n) => priceOf(item, n) ?? 0);
+      const menu = variants.length ? Math.min(...variants.map((v) => v.price)) : item.price;
+      return { price: Math.min(...prices), menu };
+    },
+    [priceOf]
+  );
 
   // ---------- menu ----------
   const allItems = useMemo(() => (categories ?? []).flatMap((c) => c.items), [categories]);
@@ -160,9 +198,27 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
 
   const taxFor = useCallback((item: { taxRate: number | null }) => item.taxRate ?? settings?.defaultTaxRate ?? 0, [settings]);
 
-  function addToCart(line: Omit<CartLine, "key" | "quantity" | "note">, quantity = 1) {
+  // Unsaved dishes follow the special prices in force (e.g. the order is changed to Swiggy before saving).
+  useEffect(() => {
     setCart((c) => {
-      const same = c.find((l) => l.menuItemId && l.menuItemId === line.menuItemId && l.variant === line.variant && !l.note);
+      let changed = false;
+      const next = c.map((l) => {
+        const item = l.menuItemId ? allItems.find((i) => i.id === l.menuItemId) : null;
+        const base = item ? priceOf(item, l.variant) : null;
+        if (base === null) return l;
+        const price = Math.round((base + addonsTotal(l.addons)) * 100) / 100;
+        if (price === l.price) return l;
+        changed = true;
+        return { ...l, price };
+      });
+      return changed ? next : c;
+    });
+  }, [allItems, priceOf]);
+
+  function addToCart(line: Omit<CartLine, "key" | "quantity" | "note">, quantity = 1) {
+    const extras = JSON.stringify(line.addons);
+    setCart((c) => {
+      const same = c.find((l) => l.menuItemId && l.menuItemId === line.menuItemId && l.variant === line.variant && JSON.stringify(l.addons) === extras && !l.note);
       if (same) return c.map((l) => (l === same ? { ...l, quantity: l.quantity + quantity } : l));
       return [...c, { ...line, key: `c${keySeq.current++}`, quantity, note: "" }];
     });
@@ -174,11 +230,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       toast(`${item.name} is sold out today`, "info");
       return;
     }
-    if (parseVariants(item.variants).length > 0) {
-      setDialog({ kind: "portion", item });
+    if (parseVariants(item.variants).length > 0 || groupsForItem(item, addonGroups).length > 0) {
+      setDialog({ kind: "options", item });
       return;
     }
-    addToCart({ menuItemId: item.id, name: item.name, variant: null, price: item.price, foodType: item.foodType, taxRate: taxFor(item) });
+    addToCart({ menuItemId: item.id, name: item.name, variant: null, price: priceOf(item, null) ?? item.price, foodType: item.foodType, taxRate: taxFor(item), addons: [], picks: [] });
   }
 
   // ---------- totals ----------
@@ -200,7 +256,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       : null;
   const totals = useMemo(() => {
     if (!rules || !charges) return null;
-    return calculateBill([...activeItems, ...cart], rules, order ? { type: order.discountType, value: order.discountValue } : null, {
+    return calculateBill([...activeItems, ...cart], rules, order ? { type: order.discountType, value: order.discountValue, max: order.discountMax } : null, {
       charges: [
         { name: "Packing charge", amount: charges.packingCharge, taxRate: charges.taxRate },
         { name: "Delivery charge", amount: charges.deliveryCharge, taxRate: charges.taxRate },
@@ -220,7 +276,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const cartPayload = () =>
     cart.map((l) =>
       l.menuItemId
-        ? { menuItemId: l.menuItemId, variant: l.variant, quantity: l.quantity, note: l.note || null }
+        ? { menuItemId: l.menuItemId, variant: l.variant, quantity: l.quantity, note: l.note || null, addons: l.picks }
         : { name: l.name, price: l.price, quantity: l.quantity, note: l.note || null }
     );
 
@@ -426,6 +482,33 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     }
   }
 
+  async function setComplimentary(on: boolean) {
+    setDialog(null);
+    if (!order) return;
+    if (!on) {
+      await run("complimentary", () => patchOrder({ complimentary: false }, "No longer complimentary"));
+      return;
+    }
+    const ok = await confirm({
+      title: "Make this bill complimentary?",
+      message: "Nothing is charged: no tax, service or packing. The dishes still come out of stock, and reports show it under Complimentary.",
+      askReason: "Reason, e.g. owner's guest, staff meal, food complaint",
+      confirmText: "On the house",
+    });
+    if (!ok) return;
+    if (ok.reason.trim().length < 2) return toast("Please give a reason", "error");
+    await run("complimentary", () => patchOrder({ complimentary: true, complimentaryReason: ok.reason.trim() }, "Bill is complimentary"));
+  }
+
+  async function closeComplimentary() {
+    if (!order) return;
+    if (cart.length) {
+      const r = await run("pay", () => saveCart(false));
+      if (!r) return;
+    }
+    await run("pay", () => settle([]));
+  }
+
   async function openMove() {
     setDialog(null);
     const r = await run("move", () => api<{ tables: Array<TableDTO & { order: unknown }> }>("/api/pos"));
@@ -488,7 +571,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const source = order ? order.source : draftCustomer.source;
   const sourceRef = order ? order.sourceRef : draftCustomer.sourceRef;
   const fromApp = ["zomato", "swiggy", "app"].includes(source);
-  const discountLabel = order && order.discountValue > 0 ? (order.discountType === "percent" ? `${order.discountValue}%` : undefined) : undefined;
+  const discountLabel = order?.complimentary
+    ? "Complimentary"
+    : order && order.discountValue > 0
+      ? [order.offerId && order.discountReason?.replace(/^Offer: /, ""), order.discountType === "percent" ? `${order.discountValue}%` : null].filter(Boolean).join(" · ") || undefined
+      : undefined;
   const customer = order ? order.customerName || order.customerPhone : draftCustomer.customerName || draftCustomer.customerPhone;
   const guests = order ? order.guests : Number(draftCustomer.guests) || 0;
 
@@ -540,6 +627,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           {visibleItems.map((item) => {
             const inCart = cart.filter((l) => l.menuItemId === item.id).reduce((s, l) => s + l.quantity, 0);
             const hasPortions = parseVariants(item.variants).length > 0;
+            const shown = cardPrice(item);
             return (
               <button
                 key={item.id}
@@ -559,7 +647,8 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                 <span className="mt-1 flex items-center justify-between text-sm">
                   <span className="font-semibold text-slate-700">
                     {hasPortions && <span className="font-normal text-slate-400">from </span>}
-                    {formatCurrency(fromPrice(item))}
+                    {shown.price !== shown.menu && <s className="mr-1 text-xs font-normal text-slate-400">{formatCurrency(shown.menu)}</s>}
+                    <span className={cn(shown.price !== shown.menu && "text-primary-700")}>{formatCurrency(shown.price)}</span>
                   </span>
                   {!item.available ? <span className="text-xs font-semibold text-red-600">Sold out</span> : item.shortCode && <span className="text-xs text-slate-400">{item.shortCode}</span>}
                 </span>
@@ -580,7 +669,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
 
   const lineRow = (
     key: string,
-    l: { name: string; variant: string | null; foodType: string; price: number; quantity: number; note: string | null },
+    l: { name: string; variant: string | null; foodType: string; price: number; quantity: number; note: string | null; addons: string | ChosenAddon[] },
     opts: { onMinus?: () => void; onPlus?: () => void; onNote?: () => void; tag?: React.ReactNode; muted?: boolean; busyKey?: string }
   ) => (
     <li key={key} className={cn("flex items-start gap-2 py-2", opts.muted && "opacity-50")}>
@@ -590,6 +679,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           {l.name}
           {l.variant && <span className="font-normal text-slate-500"> ({l.variant})</span>}
         </p>
+        {addonText(l.addons) && <p className="text-xs font-medium text-slate-600">+ {addonText(l.addons)}</p>}
         <p className="text-xs text-slate-500">
           {formatCurrency(l.price)} each {opts.tag}
         </p>
@@ -646,6 +736,8 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               <span className="text-emerald-700">
                 {" "}· {known.visits} visit{known.visits === 1 ? "" : "s"}
                 {settings.loyaltyEnabled && ` · ${known.points} pts`}
+                {known.balance < 0 && <b className="text-red-700"> · owes {formatCurrency(-known.balance)}</b>}
+                {known.balance > 0 && ` · wallet ${formatCurrency(known.balance)}`}
               </span>
             )}
           </button>
@@ -737,10 +829,12 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           serviceChargePercent={rules!.serviceChargePercent}
           discountLabel={discountLabel}
           pointsAction={
-            editable && order && settings.loyaltyEnabled && known && (known.points >= settings.loyaltyMinRedeem || order.pointsRedeemed > 0)
+            editable && order && !order.complimentary && settings.loyaltyEnabled && known && (known.points >= settings.loyaltyMinRedeem || order.pointsRedeemed > 0)
               ? { label: `Use loyalty points (${known.points})`, onClick: () => setDialog({ kind: "points" }) }
               : undefined
           }
+          onServiceChargeClick={editable && order && !order.complimentary && (settings.serviceChargePercent > 0 || order.serviceChargePercent > 0) ? () => setDialog({ kind: "service" }) : undefined}
+          usualServiceCharge={orderType === "dine_in" ? settings.serviceChargePercent : 0}
           onChargesClick={
             editable && orderType !== "dine_in"
               ? () => {
@@ -750,14 +844,20 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               : undefined
           }
           onDiscountClick={
-            editable
+            editable && !order?.complimentary
               ? () => {
                   if (!order) return toast("Save or send the order first, then add a discount", "info");
                   setDialog({ kind: "discount" });
+                  api<{ offers: OfferDTO[] }>("/api/offers").then((r) => setOffers(r.offers), () => setOffers([]));
                 }
               : undefined
           }
         />
+        {order?.complimentary && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-900">
+            <Gift className="h-4 w-4 shrink-0" /> On the house — {order.discountReason?.replace(/^Complimentary: /, "")}
+          </div>
+        )}
         {order?.status === "settled" && (
           <div className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             Paid {order.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount)}`).join(" + ") || "(nothing to pay)"}
@@ -778,9 +878,15 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <Button variant="outline" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "bill"} disabled={!!busy} onClick={printBill}>
               <ReceiptText className="h-5 w-5" /> {order?.billNumber ? "Reprint bill" : "Print bill"}
             </Button>
-            <Button variant="success" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "pay"} disabled={!!busy} onClick={openPayment}>
-              <Wallet className="h-5 w-5" /> Take payment
-            </Button>
+            {order?.complimentary ? (
+              <Button variant="success" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "pay"} disabled={!!busy} onClick={closeComplimentary}>
+                <Gift className="h-5 w-5" /> Close bill
+              </Button>
+            ) : (
+              <Button variant="success" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "pay"} disabled={!!busy} onClick={openPayment}>
+                <Wallet className="h-5 w-5" /> Take payment
+              </Button>
+            )}
             {cart.length > 0 && orderType !== "takeaway" && (
               <Button variant="ghost" size="sm" className="col-span-2" loading={busy === "save"} disabled={!!busy} onClick={saveOnly}>
                 <Save className="h-4 w-4" /> Save without sending to kitchen
@@ -842,13 +948,15 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         </Button>
       </div>
 
-      {dialog?.kind === "portion" && (
-        <PortionDialog
+      {dialog?.kind === "options" && (
+        <ItemOptionsDialog
           item={dialog.item}
+          groups={groupsForItem(dialog.item, addonGroups)}
+          priceOf={(variant) => priceOf(dialog.item, variant)}
           onClose={() => setDialog(null)}
-          onPick={(variant, price) => {
+          onAdd={(c) => {
             const it = dialog.item;
-            addToCart({ menuItemId: it.id, name: it.name, variant, price, foodType: it.foodType, taxRate: taxFor(it) });
+            addToCart({ menuItemId: it.id, name: it.name, variant: c.variant, price: c.unitPrice, foodType: it.foodType, taxRate: taxFor(it), addons: c.addons, picks: c.picks }, c.quantity);
             setDialog(null);
           }}
         />
@@ -857,7 +965,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         <OpenItemDialog
           onClose={() => setDialog(null)}
           onAdd={(name, price, quantity) => {
-            addToCart({ menuItemId: null, name, variant: null, price, foodType: "veg", taxRate: settings.defaultTaxRate }, quantity);
+            addToCart({ menuItemId: null, name, variant: null, price, foodType: "veg", taxRate: settings.defaultTaxRate, addons: [], picks: [] }, quantity);
             setDialog(null);
           }}
         />
@@ -910,14 +1018,17 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         <DiscountDialog
           initial={{ type: order.discountType, value: order.discountValue, reason: order.discountReason ?? "" }}
           itemsTotal={totals.itemsTotal}
+          offers={offers}
+          offerContext={{ type: order.type, timezone: settings.timezone, today: settings.today }}
+          currentOfferId={order.offerId}
+          onApplyOffer={async (o) => {
+            await patchOrder(o, "offerId" in o && o.offerId === null ? "Offer removed" : "Offer applied");
+            setDialog(null);
+          }}
           onClose={() => setDialog(null)}
           onSave={async (d) => {
-            try {
-              await patchOrder({ discountType: d.type, discountValue: d.value, discountReason: d.reason || null }, d.value ? "Discount applied" : "Discount removed");
-              setDialog(null);
-            } catch (e) {
-              toast((e as Error).message, "error");
-            }
+            await patchOrder({ discountType: d.type, discountValue: d.value, discountReason: d.reason || null }, d.value ? "Discount applied" : "Discount removed");
+            setDialog(null);
           }}
         />
       )}
@@ -953,6 +1064,36 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           }}
         />
       )}
+      {dialog?.kind === "service" && order && (
+        <ServiceChargeDialog
+          current={order.serviceChargePercent}
+          usual={settings.serviceChargePercent}
+          onClose={() => setDialog(null)}
+          onSave={async (percent) => {
+            await patchOrder({ serviceChargePercent: percent }, percent ? `Service charge ${percent}%` : "Service charge removed");
+            setDialog(null);
+          }}
+        />
+      )}
+      {dialog?.kind === "repay" && order && (
+        <PaymentDialog
+          total={order.totals.total}
+          upiId={null}
+          payeeName={settings.restaurantName}
+          currency={settings.currency}
+          initialRows={order.payments}
+          title={`Change payment mode · ${formatCurrency(order.totals.total)}`}
+          submitLabel="Save payment mode"
+          billLabel={`Bill ${order.billNumber} · paid ${order.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount)}`).join(" + ")}`}
+          onClose={() => setDialog(null)}
+          onPay={async (payments) => {
+            const r = await api<{ order: OrderDTO; dayClosed: boolean }>(`/api/orders/${order.id}/payments`, { method: "PUT", body: { payments } });
+            setOrder(r.order);
+            setDialog(null);
+            toast(r.dayClosed ? "Payment mode changed. That day was already closed: its cash count stays as it was." : "Payment mode changed", r.dayClosed ? "info" : "success");
+          }}
+        />
+      )}
       {dialog?.kind === "move" && (
         <MoveTableDialog
           tables={dialog.tables}
@@ -979,6 +1120,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           currency={settings.currency}
           initialMethod={fromApp ? "online" : "cash"}
           billLabel={`${title} · Order #${order.number}${order.billNumber ? ` · Bill ${order.billNumber}` : ""}`}
+          account={
+            phone
+              ? { name: known?.name || order.customerName || phone, balance: known?.balance ?? 0, creditLimit: known?.creditLimit ?? null, canGiveCredit: isAdmin }
+              : null
+          }
           onClose={() => setDialog(null)}
           onPay={settle}
         />
@@ -1021,6 +1167,16 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                   <MessageCircle className="h-4 w-4" /> Send bill on WhatsApp
                 </Button>
               </a>
+            )}
+            {editable && order && isAdmin && activeItems.length > 0 && (
+              <Button variant="outline" className="justify-start text-violet-700" onClick={() => setComplimentary(!order.complimentary)}>
+                <Gift className="h-4 w-4" /> {order.complimentary ? "Take off complimentary (charge the bill)" : "Complimentary (on the house)"}
+              </Button>
+            )}
+            {order?.status === "settled" && isAdmin && order.payments.length > 0 && !order.payments.some((p) => p.method === "account") && (
+              <Button variant="outline" className="justify-start" onClick={() => setDialog({ kind: "repay" })}>
+                <Wallet className="h-4 w-4" /> Change payment mode
+              </Button>
             )}
             <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-2.5 text-[15px]">
               <input

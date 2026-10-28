@@ -80,7 +80,8 @@ export function titleCase(s: string): string {
 export const ORDER_TYPES = ["dine_in", "takeaway", "delivery"] as const;
 export const ORDER_STATUSES = ["open", "billed", "settled", "cancelled"] as const;
 export const FOOD_TYPES = ["veg", "non_veg", "egg"] as const;
-export const PAYMENT_METHODS = ["cash", "upi", "card", "online", "other"] as const;
+// "account" = put on the customer's account: they pay later, or it comes out of money they paid in advance.
+export const PAYMENT_METHODS = ["cash", "upi", "card", "online", "account", "other"] as const;
 // Where a takeaway or delivery order came from. "qr" = a guest ordered from the table QR code.
 export const ORDER_SOURCES = ["counter", "phone", "zomato", "swiggy", "app", "qr"] as const;
 export const TAX_MODES = ["gst", "simple", "none"] as const;
@@ -114,6 +115,7 @@ export const LABELS: Record<string, string> = {
   upi: "UPI / QR",
   card: "Card",
   online: "Paid online / app",
+  account: "Customer account",
   bank: "Bank transfer",
   other: "Other",
   // order sources

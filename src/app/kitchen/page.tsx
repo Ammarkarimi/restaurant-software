@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { runForRestaurant } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { parseList } from "@/lib/menu";
 import { KitchenScreen } from "./kitchen-screen";
 
 export const dynamic = "force-dynamic";
@@ -13,5 +14,13 @@ export default async function KitchenPage() {
   const session = await getSession();
   if (!session) redirect("/api/auth/logout");
   const settings = await runForRestaurant(session.restaurantId, () => getSettings());
-  return <KitchenScreen restaurantName={settings.restaurantName} timezone={settings.timezone} userName={session.name} kitchenOnly={session.role === "kitchen"} />;
+  return (
+    <KitchenScreen
+      restaurantName={settings.restaurantName}
+      timezone={settings.timezone}
+      userName={session.name}
+      kitchenOnly={session.role === "kitchen"}
+      stations={parseList(settings.kitchenStations)}
+    />
+  );
 }

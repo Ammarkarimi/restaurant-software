@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
     if (body.date > todayKey(settings.timezone)) fail("You cannot close a day in the future");
     if (body.cashLeft > body.countedCash) fail("Cash left for tomorrow cannot be more than the cash counted");
     const s = await daySummary(body.date);
-    const expectedCash = round2(body.openingCash + s.cashSales - s.cashExpenses);
+    const expectedCash = round2(body.openingCash + s.cashSales + s.cashReceived - s.cashExpenses);
     const summary: DaySummaryJson = {
       payments: s.payments,
+      received: s.received,
       expenses: s.expensesByCategory,
       discount: s.discount,
       tax: s.tax,

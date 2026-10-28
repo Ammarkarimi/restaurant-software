@@ -28,6 +28,8 @@ export interface BillRules {
 export interface BillDiscount {
   type: string; // percent, amount
   value: number;
+  /** Most a percent discount may take off (an offer's "up to ₹100"). */
+  max?: number | null;
 }
 
 /** A charge on the whole order, like packing or delivery. */
@@ -79,7 +81,8 @@ export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 10
 
 export function discountAmount(itemsTotal: number, discount: BillDiscount | null | undefined): number {
   if (!discount || !(discount.value > 0) || itemsTotal <= 0) return 0;
-  const amount = discount.type === "amount" ? discount.value : (itemsTotal * Math.min(discount.value, 100)) / 100;
+  let amount = discount.type === "amount" ? discount.value : (itemsTotal * Math.min(discount.value, 100)) / 100;
+  if (discount.type !== "amount" && discount.max && discount.max > 0) amount = Math.min(amount, discount.max);
   return round2(Math.min(amount, itemsTotal));
 }
 

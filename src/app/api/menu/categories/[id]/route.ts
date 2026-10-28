@@ -11,6 +11,7 @@ const schema = z
     name: z.string().trim().min(1, "Category name is required").max(60),
     active: z.boolean(),
     move: z.enum(["up", "down"]),
+    station: z.string().trim().max(40).nullable().transform((v) => v || null),
   })
   .partial();
 
@@ -36,6 +37,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (Object.keys(data).length) {
       await prisma.menuCategory.update({ where: { id }, data });
       if (data.name && data.name !== category.name) await logActivity(user, "Renamed menu category", `${category.name} → ${data.name}`);
+      if (data.station !== undefined && data.station !== category.station) await logActivity(user, "Changed kitchen station", `${data.name ?? category.name}: ${data.station ?? "main kitchen"}`);
     }
     return NextResponse.json({ success: true });
   });

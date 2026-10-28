@@ -1,14 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, BookOpen, ClipboardPaste, Eye, EyeOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, Textarea, Tip, Toggle } from "@/components/ui";
+import { ArrowDown, ArrowUp, BookOpen, Camera, ClipboardPaste, Eye, EyeOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea, Tip, Toggle } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { FoodMark } from "@/components/food-mark";
 import { api } from "@/lib/client";
-import { parseVariants, type Variant } from "@/lib/menu";
+import { choiceHint, parseList, parseVariants, type Variant } from "@/lib/menu";
 import { cn, formatCurrency, label } from "@/lib/utils";
-import type { CategoryDTO, MenuItemDTO, SettingsDTO } from "@/lib/types";
+import type { AddonGroupDTO, CategoryDTO, MenuItemDTO, MenuResponse, OfferDTO, PriceListDTO, SettingsDTO, TableDTO } from "@/lib/types";
+import { AddonsTab } from "./addons-tab";
+import { PricesTab } from "./prices-tab";
+import { OffersTab } from "./offers-tab";
+
+type MenuTab = "dishes" | "addons" | "prices" | "offers";
 
 interface ItemForm {
   id?: string;
@@ -23,6 +28,9 @@ interface ItemForm {
   customTax: boolean;
   taxRate: string;
   available: boolean;
+  addonGroupIds: string[];
+  showOnline: boolean;
+  imageUrl: string | null;
 }
 
 function toForm(item: MenuItemDTO | null, categoryId: string): ItemForm {
@@ -40,18 +48,23 @@ function toForm(item: MenuItemDTO | null, categoryId: string): ItemForm {
     customTax: item?.taxRate !== null && item?.taxRate !== undefined,
     taxRate: item?.taxRate !== null && item?.taxRate !== undefined ? String(item.taxRate) : "",
     available: item?.available ?? true,
+    addonGroupIds: item ? parseList(item.addonGroupIds) : [],
+    showOnline: item?.showOnline ?? true,
+    imageUrl: item?.imageUrl ?? null,
   };
 }
 
 function ItemDialog({
   initial,
   categories,
+  addonGroups,
   defaultTax,
   onClose,
   onSaved,
 }: {
   initial: ItemForm;
   categories: CategoryDTO[];
+  addonGroups: AddonGroupDTO[];
   defaultTax: number;
   onClose: () => void;
   onSaved: () => void;
@@ -59,6 +72,9 @@ function ItemDialog({
   const { toast } = useApp();
   const [f, setF] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
   const set = (p: Partial<ItemForm>) => setF((x) => ({ ...x, ...p }));
 
   async function save(e: React.FormEvent) {
@@ -77,9 +93,18 @@ function ItemDialog({
         foodType: f.foodType,
         taxRate: f.customTax && f.taxRate !== "" ? Number(f.taxRate) : null,
         available: f.available,
+        addonGroupIds: f.addonGroupIds,
+        showOnline: f.showOnline,
       };
-      if (f.id) await api(`/api/menu/items/${f.id}`, { method: "PUT", body });
-      else await api("/api/menu/items", { body });
+      const saved = f.id ? await api<{ item: { id: string } }>(`/api/menu/items/${f.id}`, { method: "PUT", body }) : await api<{ item: { id: string } }>("/api/menu/items", { body });
+      if (photo) {
+        const form = new FormData();
+        form.append("photo", photo);
+        const r = await fetch(`/api/menu/items/${saved.item.id}/photo`, { method: "POST", body: form });
+        if (!r.ok) toast(((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? "The photo could not be saved", "error");
+      } else if (removePhoto && f.imageUrl) {
+        await api(`/api/menu/items/${saved.item.id}/photo`, { method: "DELETE" });
+      }
       toast(f.id ? "Item updated" : `${f.name} added to the menu`);
       onSaved();
     } catch (err) {
@@ -154,9 +179,65 @@ function ItemDialog({
             <Input className="mt-2" type="number" min={0} max={100} step="0.01" value={f.taxRate} onChange={(e) => set({ taxRate: e.target.value })} placeholder="Tax %" aria-label="Tax rate" />
           )}
         </div>
-        <Field label="Description" optional className="sm:col-span-2">
+        <Field label="Description" optional hint="Shown to guests on the QR menu" className="sm:col-span-2">
           <Textarea rows={2} value={f.description} onChange={(e) => set({ description: e.target.value })} />
         </Field>
+        {addonGroups.length > 0 && (
+          <div className="sm:col-span-2">
+            <p className="mb-1.5 text-sm font-semibold text-slate-700">Add-ons offered with it</p>
+            <div className="flex flex-wrap gap-2">
+              {addonGroups.map((g) => {
+                const on = f.addonGroupIds.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => set({ addonGroupIds: on ? f.addonGroupIds.filter((x) => x !== g.id) : [...f.addonGroupIds, g.id] })}
+                    className={cn("rounded-full border px-3 py-1 text-sm font-semibold transition", on ? "border-primary-500 bg-primary-50 text-primary-800" : "border-slate-200 text-slate-600 hover:border-primary-300")}
+                  >
+                    {g.name} <span className="font-normal opacity-70">· {choiceHint(g)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-4 sm:col-span-2">
+          {(preview || (f.imageUrl && !removePhoto)) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview ?? f.imageUrl!} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+          )}
+          <div className="space-y-1">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <Camera className="h-4 w-4" /> {f.imageUrl || photo ? "Change photo" : "Add a photo"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  setPhoto(e.target.files?.[0] ?? null);
+                  setRemovePhoto(false);
+                }}
+              />
+            </label>
+            {(photo || (f.imageUrl && !removePhoto)) && (
+              <button
+                type="button"
+                className="ml-2 text-sm text-red-600 hover:underline"
+                onClick={() => {
+                  setPhoto(null);
+                  setRemovePhoto(true);
+                }}
+              >
+                Remove photo
+              </button>
+            )}
+            <p className="text-xs text-slate-500">Optional. Shown on the QR menu. PNG, JPG or WebP, up to 3 MB.</p>
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <Toggle checked={f.showOnline} onChange={(v) => set({ showOnline: v })} label="Show on the QR menu" description="Switch off for staff-only items such as staff meals or open items." />
+        </div>
         <div className="sm:col-span-2">
           <Toggle checked={f.available} onChange={(v) => set({ available: v })} label="Available" description="Switch off when the kitchen runs out. It shows as sold out." />
         </div>
@@ -256,7 +337,13 @@ function QuickAddDialog({ categories, onClose, onSaved }: { categories: Category
 
 export default function MenuPage() {
   const { isAdmin, toast, confirm } = useApp();
+  const [tab, setTab] = useState<MenuTab>("dishes");
   const [categories, setCategories] = useState<CategoryDTO[] | null>(null);
+  const [addonGroups, setAddonGroups] = useState<AddonGroupDTO[]>([]);
+  const [priceLists, setPriceLists] = useState<PriceListDTO[]>([]);
+  const [offers, setOffers] = useState<OfferDTO[]>([]);
+  const [areas, setAreas] = useState<string[]>([]);
+  const [stations, setStations] = useState<string[]>([]);
   const [defaultTax, setDefaultTax] = useState(5);
   const [selected, setSelected] = useState<string>("all");
   const [q, setQ] = useState("");
@@ -265,12 +352,27 @@ export default function MenuPage() {
   const [catDialog, setCatDialog] = useState<{ id?: string; name: string } | null>(null);
 
   const load = useCallback(() => {
-    api<{ categories: CategoryDTO[] }>("/api/menu").then((r) => setCategories(r.categories), (e) => toast(e.message, "error"));
-  }, [toast]);
+    api<MenuResponse>("/api/menu").then(
+      (r) => {
+        setCategories(r.categories);
+        setAddonGroups(r.addonGroups);
+        setPriceLists(r.priceLists);
+      },
+      (e) => toast(e.message, "error")
+    );
+    if (isAdmin) api<{ offers: OfferDTO[] }>("/api/offers").then((r) => setOffers(r.offers), () => null);
+  }, [toast, isAdmin]);
   useEffect(() => {
     load();
-    api<{ settings: SettingsDTO }>("/api/settings").then((r) => setDefaultTax(r.settings.defaultTaxRate), () => null);
-  }, [load]);
+    api<{ settings: SettingsDTO }>("/api/settings").then(
+      (r) => {
+        setDefaultTax(r.settings.defaultTaxRate);
+        setStations(parseList(r.settings.kitchenStations));
+      },
+      () => null
+    );
+    if (isAdmin) api<{ tables: TableDTO[] }>("/api/tables").then((r) => setAreas([...new Set(r.tables.map((t) => t.area))]), () => null);
+  }, [load, isAdmin]);
 
   const items = useMemo(() => {
     if (!categories) return [];
@@ -350,7 +452,8 @@ export default function MenuPage() {
         title="Menu"
         description={isAdmin ? "Your dishes, portions and prices. Changes show on the order screen straight away." : "Mark dishes as sold out when the kitchen runs out."}
         actions={
-          isAdmin && (
+          isAdmin &&
+          tab === "dishes" && (
             <>
               <Button variant="outline" onClick={() => setQuickAdd(true)}>
                 <ClipboardPaste className="h-5 w-5" /> Quick add many
@@ -368,7 +471,26 @@ export default function MenuPage() {
         }
       />
 
-      {totalItems === 0 && categories.length === 0 ? (
+      {isAdmin && (
+        <Tabs<MenuTab>
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { value: "dishes", label: "Dishes", count: totalItems },
+            { value: "addons", label: "Add-ons & combos", count: addonGroups.length },
+            { value: "prices", label: "Special prices", count: priceLists.length },
+            { value: "offers", label: "Offers & coupons", count: offers.length },
+          ]}
+        />
+      )}
+
+      {tab === "addons" && isAdmin ? (
+        <AddonsTab groups={addonGroups} categories={categories} onChanged={load} />
+      ) : tab === "prices" && isAdmin ? (
+        <PricesTab lists={priceLists} categories={categories} areas={areas} onChanged={load} />
+      ) : tab === "offers" && isAdmin ? (
+        <OffersTab offers={offers} onChanged={load} />
+      ) : totalItems === 0 && categories.length === 0 ? (
         <EmptyState
           icon={<BookOpen className="h-6 w-6" />}
           title="Your menu is empty"
@@ -442,6 +564,16 @@ export default function MenuPage() {
                         {c.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} {c.active ? "Hide" : "Show"}
                       </Button>
                       <Button size="sm" variant="ghost" className="text-red-600" onClick={() => removeCategory(c)} aria-label="Delete category"><Trash2 className="h-4 w-4" /></Button>
+                      {stations.length > 0 && (
+                        <Field label="Cooked at" hint="Its dishes print on this station's kitchen ticket" className="w-full">
+                          <Select value={c.station && stations.includes(c.station) ? c.station : ""} onChange={(e) => categoryAction(c, { station: e.target.value || null }, `${c.name} now goes to ${e.target.value || "the main kitchen"}`)}>
+                            <option value="">Main kitchen</option>
+                            {stations.map((st) => (
+                              <option key={st} value={st}>{st}</option>
+                            ))}
+                          </Select>
+                        </Field>
+                      )}
                     </>
                   );
                 })()}
@@ -470,12 +602,18 @@ export default function MenuPage() {
                   return (
                     <li key={item.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-start gap-2.5">
+                        {item.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" loading="lazy" />
+                        )}
                         <FoodMark type={item.foodType} className="mt-1.5" />
                         <div className="min-w-0">
                           <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
                             {item.name}
                             {item.shortCode && <Badge>{item.shortCode}</Badge>}
                             {!item.available && <Badge variant="danger">Sold out</Badge>}
+                            {!item.showOnline && <Badge>Not on QR menu</Badge>}
+                            {parseList(item.addonGroupIds).length > 0 && <Badge variant="info">Add-ons</Badge>}
                           </p>
                           <p className="text-sm text-slate-500">
                             {variants.length ? variants.map((v) => `${v.name} ${formatCurrency(v.price)}`).join(" · ") : formatCurrency(item.price)}
@@ -513,6 +651,7 @@ export default function MenuPage() {
         <ItemDialog
           initial={editing}
           categories={categories}
+          addonGroups={addonGroups}
           defaultTax={defaultTax}
           onClose={() => setEditing(null)}
           onSaved={() => {

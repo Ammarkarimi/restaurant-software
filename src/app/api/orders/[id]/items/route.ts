@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (body.items.length + order.items.length > 500) fail("This order has too many items. Please start a new order.");
 
     const result = await prisma.$transaction(async (tx) => {
-      const lines = await buildLines(tx, body.items, settings);
+      const lines = await buildLines(tx, body.items, settings, { area: order.table?.area, type: order.type, source: order.source });
       await tx.orderItem.createMany({ data: lines.map((l) => ({ ...l, orderId: id, restaurantId: settings.restaurantId })) });
       // New items mean the printed bill is out of date.
       if (order.status === "billed") await tx.order.update({ where: { id }, data: { status: "open" } });

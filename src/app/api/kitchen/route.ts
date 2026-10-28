@@ -10,7 +10,12 @@ export async function GET() {
   return withAuth(
     async () => {
       const items = await prisma.orderItem.findMany({
-        where: { kotNumber: { not: null }, kitchenStatus: { in: ["new", "ready"] }, order: { status: { in: ACTIVE_STATUSES } } },
+        where: {
+          kotNumber: { not: null },
+          kitchenStatus: { in: ["new", "ready"] },
+          // Running orders, plus takeaway and delivery paid up front: those stay until the food is handed over.
+          order: { OR: [{ status: { in: ACTIVE_STATUSES } }, { status: "settled", type: { not: "dine_in" }, settledAt: { gte: new Date(Date.now() - 12 * 3600_000) } }] },
+        },
         include: { order: { select: { id: true, number: true, type: true, source: true, sourceRef: true, customerName: true, notes: true, table: { select: { name: true } } } } },
         orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
         take: 2000,
@@ -37,7 +42,7 @@ export async function GET() {
           };
           tickets.set(key, t);
         }
-        t.items.push({ id: i.id, name: i.name, variant: i.variant, quantity: i.quantity, note: i.note, cancelled: i.status === "cancelled", kitchenStatus: i.kitchenStatus });
+        t.items.push({ id: i.id, name: i.name, variant: i.variant, quantity: i.quantity, note: i.note, addons: i.addons, station: i.station, cancelled: i.status === "cancelled", kitchenStatus: i.kitchenStatus });
       }
       // A ticket is cooking while any of its dishes is; cancelled-only tickets are not shown.
       const list = [...tickets.values()].filter((t) => t.items.some((i) => !i.cancelled));

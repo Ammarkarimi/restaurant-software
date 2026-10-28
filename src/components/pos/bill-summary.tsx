@@ -10,6 +10,8 @@ export function BillSummary({
   serviceChargePercent,
   onDiscountClick,
   onChargesClick,
+  onServiceChargeClick,
+  usualServiceCharge = 0,
   pointsAction,
   discountLabel,
   className,
@@ -22,6 +24,10 @@ export function BillSummary({
   onDiscountClick?: () => void;
   /** Edits packing / delivery charges; shown as a link for takeaway and delivery. */
   onChargesClick?: () => void;
+  /** Change or remove the service charge on this bill (it is optional for guests). */
+  onServiceChargeClick?: () => void;
+  /** The restaurant's usual service charge %, to offer adding it back. */
+  usualServiceCharge?: number;
   /** "Use loyalty points (120)" when the customer has points to use. */
   pointsAction?: { label: string; onClick: () => void };
   discountLabel?: string;
@@ -70,11 +76,22 @@ export function BillSummary({
           </button>
         )
       )}
-      {totals.serviceCharge > 0 && (
-        <div className={row}>
-          <span className="text-slate-600">Service charge ({serviceChargePercent}%)</span>
-          <span>{formatCurrency(totals.serviceCharge)}</span>
-        </div>
+      {totals.serviceCharge > 0 &&
+        (onServiceChargeClick ? (
+          <button type="button" onClick={onServiceChargeClick} className={cn(row, "w-full text-left")}>
+            <span className="text-slate-600 underline-offset-2 hover:underline">Service charge ({serviceChargePercent}%)</span>
+            <span>{formatCurrency(totals.serviceCharge)}</span>
+          </button>
+        ) : (
+          <div className={row}>
+            <span className="text-slate-600">Service charge ({serviceChargePercent}%)</span>
+            <span>{formatCurrency(totals.serviceCharge)}</span>
+          </div>
+        ))}
+      {totals.serviceCharge === 0 && onServiceChargeClick && usualServiceCharge > 0 && (
+        <button type="button" onClick={onServiceChargeClick} className={cn(row, "w-full text-left")}>
+          <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">+ Service charge ({usualServiceCharge}%)</span>
+        </button>
       )}
       {totals.charges.map((c) =>
         onChargesClick ? (

@@ -114,18 +114,21 @@ export async function POST(request: NextRequest) {
     try {
       const result = await prisma.$transaction(async (tx) => {
         let tableId: string | null = null;
+        let area: string | null = null;
         if (body.type === "dine_in") {
           const table = await tx.diningTable.findFirst({ where: { id: body.tableId!, active: true } });
           if (!table) fail("This table was not found");
           tableId = table.id;
+          area = table.area;
         }
-        const lines = await buildLines(tx, body.items, settings);
+        const source = body.type === "dine_in" && body.source !== "qr" ? "counter" : body.source;
+        const lines = await buildLines(tx, body.items, settings, { area, type: body.type, source });
         const created = await tx.order.create({
           data: {
             restaurantId: settings.restaurantId,
             number: await nextNumber(tx, "orderSeq"),
             type: body.type,
-            source: body.type === "dine_in" && body.source !== "qr" ? "counter" : body.source,
+            source,
             sourceRef: body.sourceRef || null,
             tableId,
             activeTableId: tableId,

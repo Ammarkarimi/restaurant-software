@@ -56,6 +56,10 @@ const RESTAURANT_MODELS = new Set([
   "StockItem",
   "StockEntry",
   "RecipeLine",
+  "AddonGroup",
+  "PriceList",
+  "Offer",
+  "CustomerTxn",
 ]);
 
 type Args = Record<string, unknown> & { where?: object; data?: unknown; create?: object };

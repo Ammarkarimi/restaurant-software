@@ -22,10 +22,10 @@ export default async function GuestMenuPage({ params, searchParams }: Props) {
   const found = await findPublicRestaurant(slug);
   if (!found) notFound();
   const { settings } = found;
-  const { categories, table } = await runForRestaurant(found.restaurant.id, async () => ({
-    categories: await publicMenu(),
-    table: await tableForToken(t),
-  }));
+  const { menu, table } = await runForRestaurant(found.restaurant.id, async () => {
+    const table = await tableForToken(t);
+    return { table, menu: await publicMenu(slug, { area: table?.area, type: "dine_in", source: "qr" }, settings.timezone) };
+  });
 
   return (
     <GuestMenu
@@ -43,7 +43,8 @@ export default async function GuestMenuPage({ params, searchParams }: Props) {
               ? `Prices include ${settings.taxMode === "gst" ? "GST" : settings.taxName}`
               : `${settings.taxMode === "gst" ? "GST" : settings.taxName} is added to the bill`,
       }}
-      categories={categories}
+      categories={menu.categories}
+      addonGroups={menu.addonGroups}
       table={table ? { token: t!, name: table.name } : null}
       ordering={settings.qrOrderingEnabled && !!table}
     />
