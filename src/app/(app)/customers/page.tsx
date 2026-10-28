@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BookUser, Download, Gift, Search, Trash2, UserPlus, Users } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, StatCard, Textarea, Tip } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, StatCard, Tabs, Textarea, Tip } from "@/components/ui";
+import { FeedbackTab } from "./feedback-tab";
+import { CampaignsTab } from "./campaigns-tab";
 import { useApp } from "@/components/app-provider";
 import { api, whatsappLink } from "@/lib/client";
 import { cn, formatCurrency, formatDate, formatDateTime, label } from "@/lib/utils";
@@ -351,8 +353,15 @@ function CustomerDetail({ id, upiId, onClose, onChanged }: { id: string; upiId: 
   );
 }
 
+type CustomersTab = "list" | "feedback" | "offers";
+
 export default function CustomersPage() {
   const { isAdmin, toast } = useApp();
+  const [tab, setTab] = useState<CustomersTab>("list");
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "feedback" || t === "offers") setTab(t);
+  }, []);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("recent");
   const [data, setData] = useState<{ customers: Customer[]; stats: Stats } | null>(null);
@@ -396,8 +405,9 @@ export default function CustomersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Customers"
-        description="Saved automatically from the phone number on paid bills. See who comes back, their spend and loyalty points."
+        description="Saved automatically from the phone number on paid bills. See who comes back, their spend, loyalty points and what they think."
         actions={
+          tab === "list" && (
           <>
             <a href={EXPORT_URL} download>
               <Button variant="outline">
@@ -408,8 +418,27 @@ export default function CustomersPage() {
               <UserPlus className="h-4 w-4" /> Add customer
             </Button>
           </>
+          )
         }
       />
+
+      <Tabs<CustomersTab>
+        value={tab}
+        onChange={(t) => {
+          setTab(t);
+          window.history.replaceState(null, "", t === "list" ? "/customers" : `/customers?tab=${t}`);
+        }}
+        tabs={[
+          { value: "list", label: "Customers" },
+          { value: "feedback", label: "Feedback & ratings" },
+          { value: "offers", label: "WhatsApp offers" },
+        ]}
+      />
+
+      {tab === "feedback" && <FeedbackTab />}
+      {tab === "offers" && <CampaignsTab />}
+      {tab === "list" && (
+      <>
 
       {data && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -469,6 +498,9 @@ export default function CustomersPage() {
             ))}
           </ul>
         </Card>
+      )}
+
+      </>
       )}
 
       {open && <CustomerDetail id={open} upiId={upiId} onClose={() => setOpen(null)} onChanged={load} />}

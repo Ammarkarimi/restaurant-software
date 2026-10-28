@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, isAdmin, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
+import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
 import { diffDays, isDateKey, todayKey } from "@/lib/dates";
 import { EXPENSE_METHODS } from "@/lib/cash";
@@ -35,6 +36,7 @@ const schema = z.object({
 /** Records money paid out. Cashiers can record today's expenses (e.g. paying the vegetable seller from the till). */
 export async function POST(request: NextRequest) {
   return withAuth(async (user) => {
+    if (!can(user, "expenses")) fail("You are not allowed to add expenses. Ask the owner / manager.", 403);
     const body = schema.parse(await request.json());
     const settings = await getSettings();
     const today = todayKey(settings.timezone);

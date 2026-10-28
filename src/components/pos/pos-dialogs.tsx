@@ -374,10 +374,13 @@ export function DiscountDialog({
   offers,
   offerContext,
   currentOfferId,
+  handLimit = 100,
   onApplyOffer,
   onSave,
   onClose,
 }: {
+  /** Most this person may take off by hand, in %. */
+  handLimit?: number;
   initial: { type: string; value: number; reason: string };
   itemsTotal: number;
   /** Saved offers; null while they load. */
@@ -396,7 +399,8 @@ export function DiscountDialog({
   const [error, setError] = useState("");
   const n = Number(value) || 0;
   const amount = type === "percent" ? round2((itemsTotal * Math.min(n, 100)) / 100) : Math.min(n, itemsTotal);
-  const invalid = n < 0 || (type === "percent" && n > 100);
+  const asPercent = type === "percent" ? n : itemsTotal > 0 ? (n / itemsTotal) * 100 : 100;
+  const invalid = n < 0 || (type === "percent" && n > 100) || asPercent > handLimit + 0.001;
   const listed = (offers ?? []).filter((o) => o.active && !o.code);
 
   async function run(key: string, fn: () => Promise<void> | void) {
@@ -426,9 +430,11 @@ export function DiscountDialog({
             </Button>
           )}
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button loading={saving === "manual"} disabled={invalid || n <= 0} onClick={() => run("manual", () => onSave({ type, value: n, reason: reason.trim() }))}>
-            Apply discount
-          </Button>
+          {handLimit > 0 && (
+            <Button loading={saving === "manual"} disabled={invalid || n <= 0} onClick={() => run("manual", () => onSave({ type, value: n, reason: reason.trim() }))}>
+              Apply discount
+            </Button>
+          )}
         </>
       }
     >
@@ -467,8 +473,14 @@ export function DiscountDialog({
         )}
         {offers === null && <p className="text-sm text-slate-500">Loading offers…</p>}
         {error && <Tip tone="danger">{error}</Tip>}
+        {handLimit === 0 ? (
+          <p className="border-t border-slate-100 pt-4 text-sm text-slate-500">Discounts by hand need the owner / manager. You can apply the offers above.</p>
+        ) : (
         <div className="space-y-4 border-t border-slate-100 pt-4">
-          <p className="text-sm font-semibold text-slate-700">{listed.length ? "Or a discount by hand" : "Discount by hand"}</p>
+          <p className="text-sm font-semibold text-slate-700">
+            {listed.length ? "Or a discount by hand" : "Discount by hand"}
+            {handLimit < 100 && <span className="font-normal text-slate-500"> · you can give up to {handLimit}%</span>}
+          </p>
           <div className="grid grid-cols-2 gap-2">
             {(["percent", "amount"] as const).map((t) => (
               <Button key={t} variant={type === t ? "primary" : "outline"} onClick={() => setType(t)}>
@@ -478,7 +490,7 @@ export function DiscountDialog({
           </div>
           {type === "percent" && (
             <div className="flex flex-wrap gap-2">
-              {[5, 10, 15, 20, 25].map((p) => (
+              {[5, 10, 15, 20, 25].filter((p) => p <= handLimit).map((p) => (
                 <Button key={p} size="sm" variant={n === p ? "secondary" : "outline"} onClick={() => setValue(String(p))}>
                   {p}%
                 </Button>
@@ -492,6 +504,7 @@ export function DiscountDialog({
             <Input value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
         </div>
+        )}
       </div>
     </Modal>
   );

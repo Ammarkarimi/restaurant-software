@@ -62,11 +62,12 @@ const schema = z
     onlineDeliveryEnabled: z.boolean(),
     onlineMinOrder: z.coerce.number().min(0).max(100_000),
     onlineBookingEnabled: z.boolean(),
+    googleReviewUrl: z.string().trim().max(300).url("Paste the full link, starting with https://").or(z.literal("")).nullable(),
     billTemplate: billTemplateSchema,
   })
   .partial();
 
-const NULLABLE = new Set(["legalName", "address", "city", "phone", "email", "gstin", "fssai", "upiId"]);
+const NULLABLE = new Set(["legalName", "address", "city", "phone", "email", "gstin", "fssai", "upiId", "googleReviewUrl"]);
 
 export async function PATCH(request: NextRequest) {
   return withAdmin(async (user) => {

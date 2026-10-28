@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { KeyRound, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Tip, Toggle } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { BillSummary } from "@/components/pos/bill-summary";
@@ -12,6 +12,7 @@ import { calculateBill } from "@/lib/billing";
 import { formatDateTime, label } from "@/lib/utils";
 import { parseList } from "@/lib/menu";
 import { parseRiders } from "@/lib/riders";
+import { DEFAULT_PERMISSIONS, RIGHTS, parsePermissions, type Permissions } from "@/lib/permissions";
 import type { SettingsDTO } from "@/lib/types";
 
 type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "online" | "kitchen" | "staff" | "activity";
@@ -353,7 +354,13 @@ function OnlineTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: 
               </Field>
             </div>
           )}
-          {slug && settings.onlineOrderingEnabled && <LinkBox url={`${origin}/m/${slug}?order=1`} label="Ordering link" />}
+          {slug && settings.onlineOrderingEnabled && (
+            <>
+              <LinkBox url={`${origin}/m/${slug}?order=1`} label="Ordering link" />
+              <LinkBox url={`${origin}/m/${slug}?kiosk=1`} label="Self-order kiosk" />
+              <p className="text-sm text-slate-500">Open the kiosk link on a tablet at the counter: guests order takeaway themselves, get a number and pay at the counter.</p>
+            </>
+          )}
         </CardContent>
       </Card>
       <Card>
@@ -366,7 +373,49 @@ function OnlineTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: 
       <SaveBar saving={saving} changed={changed} onSave={save} />
       {(!settings.onlineOrderingEnabled || !settings.onlineBookingEnabled) && <p className="text-sm text-slate-500">Links appear here after you switch them on and save.</p>}
       <RidersCard settings={settings} onSaved={onSaved} />
+      <CommissionCard settings={settings} onSaved={onSaved} />
     </div>
+  );
+}
+
+function CommissionCard({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
+  const { toast } = useApp();
+  const initial = (() => {
+    try {
+      return JSON.parse(settings.appCommission || "{}") as Record<string, number>;
+    } catch {
+      return {};
+    }
+  })();
+  const [values, setValues] = useState<Record<string, string>>({ zomato: String(initial.zomato ?? ""), swiggy: String(initial.swiggy ?? ""), app: String(initial.app ?? "") });
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true);
+    try {
+      const body = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)]));
+      const r = await api<{ settings: SettingsDTO }>("/api/settings", { method: "PATCH", body: { appCommission: body } });
+      onSaved(r.settings);
+      toast("Commission saved");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Card>
+      <CardHeader title="What the apps keep" description="The commission % Zomato, Swiggy and other apps take. Reports then show roughly what you get paid for app orders." />
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(["zomato", "swiggy", "app"] as const).map((k) => (
+            <Field key={k} label={`${label(k)} %`}>
+              <Input type="number" min={0} max={60} step="0.5" value={values[k]} onChange={(e) => setValues({ ...values, [k]: e.target.value })} placeholder="e.g. 25" />
+            </Field>
+          ))}
+        </div>
+        <Button variant="outline" loading={saving} onClick={save}>Save commission</Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -470,6 +519,66 @@ interface StaffRow {
   role: string;
   active: boolean;
   createdAt: string;
+  permissions: string;
+}
+
+/** What one cashier / captain may do. */
+function RightsDialog({ staff, onClose, onSave }: { staff: StaffRow; onClose: () => void; onSave: (p: Permissions) => Promise<void> }) {
+  const [p, setP] = useState<Permissions>(parsePermissions(staff.permissions));
+  const [saving, setSaving] = useState(false);
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`What ${staff.name} may do`}
+      description="Taking orders, sending them to the kitchen, printing bills and taking payment are always allowed."
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" className="mr-auto" onClick={() => setP({ ...DEFAULT_PERMISSIONS })}>
+            Back to the usual
+          </Button>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            loading={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSave(p);
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Discounts by hand" hint="Offers you set up in Menu → Offers can always be applied">
+          <Select value={String(p.discountMax)} onChange={(e) => setP({ ...p, discountMax: Number(e.target.value) })}>
+            <option value="0">Not allowed</option>
+            {[5, 10, 15, 20, 25, 50].map((n) => (
+              <option key={n} value={n}>Up to {n}%</option>
+            ))}
+            <option value="100">Any discount</option>
+          </Select>
+        </Field>
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+          {RIGHTS.map((r) => (
+            <label key={r.key} className="flex cursor-pointer items-start gap-3 px-4 py-3">
+              <input type="checkbox" checked={p[r.key]} onChange={(e) => setP({ ...p, [r.key]: e.target.checked })} className="mt-1 h-4 w-4 accent-primary-600" />
+              <span>
+                <span className="block font-semibold text-slate-800">{r.label}</span>
+                {r.hint && <span className="text-sm text-slate-500">{r.hint}</span>}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 function StaffTab() {
@@ -478,6 +587,7 @@ function StaffTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "staff" });
   const [resetFor, setResetFor] = useState<StaffRow | null>(null);
+  const [rightsFor, setRightsFor] = useState<StaffRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
   const load = useCallback(() => {
@@ -525,7 +635,7 @@ function StaffTab() {
     <Card>
       <CardHeader
         title="Staff accounts"
-        description="Give each cashier and captain their own sign-in, so you can see who did what. They can take orders and bills, but cannot see reports, change the menu or settings, or cancel food the kitchen has started."
+        description="Give each cashier and captain their own sign-in, so you can see who did what. They take orders and bills, but cannot see reports or change the menu or settings. Use Rights to choose discounts, cancelling, reprints and more for each one."
         action={
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <UserPlus className="h-4 w-4" /> Add staff
@@ -550,6 +660,11 @@ function StaffTab() {
                   <option value="admin">Owner / Manager</option>
                   <option value="kitchen">Kitchen screen only</option>
                 </Select>
+                {s.role === "staff" && (
+                  <Button size="sm" variant="outline" onClick={() => setRightsFor(s)}>
+                    <ShieldCheck className="h-4 w-4" /> Rights
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" onClick={() => (setResetFor(s), setNewPassword(""))}>
                   <KeyRound className="h-4 w-4" /> Reset password
                 </Button>
@@ -590,6 +705,17 @@ function StaffTab() {
         </form>
       </Modal>
 
+      {rightsFor && (
+        <RightsDialog
+          staff={rightsFor}
+          onClose={() => setRightsFor(null)}
+          onSave={async (permissions) => {
+            await update(rightsFor, { permissions }, `${rightsFor.name}'s rights saved`);
+            setRightsFor(null);
+          }}
+        />
+      )}
+
       <Modal
         open={!!resetFor}
         onClose={() => setResetFor(null)}
@@ -614,6 +740,69 @@ function StaffTab() {
           <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoFocus />
         </Field>
       </Modal>
+    </Card>
+  );
+}
+
+function AttendanceCard() {
+  const { settings } = useApp();
+  const [month, setMonth] = useState(settings.today.slice(0, 7));
+  const [data, setData] = useState<{ people: Array<{ staffId: string; name: string; days: number; hours: number; onShift: boolean }>; rows: Array<{ id: string; staffName: string; date: string; inAt: string; outAt: string | null }> } | null>(null);
+  useEffect(() => {
+    setData(null);
+    api<NonNullable<typeof data>>(`/api/attendance?month=${month}`).then(setData, () => setData({ people: [], rows: [] }));
+  }, [month]);
+  const time = (d: string) => formatDateTime(d, settings.timezone).split(", ").pop();
+  return (
+    <Card>
+      <CardHeader
+        title="Attendance"
+        description="Staff tap “Start my shift” and “End” in the menu on the left. See days worked and hours for salaries."
+        action={<Input type="month" value={month} max={settings.today.slice(0, 7)} onChange={(e) => e.target.value && setMonth(e.target.value)} className="min-h-9 w-44 py-1" aria-label="Month" />}
+      />
+      <CardContent>
+        {!data ? (
+          <Loading />
+        ) : data.people.length === 0 ? (
+          <p className="text-sm text-slate-500">No shifts in this month yet.</p>
+        ) : (
+          <>
+            <table className="w-full text-[15px]">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
+                  <th className="py-2 font-semibold">Staff</th>
+                  <th className="py-2 text-right font-semibold">Days worked</th>
+                  <th className="py-2 text-right font-semibold">Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.people.map((p) => (
+                  <tr key={p.staffId} className="border-b border-slate-100">
+                    <td className="py-2 font-semibold">
+                      {p.name} {p.onShift && <Badge variant="success">On shift now</Badge>}
+                    </td>
+                    <td className="py-2 text-right">{p.days}</td>
+                    <td className="py-2 text-right">{p.hours}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <details className="mt-3 text-sm">
+              <summary className="cursor-pointer font-semibold text-slate-600">Every shift ({data.rows.length})</summary>
+              <ul className="mt-2 max-h-64 divide-y divide-slate-100 overflow-y-auto">
+                {data.rows.map((r) => (
+                  <li key={r.id} className="flex justify-between py-1.5">
+                    <span>{r.staffName} · {r.date}</span>
+                    <span className="text-slate-600">
+                      {time(r.inAt)} – {r.outAt ? time(r.outAt) : "still on"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </>
+        )}
+      </CardContent>
     </Card>
   );
 }
@@ -713,7 +902,12 @@ function SettingsView() {
       {tab === "qr" && <QrTab key={settings.id + "q"} settings={settings} onSaved={saved} />}
       {tab === "kitchen" && <KitchenTab key={settings.id + "k"} settings={settings} onSaved={saved} />}
       {tab === "online" && <OnlineTab key={settings.id + "o"} settings={settings} onSaved={saved} />}
-      {tab === "staff" && <StaffTab />}
+      {tab === "staff" && (
+        <div className="space-y-6">
+          <StaffTab />
+          <AttendanceCard />
+        </div>
+      )}
       {tab === "activity" && <ActivityTab />}
     </div>
   );

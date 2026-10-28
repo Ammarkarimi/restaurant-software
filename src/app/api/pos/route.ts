@@ -7,6 +7,7 @@ import { ACTIVE_STATUSES, orderInclude, totalsOf } from "@/lib/orders";
 import { round2 } from "@/lib/billing";
 import { isAdmin } from "@/lib/api";
 import { isLow } from "@/lib/stock";
+import { can } from "@/lib/permissions";
 
 /** Everything the Tables screen needs: the floor, running orders and today's numbers. */
 export async function GET() {
@@ -63,12 +64,14 @@ export async function GET() {
       tables: tables.map((t) => ({ ...t, order: byTable.get(t.id) ?? null, extraBills: extraBills.get(t.id) ?? 0 })),
       otherOrders: summaries.filter((s) => !s.tableId),
       bookings,
+      // Cashiers without the right do not see today's money.
       stats: {
-        sales: round2(todayOrders.reduce((sum, o) => sum + o.total, 0)),
+        hidden: !can(user, "seeSales"),
+        sales: can(user, "seeSales") ? round2(todayOrders.reduce((sum, o) => sum + o.total, 0)) : 0,
         bills: todayOrders.length,
         guests: todayOrders.reduce((sum, o) => sum + o.guests, 0),
         running: summaries.length,
-        runningValue: round2(summaries.reduce((sum, o) => sum + o.total, 0)),
+        runningValue: can(user, "seeSales") ? round2(summaries.reduce((sum, o) => sum + o.total, 0)) : 0,
       },
       lowStock,
     });

@@ -2,10 +2,10 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Banknote, Calculator, Lock, Plus, Printer, ReceiptText, Trash2, Wallet } from "lucide-react";
+import { Banknote, Calculator, Lock, MessageCircle, Plus, Printer, ReceiptText, Trash2, Wallet } from "lucide-react";
 import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Field, Input, Loading, Modal, PageHeader, Row, Select, StatCard, Tabs, Textarea, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
-import { api } from "@/lib/client";
+import { api, whatsappLink } from "@/lib/client";
 import { addDays } from "@/lib/dates";
 import { cn, formatCurrency, formatDate, formatDateTime, formatTime, label } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ interface Summary {
   guests: number;
   sales: number;
   discount: number;
+  complimentary: { count: number; value: number };
   tax: number;
   cancelled: number;
   payments: Array<{ method: string; amount: number; count: number }>;
@@ -71,6 +72,22 @@ const CATEGORIES = [
   "Other",
 ];
 const NOTES = [500, 200, 100, 50, 20, 10, 5, 2, 1];
+
+/** The day in a few lines, for the owner's WhatsApp. */
+function daySummaryText(s: Summary, restaurantName: string, date: string, expected: number) {
+  const lines = [
+    `${restaurantName} — ${formatDate(date)}`,
+    `Sales ${formatCurrency(s.sales)} (${s.bills} bills${s.guests ? `, ${s.guests} guests` : ""})`,
+    s.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount)}`).join(" · "),
+    s.cashReceived > 0 ? `Received on customer accounts (cash) ${formatCurrency(s.cashReceived)}` : "",
+    `Expenses ${formatCurrency(s.expensesTotal)}${s.cashExpenses ? ` (${formatCurrency(s.cashExpenses)} cash)` : ""}`,
+    `Discounts ${formatCurrency(s.discount)}${s.complimentary.count ? ` · ${s.complimentary.count} complimentary (${formatCurrency(s.complimentary.value)})` : ""}${s.cancelled ? ` · ${s.cancelled} cancelled` : ""}`,
+    s.close
+      ? `Cash: should be ${formatCurrency(expected)}, counted ${formatCurrency(s.close.countedCash)}${s.close.difference ? ` (${s.close.difference < 0 ? "short" : "extra"} ${formatCurrency(Math.abs(s.close.difference))})` : " — matches"}`
+      : `Cash that should be in the drawer: ${formatCurrency(expected)} (day not closed yet)`,
+  ];
+  return lines.filter(Boolean).join("\n");
+}
 
 function ExpenseDialog({ today, onSaved, onClose }: { today: string; onSaved: () => void; onClose: () => void }) {
   const { isAdmin, toast } = useApp();
@@ -333,7 +350,12 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
         <label className="text-sm text-slate-600">
           Day <Input type="date" value={date} max={settings.today} onChange={(e) => e.target.value && setDate(e.target.value)} className="ml-1 inline-block min-h-9 w-40 py-1" />
         </label>
-        <a href={`/print/day/${date}?auto=1`} target="_blank" rel="noopener noreferrer" className="ml-auto">
+        <a href={whatsappLink(null, daySummaryText(s, settings.restaurantName, date, expected))} target="_blank" rel="noopener noreferrer" className="ml-auto">
+          <Button variant="outline" size="sm" className="text-emerald-700">
+            <MessageCircle className="h-4 w-4" /> Send on WhatsApp
+          </Button>
+        </a>
+        <a href={`/print/day/${date}?auto=1`} target="_blank" rel="noopener noreferrer">
           <Button variant="outline" size="sm">
             <Printer className="h-4 w-4" /> Print day summary
           </Button>
@@ -426,7 +448,8 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
                 </div>
               )}
               <p className="mt-2 text-sm text-slate-500">
-                Discounts {formatCurrency(s.discount)} · Tax {formatCurrency(s.tax)}
+                Discounts {formatCurrency(s.discount)}
+                {s.complimentary.count > 0 && ` · ${s.complimentary.count} complimentary (${formatCurrency(s.complimentary.value)})`} · Tax {formatCurrency(s.tax)}
                 {s.cancelled > 0 && ` · ${s.cancelled} cancelled`}
               </p>
             </CardContent>

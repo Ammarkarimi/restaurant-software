@@ -9,6 +9,7 @@ import { billDataFor } from "@/lib/bill-data";
 import { verifyBillShareToken } from "@/lib/share";
 import { BillView, pageCss, upiLink } from "@/components/bill-view";
 import { PrintButton } from "@/components/print-button";
+import { FeedbackForm } from "./feedback-form";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your bill", robots: { index: false, follow: false } };
@@ -21,9 +22,10 @@ export default async function SharedBillPage({ params }: { params: Promise<{ tok
   const owner = await rawPrisma.order.findUnique({ where: { id: orderId }, select: { restaurantId: true, restaurant: { select: { slug: true, status: true } } } });
   if (!owner || owner.restaurant.status !== "active") notFound();
 
-  const { settings, order } = await runForRestaurant(owner.restaurantId, async () => ({
+  const { settings, order, feedback } = await runForRestaurant(owner.restaurantId, async () => ({
     settings: await getSettings(),
     order: await prisma.order.findFirst({ where: { id: orderId }, include: orderInclude }),
+    feedback: await prisma.feedback.findFirst({ where: { orderId }, select: { rating: true, comment: true } }),
   }));
   if (!order || !order.billNumber || order.status === "cancelled") notFound();
 
@@ -48,6 +50,7 @@ export default async function SharedBillPage({ params }: { params: Promise<{ tok
             You earned {order.pointsEarned} loyalty points on this bill.
           </p>
         )}
+        {order.status === "settled" && <FeedbackForm token={decodeURIComponent(token)} restaurantName={settings.restaurantName} reviewUrl={settings.googleReviewUrl} initial={feedback} />}
       </div>
     </div>
   );

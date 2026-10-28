@@ -34,7 +34,7 @@ export interface DaySummaryJson {
 /** What happened on one business day: sales by payment mode, expenses, and the cash that should be in the drawer. */
 export async function daySummary(date: string) {
   const [orders, cancelled, expenses, running, close, previous, receipts] = await Promise.all([
-    prisma.order.findMany({ where: { status: "settled", businessDate: date }, select: { total: true, guests: true, discountAmount: true, taxAmount: true, payments: true } }),
+    prisma.order.findMany({ where: { status: "settled", businessDate: date }, select: { total: true, guests: true, discountAmount: true, subtotal: true, taxAmount: true, complimentary: true, payments: true } }),
     prisma.order.count({ where: { status: "cancelled", businessDate: date } }),
     prisma.expense.findMany({ where: { date }, orderBy: { createdAt: "asc" } }),
     prisma.order.count({ where: { status: { in: ACTIVE_STATUSES } } }),
@@ -73,7 +73,9 @@ export async function daySummary(date: string) {
     bills: orders.length,
     guests: orders.reduce((s, o) => s + o.guests, 0),
     sales,
-    discount: round2(orders.reduce((s, o) => s + o.discountAmount, 0)),
+    // Complimentary bills are counted apart from discounts.
+    discount: round2(orders.filter((o) => !o.complimentary).reduce((s, o) => s + o.discountAmount, 0)),
+    complimentary: { count: orders.filter((o) => o.complimentary).length, value: round2(orders.filter((o) => o.complimentary).reduce((s, o) => s + o.subtotal, 0)) },
     tax: round2(orders.reduce((s, o) => s + o.taxAmount, 0)),
     cancelled,
     payments: [...byMethod.values()].map((m) => ({ ...m, amount: round2(m.amount) })).sort((a, b) => b.amount - a.amount),

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { fail, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { assertEditable, loadOrder, saveTotals, serializeOrder, type FullOrder } from "@/lib/orders";
+import { can } from "@/lib/permissions";
 
 type Params = { params: Promise<{ id: string; itemId: string }> };
 
@@ -49,6 +50,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         if (body.note !== undefined && (body.note || null) !== item.note) fail("The kitchen already has this item. Add a new item with the note instead.");
         if (quantity > item.quantity) fail("The kitchen already has this item. Add the extra quantity as a new item so the kitchen gets a ticket.");
         if (quantity < item.quantity) {
+          if (!can(user, "cancelItems")) fail("You are not allowed to remove dishes the kitchen already has. Ask the owner / manager.", 403);
           if (!body.reason) fail("Please give a reason for removing an item the kitchen already has");
           const removed = item.quantity - quantity;
           if (quantity === 0) {

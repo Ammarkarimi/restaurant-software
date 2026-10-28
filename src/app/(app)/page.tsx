@@ -16,7 +16,7 @@ interface PosData {
   tables: Array<TableDTO & { order: OrderSummary | null; extraBills: number }>;
   otherOrders: OrderSummary[];
   bookings: Array<{ id: string; name: string; guests: number; time: string; tableId: string | null; status: string }>;
-  stats: { sales: number; bills: number; guests: number; running: number; runningValue: number };
+  stats: { hidden: boolean; sales: number; bills: number; guests: number; running: number; runningValue: number };
   lowStock: string[];
 }
 
@@ -81,8 +81,11 @@ export default function TablesPage() {
         setData(d);
         setError("");
         // Ding when a guest calls or orders from a table QR code since the last look.
-        const key = d.tables
-          .flatMap((t) => [t.callType ? `${t.id}:${t.callType}:${t.callAt}` : "", t.order?.guestNew ? `${t.order.id}:${t.order.guestNew}` : ""])
+        const key = [
+          ...d.tables.flatMap((t) => [t.callType ? `${t.id}:${t.callType}:${t.callAt}` : "", t.order?.guestNew ? `${t.order.id}:${t.order.guestNew}` : ""]),
+          ...d.otherOrders.map((o) => (o.guestNew ? `${o.id}:${o.guestNew}` : "")),
+          ...d.bookings.map((b) => (b.status === "requested" ? `b:${b.id}` : "")),
+        ]
           .filter(Boolean)
           .join("|");
         if (alerts.current !== null && key && key !== alerts.current && key.split("|").some((k) => !alerts.current!.includes(k))) ding();
@@ -127,6 +130,8 @@ export default function TablesPage() {
   const reservedFor = (tableId: string) => data.bookings.find((b) => b.tableId === tableId && minutesOf(b.time) - nowMin <= 120 && minutesOf(b.time) - nowMin >= -45);
   const requests = data.bookings.filter((b) => b.status === "requested").length;
   const qrOrders = data.tables.filter((t) => t.order && t.order.guestNew > 0);
+  const onlineOrders = data.otherOrders.filter((o) => o.guestNew > 0);
+  const timeOf = (iso: string) => new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", timeZone: settings.timezone }).format(new Date(iso));
 
   return (
     <div className="space-y-6">
@@ -155,9 +160,9 @@ export default function TablesPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard title="Sales today" value={formatCurrency(s.sales)} subtitle="Paid bills" icon={<IndianRupee className="h-5 w-5" />} tone="green" />
+        {!s.hidden && <StatCard title="Sales today" value={formatCurrency(s.sales)} subtitle="Paid bills" icon={<IndianRupee className="h-5 w-5" />} tone="green" />}
         <StatCard title="Bills today" value={s.bills} subtitle={s.guests ? `${s.guests} guests` : undefined} icon={<ReceiptText className="h-5 w-5" />} tone="sky" />
-        <StatCard title="Running orders" value={s.running} subtitle={s.running ? `${formatCurrency(s.runningValue)} not yet paid` : "None right now"} icon={<ChefHat className="h-5 w-5" />} tone="amber" />
+        <StatCard title="Running orders" value={s.running} subtitle={s.running ? (s.hidden ? "Not yet paid" : `${formatCurrency(s.runningValue)} not yet paid`) : "None right now"} icon={<ChefHat className="h-5 w-5" />} tone="amber" />
         <StatCard
           title="Tables in use"
           value={`${data.tables.filter((t) => t.order).length} / ${data.tables.length}`}
@@ -183,13 +188,29 @@ export default function TablesPage() {
         </Link>
       )}
 
+      {onlineOrders.length > 0 && (
+        <section className="space-y-2">
+          {onlineOrders.map((o) => (
+            <Link key={o.id} href={`/orders/${o.id}`} className="flex items-center gap-3 rounded-2xl border-2 border-violet-300 bg-violet-50 px-4 py-3">
+              {o.type === "delivery" ? <Bike className="h-6 w-6 text-violet-700" /> : <ShoppingBag className="h-6 w-6 text-violet-700" />}
+              <p className="flex-1 font-semibold text-violet-900">
+                New {o.source === "website" ? "online" : ""} {label(o.type).toLowerCase()} order #{o.number}
+                {o.customerName ? ` from ${o.customerName}` : ""} · {formatCurrency(o.total)}
+                {o.scheduledFor && <span className="font-normal"> · for {timeOf(o.scheduledFor)}</span>}. Check it and send it to the kitchen to accept.
+              </p>
+              <Button size="sm">Open</Button>
+            </Link>
+          ))}
+        </section>
+      )}
+
       {(calls.length > 0 || qrOrders.length > 0) && (
         <section className="space-y-2">
           {calls.map((t) => (
             <div key={t.id} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-red-300 bg-red-50 px-4 py-3">
               <BellRing className="h-6 w-6 animate-pulse text-red-600" />
               <p className="flex-1 font-semibold text-red-900">
-                Table {t.name} {t.callType === "bill" ? "asked for the bill" : "is calling a waiter"}
+                Table {t.name} {t.callType === "bill" ? "asked for the bill" : t.callType === "paid" ? "says they paid by UPI — check your UPI app, then take the payment" : "is calling a waiter"}
                 {t.callAt && <span className="font-normal text-red-700"> · {minutesSince(t.callAt, now)} ago</span>}
               </p>
               {t.order && (

@@ -49,6 +49,7 @@ import { addonText, addonsTotal, groupsForItem, parseVariants, type ChosenAddon 
 import { activeLists, menuPrice } from "@/lib/pricing";
 import { cn, formatCurrency, formatTime, label, minutesSince } from "@/lib/utils";
 import { parseRiders } from "@/lib/riders";
+import { can, discountLimit } from "@/lib/permissions";
 import type { AddonGroupDTO, CategoryDTO, CustomerLookup, MenuItemDTO, MenuResponse, OfferDTO, OrderDTO, OrderItemDTO, PriceListDTO, SettingsDTO, TableDTO } from "@/lib/types";
 
 /** An item added on this screen and not saved yet. */
@@ -100,7 +101,7 @@ function openPrintWindow() {
 
 export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: { type: string; tableId: string | null } }) {
   const router = useRouter();
-  const { toast, confirm, isAdmin, settings: shell } = useApp();
+  const { toast, confirm, isAdmin, user, settings: shell } = useApp();
   const [categories, setCategories] = useState<CategoryDTO[] | null>(null);
   const [addonGroups, setAddonGroups] = useState<AddonGroupDTO[]>([]);
   const [priceLists, setPriceLists] = useState<PriceListDTO[]>([]);
@@ -528,7 +529,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   function billMessage(o: OrderDTO) {
     const lines = [`Thank you for visiting ${settings!.restaurantName}!`, `Bill ${o.billNumber}: ${formatCurrency(o.totals.total)}`];
     if (o.pointsEarned > 0) lines.push(`You earned ${o.pointsEarned} loyalty points${known ? ` (balance ${known.points})` : ""}.`);
-    lines.push(`Your bill: ${window.location.origin}/b/${o.shareToken}`);
+    lines.push(`Your bill (and a 10-second rating): ${window.location.origin}/b/${o.shareToken}`);
     return lines.join("\n");
   }
 
@@ -740,6 +741,24 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               </Badge>
             )}
           </p>
+          {order?.scheduledFor && (
+            <p className="text-sm font-semibold text-amber-700">
+              {orderType === "delivery" ? "Deliver" : "Pickup"} at {formatTime(order.scheduledFor, shell.timezone)}
+            </p>
+          )}
+          {order?.trackToken && order.customerPhone && (
+            <a
+              href={whatsappLink(
+                order.customerPhone,
+                `Hello${order.customerName ? ` ${order.customerName}` : ""}, ${unsentItems.some((i) => i.byGuest) ? `we got your order #${order.number}` : `your order #${order.number} is accepted and being prepared`} at ${settings.restaurantName}. Follow it here: ${typeof window === "undefined" ? "" : window.location.origin}/o/${order.trackToken}`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-sm font-semibold text-emerald-700 hover:underline"
+            >
+              Send the tracking link on WhatsApp
+            </a>
+          )}
           <button onClick={() => setDialog({ kind: "customer" })} disabled={!editable} className="flex items-center gap-1 text-sm text-slate-500 hover:text-primary-700">
             <User className="h-3.5 w-3.5" />
             {customer || "Add customer"}
@@ -822,7 +841,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <ul className="divide-y divide-slate-100">
               {unsentItems.map((i) =>
                 lineRow(i.id, i, {
-                  tag: i.byGuest ? <b className="text-violet-700">· ordered by guest (QR)</b> : undefined,
+                  tag: i.byGuest ? <b className="text-violet-700">· {source === "website" ? "online order" : "ordered by guest (QR)"}</b> : undefined,
                   onMinus: editable ? () => changeSaved(i, i.quantity - 1) : undefined,
                   onPlus: editable ? () => changeSaved(i, i.quantity + 1) : undefined,
                   onNote: editable ? () => setDialog({ kind: "note", target: { itemId: i.id }, initial: i.note ?? "", title: `Note for ${i.name}` }) : undefined,
@@ -940,7 +959,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <Button variant="warning" size="lg" className="col-span-2" loading={busy === "kot"} disabled={!!busy || newCount === 0} onClick={sendToKitchen}>
               <ChefHat className="h-5 w-5" /> Send to kitchen{newCount ? ` (${newCount})` : ""}
             </Button>
-            <Button variant="outline" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "bill"} disabled={!!busy} onClick={printBill}>
+            <Button variant="outline" size="lg" className="whitespace-nowrap px-3 text-base" loading={busy === "bill"} disabled={!!busy || (order?.status === "billed" && !can(user, "reprint"))} onClick={printBill}>
               <ReceiptText className="h-5 w-5" /> {order?.billNumber ? "Reprint bill" : "Print bill"}
             </Button>
             {order?.complimentary ? (
@@ -1086,6 +1105,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           offers={offers}
           offerContext={{ type: order.type, timezone: settings.timezone, today: settings.today }}
           currentOfferId={order.offerId}
+          handLimit={discountLimit(user)}
           onApplyOffer={async (o) => {
             await patchOrder(o, "offerId" in o && o.offerId === null ? "Offer removed" : "Offer applied");
             setDialog(null);
@@ -1187,7 +1207,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           billLabel={`${title} · Order #${order.number}${order.billNumber ? ` · Bill ${order.billNumber}` : ""}`}
           account={
             phone
-              ? { name: known?.name || order.customerName || phone, balance: known?.balance ?? 0, creditLimit: known?.creditLimit ?? null, canGiveCredit: isAdmin }
+              ? { name: known?.name || order.customerName || phone, balance: known?.balance ?? 0, creditLimit: known?.creditLimit ?? null, canGiveCredit: can(user, "payLater") }
               : null
           }
           onClose={() => setDialog(null)}
@@ -1233,12 +1253,12 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                 </Button>
               </a>
             )}
-            {editable && order && isAdmin && activeItems.length > 0 && (
+            {editable && order && can(user, "complimentary") && activeItems.length > 0 && (
               <Button variant="outline" className="justify-start text-violet-700" onClick={() => setComplimentary(!order.complimentary)}>
                 <Gift className="h-4 w-4" /> {order.complimentary ? "Take off complimentary (charge the bill)" : "Complimentary (on the house)"}
               </Button>
             )}
-            {order?.status === "settled" && isAdmin && order.payments.length > 0 && !order.payments.some((p) => p.method === "account") && (
+            {order?.status === "settled" && can(user, "changePayment") && order.payments.length > 0 && !order.payments.some((p) => p.method === "account") && (
               <Button variant="outline" className="justify-start" onClick={() => setDialog({ kind: "repay" })}>
                 <Wallet className="h-4 w-4" /> Change payment mode
               </Button>

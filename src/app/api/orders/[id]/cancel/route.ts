@@ -9,6 +9,7 @@ import { reverseVisit } from "@/lib/customers";
 import { returnStockForOrder } from "@/lib/stock";
 import { loadOrder, saveTotals, serializeOrder } from "@/lib/orders";
 import { formatCurrency } from "@/lib/utils";
+import { can } from "@/lib/permissions";
 
 const schema = z.object({ reason: z.string().trim().min(2, "Please give a reason for cancelling").max(300) });
 
@@ -25,9 +26,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const order = await loadOrder(id);
     if (order.status === "cancelled") fail("This order is already cancelled");
     const kitchenHasIt = order.items.some((i) => i.kotNumber !== null);
-    if ((kitchenHasIt || order.status !== "open") && !isAdmin(user)) {
+    if ((kitchenHasIt || order.status !== "open") && !can(user, "cancelOrders")) {
       fail("Only the owner / manager can cancel an order after it went to the kitchen or was billed.", 403);
     }
+    if (order.status === "settled" && !isAdmin(user)) fail("Only the owner / manager can cancel a paid bill.", 403);
 
     const updated = await prisma.$transaction(async (tx) => {
       if (order.status === "settled") {

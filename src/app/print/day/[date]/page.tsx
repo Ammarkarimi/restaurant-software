@@ -48,6 +48,7 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
           <Line l="Bills" v={String(s.bills)} />
           {s.guests > 0 && <Line l="Guests" v={String(s.guests)} />}
           <Line l="Discounts" v={formatAmount(s.discount)} />
+          {s.complimentary.count > 0 && <Line l={`Complimentary (${s.complimentary.count})`} v={formatAmount(s.complimentary.value)} />}
           <Line l="Tax" v={formatAmount(s.tax)} />
           {s.cancelled > 0 && <Line l="Cancelled orders" v={String(s.cancelled)} />}
           <Line l="TOTAL SALES" v={formatAmount(s.sales)} bold />

@@ -184,6 +184,7 @@ export interface OrderDTO {
   pointsRedeemed: number;
   pointsEarned: number;
   shareToken: string | null;
+  trackToken: string | null;
 }
 
 export interface CustomerLookup {
@@ -236,6 +237,7 @@ export interface SettingsDTO {
   onlineDeliveryEnabled: boolean;
   onlineMinOrder: number;
   onlineBookingEnabled: boolean;
+  googleReviewUrl: string | null;
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;

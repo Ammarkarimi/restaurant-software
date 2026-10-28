@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarClock,
   ChefHat,
+  Clock,
   BookOpen,
   HelpCircle,
   LayoutGrid,
@@ -23,7 +24,7 @@ import {
   Warehouse,
   X,
 } from "lucide-react";
-import { cn, label } from "@/lib/utils";
+import { cn, formatTime, label } from "@/lib/utils";
 import { AppProvider, useApp, type ShellSettings } from "@/components/app-provider";
 import { Button } from "@/components/ui";
 import type { SessionUser } from "@/lib/session";
@@ -50,6 +51,37 @@ const FOOTER_NAV = [
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/" || pathname.startsWith("/orders");
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Start / end my shift, for staff attendance. */
+function ShiftButton() {
+  const { toast, settings } = useApp();
+  const [open, setOpen] = useState<{ inAt: string } | null | undefined>(undefined);
+  useEffect(() => {
+    fetch("/api/attendance")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => setOpen(r ? r.open : null), () => setOpen(null));
+  }, []);
+  if (open === undefined) return null;
+  async function toggle() {
+    const res = await fetch("/api/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: open ? "out" : "in" }) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return toast(body.error ?? "Could not save", "error");
+    toast(open ? "Shift ended. Thank you!" : "Shift started");
+    setOpen(body.open);
+  }
+  return (
+    <button
+      onClick={toggle}
+      className={cn(
+        "mb-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
+        open ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+      )}
+    >
+      <Clock className="h-4 w-4" />
+      {open ? `On shift since ${formatTime(open.inAt, settings.timezone)} · End` : "Start my shift"}
+    </button>
+  );
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -149,6 +181,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
           <p className="text-xs text-slate-500">{label(user.role)}</p>
         </div>
+        <ShiftButton />
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600"

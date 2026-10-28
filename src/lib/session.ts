@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import type { Permissions } from "./permissions";
 
 // Read lazily (not at import time) so a missing secret can never break `next build`;
 // it fails at sign-in instead, with a clear message.
@@ -24,6 +25,8 @@ export interface SessionUser {
   name: string;
   role: string;
   restaurantId: string;
+  /** A cashier's rights, read from the database on every request (not kept in the cookie). */
+  permissions?: Permissions;
 }
 
 export interface PlatformSession {

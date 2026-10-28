@@ -12,6 +12,19 @@ const schema = z.object({
   role: z.enum(["admin", "staff", "kitchen"]).optional(),
   active: z.boolean().optional(),
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  permissions: z
+    .object({
+      discountMax: z.coerce.number().min(0).max(100),
+      cancelItems: z.boolean(),
+      cancelOrders: z.boolean(),
+      reprint: z.boolean(),
+      complimentary: z.boolean(),
+      payLater: z.boolean(),
+      changePayment: z.boolean(),
+      seeSales: z.boolean(),
+      expenses: z.boolean(),
+    })
+    .optional(),
 });
 
 async function assertKeepsAnOwner(excludingId: string) {
@@ -34,10 +47,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ...(body.role && { role: body.role }),
         ...(body.active !== undefined && { active: body.active }),
         ...(body.password && { passwordHash: await hashPassword(body.password) }),
+        ...(body.permissions && { permissions: JSON.stringify(body.permissions) }),
       },
-      select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, active: true, createdAt: true, permissions: true },
     });
-    const what = [body.password && "password reset", body.role && `role ${body.role}`, body.active !== undefined && (body.active ? "enabled" : "disabled")]
+    const what = [body.password && "password reset", body.role && `role ${body.role}`, body.active !== undefined && (body.active ? "enabled" : "disabled"), body.permissions && "rights changed"]
       .filter(Boolean)
       .join(", ");
     await logActivity(user, "Staff account changed", `${updated.name}${what ? `: ${what}` : ""}`);

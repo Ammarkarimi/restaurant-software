@@ -83,7 +83,8 @@ export const FOOD_TYPES = ["veg", "non_veg", "egg"] as const;
 // "account" = put on the customer's account: they pay later, or it comes out of money they paid in advance.
 export const PAYMENT_METHODS = ["cash", "upi", "card", "online", "account", "other"] as const;
 // Where a takeaway or delivery order came from. "qr" = a guest ordered from the table QR code.
-export const ORDER_SOURCES = ["counter", "phone", "zomato", "swiggy", "app", "qr"] as const;
+// "website" = the restaurant's own online ordering link (or its self-order kiosk).
+export const ORDER_SOURCES = ["counter", "phone", "zomato", "swiggy", "app", "qr", "website"] as const;
 export const TAX_MODES = ["gst", "simple", "none"] as const;
 
 export type OrderType = (typeof ORDER_TYPES)[number];
@@ -125,6 +126,7 @@ export const LABELS: Record<string, string> = {
   swiggy: "Swiggy",
   app: "Other app / website",
   qr: "QR table order",
+  website: "Online order (own link)",
   // tax modes
   gst: "GST (CGST + SGST)",
   simple: "One tax line (VAT / sales tax)",

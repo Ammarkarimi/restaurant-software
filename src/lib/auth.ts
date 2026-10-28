@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { rawPrisma } from "./db";
+import { parsePermissions } from "./permissions";
 import {
   COOKIE_NAME,
   createSessionToken,
@@ -50,7 +51,14 @@ export async function getSession(): Promise<SessionUser | null> {
     return { id: staff.id, email: staff.email, name: staff.name, role: "admin", restaurantId: session.restaurantId };
   }
   if (staff.restaurant.status !== "active") return null;
-  return { id: staff.id, email: staff.email, name: staff.name, role: staff.role, restaurantId: staff.restaurantId };
+  return {
+    id: staff.id,
+    email: staff.email,
+    name: staff.name,
+    role: staff.role,
+    restaurantId: staff.restaurantId,
+    ...(staff.role === "staff" && { permissions: parsePermissions(staff.permissions) }),
+  };
 }
 
 /** The restaurants a person can work in: their own, plus outlets they were given. */

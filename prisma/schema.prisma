@@ -141,6 +141,7 @@ model RestaurantSettings {
   onlineDeliveryEnabled Boolean    @default(false)
   onlineMinOrder        Float      @default(0)
   onlineBookingEnabled  Boolean    @default(false) // guests can ask for a table booking from the restaurant's link
+  googleReviewUrl       String? // guests who rate their visit 4 or 5 stars are asked to review here
   logoPath              String?
   billTemplate          String     @default("{}") // JSON, see src/lib/bill-template.ts
   updatedAt             DateTime   @updatedAt

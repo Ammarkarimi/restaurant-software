@@ -10,6 +10,7 @@ import { addAccountEntry, normalizePhone, recordVisit } from "@/lib/customers";
 import { takeStockForOrder } from "@/lib/stock";
 import { activeItems, assertEditable, loadOrder, nextNumber, saveTotals, sendUnsentToKitchen, serializeOrder, totalsOf } from "@/lib/orders";
 import { PAYMENT_METHODS, formatCurrency, label } from "@/lib/utils";
+import { can } from "@/lib/permissions";
 
 const schema = z.object({
   payments: z
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         await addAccountEntry(
           tx,
           { customerId: visit.customerId, type: "bill", amount: -onAccount, orderId: id, billNumber, date: todayKey(settings.timezone), createdByName: user.name },
-          { mayGiveCredit: user.role === "admin" }
+          { mayGiveCredit: can(user, "payLater") }
         );
       }
       if (offer) await tx.offer.update({ where: { id: offer.id }, data: { timesUsed: { increment: 1 } } });

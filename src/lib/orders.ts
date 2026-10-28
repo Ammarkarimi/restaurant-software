@@ -6,7 +6,7 @@ import { calculateBill, paidAmount, round2, type BillCharge, type BillRules } fr
 import { addonText, addonsTotal, chooseAddons, groupsForItem, parseList } from "./menu";
 import { activeLists, menuPrice } from "./pricing";
 import type { SettingsRecord } from "./settings";
-import { billShareToken } from "./share";
+import { billShareToken, orderTrackToken } from "./share";
 
 export const ACTIVE_STATUSES = ["open", "billed"];
 
@@ -73,6 +73,8 @@ export function serializeOrder(order: FullOrder) {
     unsentCount: order.items.filter((i) => i.status === "active" && i.kotNumber === null).length,
     // For the "send bill on WhatsApp" link, once there is a bill to send.
     shareToken: order.billNumber ? billShareToken(order.id) : null,
+    // For the guest's order tracking link (online and kiosk orders).
+    trackToken: order.source === "website" ? orderTrackToken(order.id) : null,
   };
 }
 

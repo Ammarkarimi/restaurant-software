@@ -5,7 +5,7 @@ import { withAdmin, fail } from "@/lib/api";
 import { hashPassword } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 
-const publicFields = { id: true, name: true, email: true, role: true, active: true, createdAt: true } as const;
+const publicFields = { id: true, name: true, email: true, role: true, active: true, createdAt: true, permissions: true } as const;
 
 export async function GET() {
   return withAdmin(async () => {

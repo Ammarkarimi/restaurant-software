@@ -5,9 +5,10 @@ import { fail, handleError } from "@/lib/api";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { findPublicRestaurant, tableForToken } from "@/lib/public-menu";
 
-const schema = z.object({ table: z.string().min(1).max(64), type: z.enum(["waiter", "bill"]) });
+// paid = the guest paid the bill by UPI from their phone; staff check their UPI app and close the bill.
+const schema = z.object({ table: z.string().min(1).max(64), type: z.enum(["waiter", "bill", "paid"]) });
 
-/** "Call waiter" / "Ask for the bill" from the table QR code: the table lights up on the Tables screen. */
+/** "Call waiter" / "Ask for the bill" / "I have paid" from the table QR code: the table lights up on the Tables screen. */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;

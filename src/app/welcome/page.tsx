@@ -5,19 +5,27 @@ import {
   BadgeIndianRupee,
   Bike,
   Building2,
+  CalendarClock,
   ChefHat,
   Check,
   ClipboardList,
+  Clock,
   Download,
   FileText,
   Gift,
+  Globe,
   LineChart,
+  MessageCircle,
+  Monitor,
   PlayCircle,
   Printer,
   QrCode,
   ShieldCheck,
   Smartphone,
   Split,
+  Star,
+  Tag,
+  Truck,
   Users,
   UtensilsCrossed,
   Wallet,
@@ -28,7 +36,7 @@ import { EnquiryForm } from "./enquiry-form";
 
 const TITLE = "Restaurant Manager — billing, KOT, kitchen screen and QR ordering for restaurants";
 const DESCRIPTION =
-  "Simple restaurant software for India: table orders, kitchen tickets, GST bills with your logo, UPI payments, QR menu ordering, Zomato & Swiggy orders, customers and loyalty, day close, stock and reports. Works on PC, tablet and phone.";
+  "Simple restaurant software for India: table orders, kitchen tickets, GST bills with your logo, UPI payments, QR menu ordering, your own online ordering, Zomato & Swiggy orders, table bookings, offers, customers and loyalty, day close, stock and reports. Works on PC, tablet and phone.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -84,7 +92,13 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "Order screen",
     title: "Take an order in seconds",
     text: "Big buttons, your menu by category, and a search box that understands short codes. New staff learn it in minutes.",
-    points: ["Type a short code like “PBM” and press Enter", "Half / Full portions and veg / non-veg marks", "Notes for the kitchen: “less spicy”, “no onion”", "Sold-out dishes are greyed out for everyone"],
+    points: [
+      "Type a short code like “PBM” and press Enter",
+      "Half / Full portions and veg / non-veg marks",
+      "Add-ons and combos: spice level, extra cheese, “add a drink”",
+      "Notes for the kitchen: “less spicy”, “no onion”",
+      "Offers, coupon codes and happy-hour prices applied by themselves",
+    ],
     image: "/landing/order.webp",
     alt: "The order screen with the menu on the left and the table's order on the right",
   },
@@ -93,7 +107,13 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "Kitchen",
     title: "Kitchen tickets and a kitchen screen",
     text: "“Send to kitchen” prints only the new dishes on the kitchen printer, and shows them on a tablet or TV in the kitchen.",
-    points: ["Tickets turn amber after 10 and red after 20 minutes", "A sound for every new ticket", "Cooks tap “Ready” — waiters see it on their screen", "The kitchen can mark dishes sold out"],
+    points: [
+      "A ticket for each station: tandoor, bar, Chinese…",
+      "Tickets turn amber after 10 and red after 20 minutes",
+      "Cooks tap “Ready” — waiters see it on their screen",
+      "A token screen tells takeaway guests their order is ready",
+      "The kitchen can mark dishes sold out",
+    ],
     image: "/landing/kitchen.webp",
     alt: "The kitchen screen with tickets for each table and timers",
   },
@@ -111,7 +131,13 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "Payments",
     title: "Cash, UPI, card — or all three",
     text: "Split one bill across cash and UPI, see the change to give back, and show a UPI QR code with the exact amount on the screen.",
-    points: ["Split payment and split bill", "Change calculator for cash", "Send the bill on WhatsApp instead of paper", "Zomato and Swiggy orders marked “paid online”"],
+    points: [
+      "Split payment and split bill",
+      "Change calculator for cash",
+      "Pay later on the customer's account, or from money they keep with you",
+      "Send the bill on WhatsApp instead of paper",
+      "Zomato and Swiggy orders marked “paid online”",
+    ],
     image: "/landing/payment.webp",
     alt: "The payment window with cash and UPI and a UPI QR code",
   },
@@ -120,7 +146,7 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "QR menu & table ordering",
     title: "Guests order from their table",
     text: "Print a QR code for every table. Guests scan it to see your menu, order, call a waiter or ask for the bill. Staff check every guest order before the kitchen starts.",
-    points: ["No app to install for guests", "Always shows today's sold-out dishes", "Waiter calls light up on the Tables screen", "Works as a menu-only QR too"],
+    points: ["No app to install for guests", "Dish photos and today's sold-out dishes", "Waiter calls light up on the Tables screen", "Guests see their bill and pay by UPI from the table", "Kiosk mode: a tablet at the counter takes orders"],
     image: "/landing/qr-menu.webp",
     alt: "The QR menu on a guest's phone",
     phone: true,
@@ -128,9 +154,15 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
   {
     icon: Bike,
     eyebrow: "Takeaway & delivery",
-    title: "Zomato, Swiggy, phone and walk-in orders",
-    text: "Note where each order came from and the app's order ID — it prints on the kitchen ticket and the bill. Packing and delivery charges are added automatically.",
-    points: ["Order source in reports", "Packing and delivery charges, taxed correctly", "Delivery address on the bill", "Running orders at the top of Tables"],
+    title: "Zomato, Swiggy, your own online orders and walk-ins",
+    text: "Take orders from your own link with no commission, and note Zomato and Swiggy orders with their order ID. Packing and delivery charges are added automatically.",
+    points: [
+      "Your own ordering link for Instagram, Google Maps and WhatsApp",
+      "Guests choose a pickup or delivery time and follow their order",
+      "App prices (for example +15%) applied by themselves",
+      "Riders: out for delivery, delivered, cash collected",
+      "What Zomato and Swiggy pay you after commission",
+    ],
     image: "/landing/delivery.webp",
     alt: "A Zomato delivery order with packing and delivery charges",
   },
@@ -139,7 +171,13 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "Customers & loyalty",
     title: "Know your regulars and bring them back",
     text: "Every guest with a phone number is saved with their visits and spend. Give loyalty points on every bill that they use as money off next time.",
-    points: ["Returning guests fill in by phone number", "Points earned and used, shown on the bill", "Notes and birthdays for each customer", "Download the list for offers"],
+    points: [
+      "Returning guests fill in by phone number",
+      "Points earned and used, shown on the bill",
+      "Guests rate every visit; happy ones are asked for a Google review",
+      "WhatsApp offers for birthdays and guests who stopped coming",
+      "Pay-later accounts with WhatsApp reminders",
+    ],
     image: "/landing/customers.webp",
     alt: "The customer list with visits, spend and loyalty points",
   },
@@ -157,7 +195,13 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "Stock & recipes",
     title: "Know what is left in the kitchen",
     text: "Add a recipe to each dish once. Every paid bill takes the ingredients out of stock, and you get a warning before you run out.",
-    points: ["Purchases, wastage and stock counts", "Per-portion recipes (Half / Full)", "Low-stock warnings on the Tables screen", "Usage report with stock value"],
+    points: [
+      "Purchase orders sent to suppliers on WhatsApp",
+      "What you owe each supplier, and payments",
+      "Per-portion recipes and the profit on every plate",
+      "Wastage, stock counts and low-stock warnings",
+      "Usage report with stock value",
+    ],
     image: "/landing/stock.webp",
     alt: "The stock screen with low-stock warnings",
   },
@@ -166,15 +210,29 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     eyebrow: "Reports",
     title: "Your business at a glance",
     text: "Sales by day and by hour, best-selling dishes, payment modes, order sources, discounts and a GST summary ready for your accountant.",
-    points: ["Download any report for Excel", "Who gave discounts or cancelled — all recorded", "Expenses against sales", "All outlets together if you have more than one"],
+    points: [
+      "Download any report for Excel",
+      "Discounts by staff and offer, complimentary bills, removed dishes",
+      "Sales by weekday, ratings, deliveries by rider",
+      "Expenses against sales",
+      "All outlets together if you have more than one",
+    ],
     image: "/landing/reports.webp",
     alt: "Reports with sales by day, busy hours and best-selling dishes",
   },
 ];
 
 const MORE = [
+  { icon: Globe, title: "Your own online ordering", text: "Takeaway and delivery from your own link — no commission to any app." },
+  { icon: CalendarClock, title: "Table reservations", text: "Bookings by phone or from your booking link. Seat guests with one tap." },
+  { icon: Tag, title: "Offers & coupons", text: "“10% off above ₹1000”, WELCOME50, weekday lunch — used only when the rules match." },
+  { icon: Clock, title: "Happy hours & special prices", text: "Different prices for the apps, the rooftop or 4 to 7 pm — changed by themselves." },
+  { icon: Monitor, title: "Order-ready token screen", text: "A TV at the counter shows which takeaway orders are being cooked and which are ready." },
+  { icon: Star, title: "Ratings & Google reviews", text: "Guests rate food, service and ambience from the bill link. Call back unhappy guests." },
+  { icon: MessageCircle, title: "WhatsApp offers", text: "Birthday wishes and “we miss you” offers, with each guest's name, from your WhatsApp." },
+  { icon: Truck, title: "Suppliers & purchase orders", text: "Order from suppliers, receive into stock and keep track of what you owe them." },
   { icon: Split, title: "Split, move & merge", text: "Move dishes to a separate bill or another table in two taps." },
-  { icon: Users, title: "Staff accounts", text: "Owner, cashier / captain and kitchen logins, each with the right access." },
+  { icon: Users, title: "Staff rights & shifts", text: "Choose who can discount, cancel or reprint. Staff start and end their shifts." },
   { icon: ShieldCheck, title: "Stops leakage", text: "Discounts, removed dishes and cancellations need a reason and are recorded." },
   { icon: Smartphone, title: "Phone, tablet, PC", text: "Captains take orders on their phone. Install it like an app." },
   { icon: Printer, title: "Any thermal printer", text: "58 mm, 80 mm or A4 — bills and kitchen tickets print from the browser." },
@@ -187,7 +245,8 @@ const FAQ = [
   { q: "Do I need to buy special hardware?", a: "No. It runs in Chrome on the computer you already have, on tablets and on phones. Any USB or network thermal printer works for bills and kitchen tickets." },
   { q: "Does it work on a phone?", a: "Yes. Captains can take orders on their own phones, the owner can check sales from home, and the kitchen can use any tablet as a kitchen screen." },
   { q: "Is it ready for GST in India?", a: "Yes. Bills show CGST and SGST, your GSTIN and FSSAI number, and the tax summary report is ready for your accountant. Prices can include or exclude tax." },
-  { q: "Can I use it with Zomato and Swiggy?", a: "Yes. Enter app orders with their order ID; they print on the kitchen ticket, are marked “paid online”, and show separately in reports. Orders don't arrive by themselves yet — that needs a partnership with each app." },
+  { q: "Can I use it with Zomato and Swiggy?", a: "Yes. Enter app orders with their order ID; they take your app prices, print on the kitchen ticket, are marked “paid online”, and reports show what the apps pay you after commission. Orders don't arrive by themselves yet — that needs a partnership with each app." },
+  { q: "Can guests order from us directly, without the apps?", a: "Yes. You get your own ordering link for takeaway and delivery to share on Instagram, Google Maps and WhatsApp, with no commission. Guests choose a time, and orders appear on your Tables screen to accept. A booking link for table reservations works the same way." },
   { q: "How long does it take to start?", a: "Most restaurants are taking orders the same day. Add your tables in one go, paste your menu from Excel, upload your logo, and you are ready." },
   { q: "Is my data safe?", a: "Each restaurant only ever sees its own data. Every sign-in is personal, and owners can see who did what in the activity history." },
   { q: "What if I have more than one outlet?", a: "Each outlet has its own tables, menu and staff, and the owner switches between them with one sign-in and sees all outlets' sales together." },
@@ -235,8 +294,8 @@ export default function WelcomePage() {
                 Run your restaurant from <span className="text-primary-600">one simple screen</span>
               </h1>
               <p className="mt-5 max-w-xl text-lg text-slate-600">
-                Table orders, kitchen tickets, GST bills with your logo, UPI payments, QR ordering, Zomato & Swiggy orders, customers, stock and reports — easy enough for
-                every cashier, on the PC, tablet and phones you already have.
+                Table orders, kitchen tickets, GST bills with your logo, UPI payments, QR and online ordering, Zomato & Swiggy orders, table bookings, offers, customers,
+                stock and reports — easy enough for every cashier, on the PC, tablet and phones you already have.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="#tour" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:bg-slate-800">

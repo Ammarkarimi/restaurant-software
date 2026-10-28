@@ -5,6 +5,7 @@ import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
 import { activeItems, assertEditable, loadOrder, nextNumber, saveTotals, sendUnsentToKitchen, serializeOrder } from "@/lib/orders";
 import { formatCurrency } from "@/lib/utils";
+import { can } from "@/lib/permissions";
 
 /**
  * Prepares the bill for printing: gives it the next bill number (once), saves the
@@ -18,6 +19,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     const order = await loadOrder(id);
     assertEditable(order);
     if (activeItems(order.items).length === 0) fail("Add items before printing the bill");
+    if (order.status === "billed" && !can(user, "reprint")) fail("You are not allowed to print a bill again. Ask the owner / manager.", 403);
 
     const result = await prisma.$transaction(async (tx) => {
       const kotNumber = await sendUnsentToKitchen(tx, id);

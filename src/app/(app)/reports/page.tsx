@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Ban, Download, IndianRupee, Percent, ReceiptText, Users } from "lucide-react";
+import { Ban, Bike, Download, Gift, IndianRupee, Percent, ReceiptText, Star, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button, Card, CardContent, CardHeader, EmptyState, Input, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
@@ -179,7 +179,13 @@ export default function ReportsPage() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard title="Sales" value={formatCurrency(data.totals.sales)} subtitle={`${data.totals.bills} bills`} icon={<IndianRupee className="h-5 w-5" />} tone="green" />
             <StatCard title="Average bill" value={formatCurrency(data.totals.averageBill)} subtitle={data.totals.guests ? `${data.totals.guests} guests` : undefined} icon={<ReceiptText className="h-5 w-5" />} tone="sky" />
-            <StatCard title="Discounts given" value={formatCurrency(data.totals.discount)} subtitle={`Tax collected ${formatCurrency(data.totals.tax)}`} icon={<Percent className="h-5 w-5" />} tone="amber" />
+            <StatCard
+              title="Discounts given"
+              value={formatCurrency(data.totals.discount)}
+              subtitle={data.complimentary.count ? `+ ${data.complimentary.count} complimentary (${formatCurrency(data.complimentary.value)})` : `Tax collected ${formatCurrency(data.totals.tax)}`}
+              icon={<Percent className="h-5 w-5" />}
+              tone="amber"
+            />
             <StatCard
               title="Cancelled"
               value={data.cancelled.count}
@@ -235,7 +241,13 @@ export default function ReportsPage() {
                     <CardContent>
                       <ul>
                         {data.bySource.map((x) => (
-                          <ShareRow key={x.source} name={label(x.source)} value={formatCurrency(x.sales)} sub={`${x.bills} bills`} share={x.sales / data.totals.sales} />
+                          <ShareRow
+                            key={x.source}
+                            name={label(x.source)}
+                            value={formatCurrency(x.sales)}
+                            sub={x.commissionPercent ? `${x.bills} bills · you get ~${formatCurrency(x.payout)} after ${x.commissionPercent}%` : `${x.bills} bills`}
+                            share={x.sales / data.totals.sales}
+                          />
                         ))}
                       </ul>
                     </CardContent>
@@ -278,6 +290,119 @@ export default function ReportsPage() {
                         <ShareRow key={c.category} name={c.category} value={formatCurrency(c.amount)} sub={`${c.quantity} items`} share={c.amount / data.categories[0].amount} />
                       ))}
                     </ul>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader
+                    title="Discounts & offers"
+                    description={`${formatCurrency(data.totals.discount)} off in all${data.discounts.offers ? ` · ${formatCurrency(data.discounts.offers)} from offers` : ""}${data.totals.pointsDiscount ? ` · ${formatCurrency(data.totals.pointsDiscount)} loyalty points` : ""}`}
+                    action={<a href={download("discounts")}><Button size="sm" variant="outline"><Download className="h-4 w-4" /> CSV</Button></a>}
+                  />
+                  <CardContent>
+                    {data.discounts.list.length === 0 ? (
+                      <p className="text-slate-500">No discounts in this period.</p>
+                    ) : (
+                      <>
+                        <p className="mb-2 text-sm text-slate-600">By staff: {data.discounts.byStaff.map((x) => `${x.name} ${formatCurrency(x.amount)}`).join(" · ")}</p>
+                        <ul className="divide-y divide-slate-100 text-sm">
+                          {data.discounts.list.slice(0, 8).map((d) => (
+                            <li key={d.id} className="flex justify-between gap-3 py-1.5">
+                              <span className="min-w-0 truncate">
+                                <Link href={`/orders/${d.id}`} className="font-semibold underline-offset-2 hover:underline">Bill {d.billNumber}</Link>
+                                <span className="text-slate-500"> · {d.reason || "no reason given"} · {d.by}</span>
+                              </span>
+                              <b className="shrink-0">{formatCurrency(d.amount)}</b>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {data.complimentary.count > 0 && (
+                      <p className="mt-3 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
+                        <Gift className="h-4 w-4" /> {data.complimentary.count} complimentary bill{data.complimentary.count === 1 ? "" : "s"} worth {formatCurrency(data.complimentary.value)} at menu price
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader
+                    title="Removed after the kitchen had them"
+                    description={data.removedItems.count ? `${data.removedItems.count} dish(es) worth ${formatCurrency(data.removedItems.value)}` : "Dishes taken off an order after the kitchen ticket"}
+                    action={data.removedItems.count > 0 && <a href={download("removed")}><Button size="sm" variant="outline"><Download className="h-4 w-4" /> CSV</Button></a>}
+                  />
+                  <CardContent>
+                    {data.removedItems.list.length === 0 ? (
+                      <p className="text-slate-500">None in this period.</p>
+                    ) : (
+                      <ul className="divide-y divide-slate-100 text-sm">
+                        {data.removedItems.list.slice(0, 8).map((i) => (
+                          <li key={i.id} className="flex justify-between gap-3 py-1.5">
+                            <span className="min-w-0 truncate">
+                              {i.quantity} × {i.name}
+                              <span className="text-slate-500">
+                                {" "}· {i.reason || "no reason"} · order #{i.order.number}
+                                {i.order.table && ` (${i.order.table.name})`}
+                              </span>
+                            </span>
+                            <b className="shrink-0">{formatCurrency(i.value)}</b>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Card>
+                  <CardHeader title="Days of the week" description="Which days are busiest" />
+                  <CardContent>
+                    <ColumnChart data={data.weekdays} xKey="day" xFormat={(v) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][Number(v)]} height={200} />
+                  </CardContent>
+                </Card>
+                {data.riders.length > 0 && (
+                  <Card>
+                    <CardHeader title="Delivery riders" description="Orders, average time on the road and cash collected" />
+                    <CardContent>
+                      <ul className="divide-y divide-slate-100 text-[15px]">
+                        {data.riders.map((r) => (
+                          <li key={r.name} className="flex items-center justify-between gap-3 py-2">
+                            <span className="flex items-center gap-2 font-semibold">
+                              <Bike className="h-4 w-4 text-slate-400" /> {r.name}
+                            </span>
+                            <span className="text-right text-sm">
+                              <b>{r.orders}</b> orders{r.avgMinutes ? ` · ${Math.round(r.avgMinutes)} min` : ""}
+                              <span className="block text-slate-500">cash {formatCurrency(r.cash)}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+                <Card>
+                  <CardHeader title="Guests & accounts" />
+                  <CardContent className="space-y-3 text-[15px]">
+                    <p className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-slate-600">
+                        <Star className="h-4 w-4 text-amber-500" /> Guest rating
+                      </span>
+                      <b>{data.rating.average ? `${data.rating.average} / 5 (${data.rating.count})` : "No ratings yet"}</b>
+                    </p>
+                    <p className="flex items-center justify-between">
+                      <span className="text-slate-600">Bills put on customer accounts</span>
+                      <b>{formatCurrency(data.accounts.credit)}</b>
+                    </p>
+                    <p className="flex items-center justify-between">
+                      <span className="text-slate-600">Money received on accounts</span>
+                      <b>{formatCurrency(data.accounts.received)}</b>
+                    </p>
+                    <Link href="/customers?tab=feedback" className="text-sm font-semibold text-primary-700 hover:underline">
+                      See ratings and comments
+                    </Link>
                   </CardContent>
                 </Card>
               </div>

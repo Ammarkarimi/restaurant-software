@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/settings";
 import { normalizePhone } from "@/lib/customers";
 import { ORDER_SOURCES, formatCurrency, label } from "@/lib/utils";
 import { offerProblem } from "@/lib/offers";
+import { can, discountLimit } from "@/lib/permissions";
 import { todayKey } from "@/lib/dates";
 
 type Params = { params: Promise<{ id: string }> };
@@ -61,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     // Complimentary: a 100% discount with no charges, marked so reports keep it apart.
     let complimentaryFields: Record<string, unknown> = {};
     if (body.complimentary !== undefined && body.complimentary !== order.complimentary) {
-      if (user.role !== "admin") fail("Only the owner / manager can make a bill complimentary.");
+      if (!can(user, "complimentary")) fail("You are not allowed to make bills complimentary. Ask the owner / manager.");
       if (body.complimentary) {
         const why = body.complimentaryReason?.trim();
         if (!why || why.length < 2) fail("Please give a reason, e.g. owner's guest, staff meal, food complaint");
@@ -102,6 +103,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       offerFields = { offerId: null, discountValue: 0, discountMax: null, discountReason: null };
     } else if (body.discountValue !== undefined || body.discountType !== undefined) {
       offerFields = { offerId: null, discountMax: null };
+      // A cashier's hand discount is limited by their rights (offers set by the owner always work).
+      const value = body.discountValue ?? order.discountValue;
+      if (value > 0) {
+        const limit = discountLimit(user);
+        const items = totalsOf(order).itemsTotal;
+        const percent = (body.discountType ?? order.discountType) === "percent" ? value : items > 0 ? (value / items) * 100 : 100;
+        if (percent > limit + 0.001) fail(limit === 0 ? "You are not allowed to give discounts. Ask the owner / manager, or apply an offer." : `You can give at most ${limit}% off. Ask the owner / manager for more.`);
+      }
     }
     if (body.pointsRedeemed) {
       const settings = await getSettings();

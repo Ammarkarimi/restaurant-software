@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, Check, Minus, Plus, ReceiptText, Search, ShoppingBag, UtensilsCrossed, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { BellRing, Bike, Check, IndianRupee, Minus, Plus, ReceiptText, Search, ShoppingBag, UtensilsCrossed, X } from "lucide-react";
 import { FoodMark } from "@/components/food-mark";
-import { Button, Field, Input, Modal, Tip } from "@/components/ui";
+import { Button, Field, Input, Modal, Select, Textarea, Tip } from "@/components/ui";
 import { ItemOptionsDialog } from "@/components/pos/pos-dialogs";
 import { api } from "@/lib/client";
 import { addonText, groupsForItem, parseVariants, priceFor, type AddonGroupData, type ChosenAddon } from "@/lib/menu";
@@ -40,22 +41,52 @@ interface Placed {
   items: Array<{ name: string; variant: string | null; quantity: number; addons?: string }>;
 }
 
+type Mode = "table" | "menu" | "online" | "kiosk";
+
+interface TableBill {
+  billNumber: string | null;
+  total: number;
+  due: number;
+  items: Array<{ name: string; variant: string | null; quantity: number; amount: number }>;
+  upi: string | null;
+}
+
+/** Pickup / delivery times for the rest of today, every 30 minutes, starting 30 minutes from now. */
+function timeSlots(timeZone: string) {
+  const out: Array<{ value: string; label: string }> = [];
+  const start = Math.ceil((Date.now() + 30 * 60_000) / (30 * 60_000)) * 30 * 60_000;
+  const fmt = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", timeZone });
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone });
+  const today = day.format(Date.now());
+  for (let t = start; day.format(t) === today && out.length < 30; t += 30 * 60_000) out.push({ value: new Date(t).toISOString(), label: fmt.format(t) });
+  return out;
+}
+
 export function GuestMenu({
   slug,
   restaurant,
   categories,
   addonGroups,
   table,
+  mode,
   ordering,
+  online,
 }: {
   slug: string;
   restaurant: { name: string; address: string; phone: string | null; logoUrl: string | null; currency: string; taxNote: string | null };
   categories: Array<{ id: string; name: string; items: Dish[] }>;
   addonGroups: AddonGroupData[];
   table: { token: string; name: string } | null;
+  mode: Mode;
   ordering: boolean;
+  online: { delivery: boolean; minOrder: number; packingCharge: number; deliveryCharge: number; timezone: string };
 }) {
   setCurrency(restaurant.currency);
+  const router = useRouter();
+  const selfOrder = mode === "online" || mode === "kiosk";
+  const [checkout, setCheckout] = useState({ phone: "", type: "takeaway" as "takeaway" | "delivery", address: "", when: "", note: "" });
+  const [kioskDone, setKioskDone] = useState<{ number: number; total: number } | null>(null);
+  const [bill, setBill] = useState<TableBill | null>(null);
   const [query, setQuery] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const [cart, setCart] = useState<Line[]>([]);
@@ -72,8 +103,12 @@ export function GuestMenu({
 
   // Orders this phone already placed at this table today, so the guest can see them.
   useEffect(() => {
-    if (!storeKey) return;
     try {
+      if (mode === "online") {
+        setName(localStorage.getItem("qr-guest-name") || "");
+        setCheckout((c) => ({ ...c, phone: localStorage.getItem("online-guest-phone") || "", address: localStorage.getItem("online-guest-address") || "" }));
+      }
+      if (!storeKey) return;
       const saved = JSON.parse(localStorage.getItem(storeKey) || "[]") as Placed[];
       const since = Date.now() - 6 * 60 * 60 * 1000;
       setPlaced(saved.filter((p) => new Date(p.at).getTime() > since));
@@ -81,7 +116,23 @@ export function GuestMenu({
     } catch {
       // private mode
     }
-  }, [storeKey]);
+  }, [storeKey, mode]);
+
+  // Scan & pay: once the table's bill is printed, guests can pay it by UPI from here.
+  useEffect(() => {
+    if (!table) return;
+    const load = () => api<{ bill: TableBill | null }>(`/api/public/table-bill/${slug}?t=${encodeURIComponent(table.token)}`).then((r) => setBill(r.bill), () => null);
+    load();
+    const t = setInterval(() => document.visibilityState === "visible" && load(), 20_000);
+    return () => clearInterval(t);
+  }, [table, slug]);
+
+  // The kiosk starts again for the next guest.
+  useEffect(() => {
+    if (!kioskDone) return;
+    const t = setTimeout(() => setKioskDone(null), 20_000);
+    return () => clearTimeout(t);
+  }, [kioskDone]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -110,7 +161,47 @@ export function GuestMenu({
     else add(dish, null, dish.price);
   }
 
+  async function placeSelfOrder() {
+    setSending(true);
+    setError("");
+    try {
+      const r = await api<{ orderNumber: number; total: number; track: string }>(`/api/public/online-order/${slug}`, {
+        body: {
+          mode,
+          type: mode === "kiosk" ? "takeaway" : checkout.type,
+          name: name.trim() || null,
+          phone: checkout.phone.trim() || null,
+          address: checkout.type === "delivery" ? checkout.address.trim() : null,
+          scheduledFor: checkout.when || null,
+          note: checkout.note.trim() || null,
+          items: cart.map((l) => ({ menuItemId: l.menuItemId, variant: l.variant, quantity: l.quantity, addons: l.picks })),
+        },
+      });
+      setCart([]);
+      setCartOpen(false);
+      if (mode === "kiosk") {
+        setName("");
+        setCheckout((c) => ({ ...c, phone: "", note: "" }));
+        setKioskDone({ number: r.orderNumber, total: r.total });
+        return;
+      }
+      try {
+        if (name.trim()) localStorage.setItem("qr-guest-name", name.trim());
+        localStorage.setItem("online-guest-phone", checkout.phone.trim());
+        if (checkout.type === "delivery") localStorage.setItem("online-guest-address", checkout.address.trim());
+      } catch {
+        // private mode
+      }
+      router.push(`/o/${encodeURIComponent(r.track)}`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function placeOrder() {
+    if (selfOrder) return placeSelfOrder();
     if (!table) return;
     setSending(true);
     setError("");
@@ -136,7 +227,7 @@ export function GuestMenu({
     }
   }
 
-  async function call(type: "waiter" | "bill") {
+  async function call(type: "waiter" | "bill" | "paid") {
     if (!table) return;
     try {
       await api(`/api/public/call/${slug}`, { body: { table: table.token, type } });
@@ -161,6 +252,8 @@ export function GuestMenu({
         <h1 className="text-2xl font-bold text-slate-900">{restaurant.name}</h1>
         {restaurant.address && <p className="text-sm text-slate-500">{restaurant.address}</p>}
         {table && <p className="mt-2 inline-block rounded-full bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700">Table {table.name}</p>}
+        {mode === "online" && <p className="mt-2 inline-block rounded-full bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700">Order online · {online.delivery ? "pickup or delivery" : "pickup"}</p>}
+        {mode === "kiosk" && <p className="mt-2 inline-block rounded-full bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700">Order here · pay at the counter</p>}
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
@@ -177,6 +270,42 @@ export function GuestMenu({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {bill && (
+          <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+            <p className="flex items-center justify-between font-bold text-slate-900">
+              <span className="flex items-center gap-2">
+                <ReceiptText className="h-5 w-5 text-emerald-600" /> Your bill {bill.billNumber}
+              </span>
+              <span>{formatCurrency(bill.total)}</span>
+            </p>
+            <details className="mt-1 text-sm text-slate-600">
+              <summary className="cursor-pointer">{bill.items.reduce((s, i) => s + i.quantity, 0)} items</summary>
+              <ul className="mt-1 space-y-0.5">
+                {bill.items.map((i, n) => (
+                  <li key={n} className="flex justify-between">
+                    <span>
+                      {i.quantity} × {i.name}
+                      {i.variant && ` (${i.variant})`}
+                    </span>
+                    <span>{formatCurrency(i.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+            {bill.due > 0 && bill.upi && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <a href={bill.upi} className="flex items-center justify-center gap-1 rounded-xl bg-emerald-600 px-3 py-2.5 font-bold text-white">
+                  <IndianRupee className="h-4 w-4" /> Pay by UPI
+                </a>
+                <Button variant="outline" onClick={() => call("paid")} disabled={called === "paid"}>
+                  {called === "paid" ? "Staff told" : "I have paid"}
+                </Button>
+              </div>
+            )}
+            {bill.due > 0 && !bill.upi && <p className="mt-2 text-sm text-slate-500">Please pay at the counter or ask the staff.</p>}
           </div>
         )}
 
@@ -294,18 +423,30 @@ export function GuestMenu({
         />
       )}
 
+      {kioskDone && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-primary-600 p-6 text-center text-white">
+          <Check className="h-16 w-16" />
+          <p className="text-2xl font-semibold">Thank you! Your order number is</p>
+          <p className="text-8xl font-black tabular-nums">{kioskDone.number}</p>
+          <p className="text-xl">Please pay {formatCurrency(kioskDone.total)} at the counter. Watch the screen for your number.</p>
+          <Button variant="outline" size="lg" className="mt-4 bg-white text-primary-700" onClick={() => setKioskDone(null)}>
+            Start a new order
+          </Button>
+        </div>
+      )}
+
       {cartOpen && (
         <Modal
           open
           onClose={() => setCartOpen(false)}
-          title={`Your order · Table ${table?.name}`}
-          description="The staff confirm your order before the kitchen starts."
+          title={selfOrder ? "Your order" : `Your order · Table ${table?.name}`}
+          description={selfOrder ? (mode === "kiosk" ? "Pay at the counter when your number is called." : "The restaurant confirms your order, then starts cooking.") : "The staff confirm your order before the kitchen starts."}
           footer={
             <>
               <Button variant="outline" onClick={() => setCartOpen(false)}>
                 <X className="h-4 w-4" /> Add more
               </Button>
-              <Button size="lg" loading={sending} disabled={count === 0} onClick={placeOrder}>
+              <Button size="lg" loading={sending} disabled={count === 0 || (mode === "online" && online.minOrder > subtotal)} onClick={placeOrder}>
                 Place order
               </Button>
             </>
@@ -333,9 +474,49 @@ export function GuestMenu({
             <span>Items total</span>
             <span>{formatCurrency(subtotal)}</span>
           </p>
-          {restaurant.taxNote && <p className="text-sm text-slate-500">{restaurant.taxNote}. Your final bill comes from the staff.</p>}
-          <Field label="Your name" optional className="mt-4">
-            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="So the staff know who ordered" />
+          {selfOrder && (checkout.type === "delivery" ? online.deliveryCharge > 0 || online.packingCharge > 0 : online.packingCharge > 0) && (
+            <p className="text-sm text-slate-500">
+              + {checkout.type === "delivery" && online.deliveryCharge > 0 ? `delivery ${formatCurrency(online.deliveryCharge)}` : ""}
+              {checkout.type === "delivery" && online.deliveryCharge > 0 && online.packingCharge > 0 ? " and " : ""}
+              {online.packingCharge > 0 ? `packing ${formatCurrency(online.packingCharge)}` : ""}
+            </p>
+          )}
+          {restaurant.taxNote && <p className="text-sm text-slate-500">{restaurant.taxNote}.{selfOrder ? "" : " Your final bill comes from the staff."}</p>}
+          {mode === "online" && online.minOrder > subtotal && <Tip tone="warning">The minimum order is {formatCurrency(online.minOrder)}. Add a little more.</Tip>}
+          {mode === "online" && (
+            <div className="mt-4 grid gap-3">
+              {online.delivery && (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["takeaway", "delivery"] as const).map((t) => (
+                    <Button key={t} variant={checkout.type === t ? "primary" : "outline"} onClick={() => setCheckout({ ...checkout, type: t })}>
+                      {t === "takeaway" ? <ShoppingBag className="h-4 w-4" /> : <Bike className="h-4 w-4" />} {t === "takeaway" ? "Pickup" : "Delivery"}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Field label="Phone / WhatsApp">
+                <Input type="tel" value={checkout.phone} onChange={(e) => setCheckout({ ...checkout, phone: e.target.value })} maxLength={20} required />
+              </Field>
+              {checkout.type === "delivery" && (
+                <Field label="Delivery address">
+                  <Textarea rows={2} value={checkout.address} onChange={(e) => setCheckout({ ...checkout, address: e.target.value })} maxLength={300} />
+                </Field>
+              )}
+              <Field label={checkout.type === "delivery" ? "Deliver" : "Pick up"}>
+                <Select value={checkout.when} onChange={(e) => setCheckout({ ...checkout, when: e.target.value })}>
+                  <option value="">As soon as possible</option>
+                  {timeSlots(online.timezone).map((s) => (
+                    <option key={s.value} value={s.value}>At {s.label}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Note for the kitchen" optional>
+                <Input value={checkout.note} onChange={(e) => setCheckout({ ...checkout, note: e.target.value })} maxLength={300} placeholder="e.g. less spicy, extra chutney" />
+              </Field>
+            </div>
+          )}
+          <Field label="Your name" optional={mode !== "online"} className="mt-4">
+            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder={mode === "kiosk" ? "We call this name with your number" : "So the staff know who ordered"} />
           </Field>
           {error && <div className="mt-3"><Tip tone="danger">{error}</Tip></div>}
         </Modal>

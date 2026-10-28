@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { fail, withAdmin } from "@/lib/api";
+import { fail, withAuth } from "@/lib/api";
+import { can } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
 import { round2 } from "@/lib/billing";
@@ -26,7 +27,8 @@ const schema = z.object({
  * The amount stays the same; the change is kept in the activity history.
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return withAdmin(async (user) => {
+  return withAuth(async (user) => {
+    if (!can(user, "changePayment")) fail("You are not allowed to change the payment mode of a paid bill.", 403);
     const { id } = await params;
     const body = schema.parse(await request.json());
     const settings = await getSettings();

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { csvResponse, fail, withAdmin } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
 import { addDays, diffDays, isDateKey, todayKey } from "@/lib/dates";
-import { salesReport, settledOrders } from "@/lib/reports";
+import { parseCommission, salesReport, settledOrders } from "@/lib/reports";
 import { totalsOf } from "@/lib/orders";
 import { label } from "@/lib/utils";
 
@@ -34,7 +34,19 @@ export async function GET(request: NextRequest) {
       ]);
     }
 
-    const report = await salesReport(range);
+    const report = await salesReport(range, { commission: parseCommission(settings.appCommission) });
+    if (type === "discounts") {
+      return csvResponse(`discounts_${suffix}`, [
+        ["Bill #", "Discount", "Reason / offer", "Staff"],
+        ...report.discounts.list.map((d) => [d.billNumber, d.amount, d.reason, d.by]),
+      ]);
+    }
+    if (type === "removed") {
+      return csvResponse(`removed_after_kitchen_${suffix}`, [
+        ["Dish", "Quantity", "Value", "Reason", "Order #", "Bill #", "Table", "Order opened by"],
+        ...report.removedItems.list.map((i) => [i.name, i.quantity, i.value, i.reason, i.order.number, i.order.billNumber, i.order.table?.name, i.order.createdByName]),
+      ]);
+    }
     if (type === "items") {
       return csvResponse(`item_sales_${suffix}`, [
         ["Item", "Category", "Quantity", "Amount (menu price)"],
