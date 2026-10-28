@@ -67,6 +67,7 @@ const CATEGORIES = [
   "Cleaning",
   "Packaging",
   "Marketing",
+  "Supplier payment",
   "Other",
 ];
 const NOTES = [500, 200, 100, 50, 20, 10, 5, 2, 1];

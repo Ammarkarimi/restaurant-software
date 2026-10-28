@@ -11,8 +11,10 @@ import { addDays } from "@/lib/dates";
 import { parseVariants } from "@/lib/menu";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 import type { CategoryDTO } from "@/lib/types";
+import { CostingTab, PurchasesTab, SuppliersTab } from "./purchases-tab";
 
-type Tab = "stock" | "recipes" | "history" | "usage";
+type Tab = "stock" | "purchases" | "suppliers" | "recipes" | "costing" | "history" | "usage";
+const TAB_LIST: Tab[] = ["stock", "purchases", "suppliers", "recipes", "costing", "history", "usage"];
 
 interface StockItem {
   id: string;
@@ -651,7 +653,7 @@ function StockView() {
   const { isAdmin } = useApp();
   const sp = useSearchParams();
   const requested = sp.get("tab") as Tab | null;
-  const [tab, setTab] = useState<Tab>(requested && ["stock", "recipes", "history", "usage"].includes(requested) ? requested : "stock");
+  const [tab, setTab] = useState<Tab>(requested && TAB_LIST.includes(requested) ? requested : "stock");
   const [historyItem, setHistoryItem] = useState("");
   if (!isAdmin) return <Tip tone="warning">Only the owner / manager can manage stock.</Tip>;
   const change = (t: Tab) => {
@@ -666,7 +668,10 @@ function StockView() {
         onChange={change}
         tabs={[
           { value: "stock", label: "Stock" },
+          { value: "purchases", label: "Purchase orders" },
+          { value: "suppliers", label: "Suppliers" },
           { value: "recipes", label: "Recipes" },
+          { value: "costing", label: "Dish costing" },
           { value: "history", label: "History" },
           { value: "usage", label: "Usage report" },
         ]}
@@ -679,7 +684,10 @@ function StockView() {
           }}
         />
       )}
+      {tab === "purchases" && <PurchasesTab />}
+      {tab === "suppliers" && <SuppliersTab />}
       {tab === "recipes" && <RecipesTab />}
+      {tab === "costing" && <CostingTab />}
       {tab === "history" && <HistoryTab item={historyItem} setItem={setHistoryItem} />}
       {tab === "usage" && <UsageTab />}
     </div>

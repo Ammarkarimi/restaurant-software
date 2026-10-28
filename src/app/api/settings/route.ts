@@ -51,6 +51,17 @@ const schema = z
       .max(12, "At most 12 stations")
       .refine((a) => new Set(a.map((x) => x.toLowerCase())).size === a.length, "Two stations have the same name")
       .transform((a) => JSON.stringify(a)),
+    deliveryRiders: z
+      .array(z.object({ name: z.string().trim().min(1, "A rider needs a name").max(40), phone: z.string().trim().max(20).default("") }))
+      .max(50)
+      .transform((a) => JSON.stringify(a)),
+    appCommission: z
+      .record(z.string().max(20), z.coerce.number().min(0).max(60))
+      .transform((o) => JSON.stringify(o)),
+    onlineOrderingEnabled: z.boolean(),
+    onlineDeliveryEnabled: z.boolean(),
+    onlineMinOrder: z.coerce.number().min(0).max(100_000),
+    onlineBookingEnabled: z.boolean(),
     billTemplate: billTemplateSchema,
   })
   .partial();

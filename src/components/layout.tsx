@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  CalendarClock,
   ChefHat,
   BookOpen,
   HelpCircle,
@@ -30,6 +31,7 @@ import type { SessionUser } from "@/lib/session";
 const NAV = [
   { href: "/", label: "Tables", icon: LayoutGrid, hint: "Take orders & bill" },
   { href: "/bills", label: "Bills", icon: ReceiptText, hint: "All orders & reprints" },
+  { href: "/reservations", label: "Reservations", icon: CalendarClock, hint: "Table bookings" },
   { href: "/menu", label: "Menu", icon: BookOpen, hint: "Dishes & prices" },
   { href: "/customers", label: "Customers", icon: Users, hint: "Regulars & loyalty", admin: true },
   { href: "/cash", label: "Cash & expenses", icon: Wallet, hint: "Expenses, day close" },

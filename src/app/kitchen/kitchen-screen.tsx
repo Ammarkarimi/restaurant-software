@@ -245,6 +245,9 @@ export function KitchenScreen({
         >
           Sold out dishes
         </button>
+        <a href="/display" target="_blank" rel="noopener noreferrer" className="rounded-xl bg-slate-800 px-3 py-2 text-sm font-semibold hover:bg-slate-700" title="Order numbers for guests waiting for takeaway">
+          Token screen
+        </a>
         <button onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} className="rounded-xl p-2 hover:bg-slate-800" aria-label="Full screen">
           <Maximize className="h-6 w-6" />
         </button>

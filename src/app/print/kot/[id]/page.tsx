@@ -70,6 +70,7 @@ export default async function PrintKotPage({ params, searchParams }: Props) {
               {stations.length > 0 && <p className="text-center text-base font-extrabold uppercase">[ {st ?? "Kitchen"} ]</p>}
               <p className="text-center text-lg font-bold">KOT #{number}</p>
               <p className="text-center text-xl font-extrabold">{where}</p>
+              {order.type !== "dine_in" && <p className="text-center text-2xl font-black">TOKEN {order.number}</p>}
               <div className="my-1 border-t border-dashed border-black" />
               <p>Order #{order.number} · {time(items[0]?.sentAt ?? null)}</p>
               {order.createdByName && <p>By: {order.createdByName}</p>}

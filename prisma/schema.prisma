@@ -24,6 +24,7 @@ model Restaurant {
   orderSeq             Int                   @default(0) // last order number handed out
   billSeq              Int                   @default(0) // last bill number handed out
   kotSeq               Int                   @default(0) // last kitchen ticket number handed out
+  purchaseSeq          Int                   @default(0) // last purchase order number handed out
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   staff                Staff[]
@@ -47,6 +48,12 @@ model Restaurant {
   priceLists           PriceList[]
   offers               Offer[]
   customerTxns         CustomerTxn[]
+  reservations         Reservation[]
+  suppliers            Supplier[]
+  purchases            Purchase[]
+  feedback             Feedback[]
+  campaigns            Campaign[]
+  attendance           Attendance[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -77,6 +84,7 @@ model Staff {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   lastLoginAt  DateTime?
+  permissions  String         @default("{}") // JSON rights for cashiers / captains, see src/lib/permissions.ts
   activities   ActivityLog[]
   outlets      OutletAccess[]
   restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -99,55 +107,62 @@ model OutletAccess {
 
 // One row per restaurant holding its profile, tax rules and bill design.
 model RestaurantSettings {
-  id                   String     @id @default(cuid())
-  restaurantId         String     @unique
-  restaurantName       String     @default("My Restaurant")
-  legalName            String? // registered business name, if different
-  address              String?
-  city                 String?
-  phone                String?
-  email                String?
-  gstin                String?
-  fssai                String? // food licence number, printed on bills in India
-  currency             String     @default("INR")
-  timezone             String     @default("Asia/Kolkata")
-  taxMode              String     @default("gst") // gst (CGST + SGST), simple (one tax line), none
-  taxName              String     @default("Tax") // label used when taxMode = simple, e.g. VAT
-  defaultTaxRate       Float      @default(5)
-  pricesIncludeTax     Boolean    @default(false)
-  serviceChargePercent Float      @default(0)
-  packingCharge        Float      @default(0) // added to every takeaway and delivery order
-  deliveryCharge       Float      @default(0) // added to every delivery order
-  roundOff             Boolean    @default(true)
-  billPrefix           String     @default("")
-  upiId                String? // printed as a QR code on the bill so guests can pay
-  loyaltyEnabled       Boolean    @default(false)
-  loyaltyEarnPercent   Float      @default(5) // points earned = this % of the bill; 1 point = 1 rupee off
-  loyaltyMinRedeem     Float      @default(100) // points a guest needs before they can use them
-  qrMenuEnabled        Boolean    @default(true) // guests can open the menu from a QR code
-  qrOrderingEnabled    Boolean    @default(false) // guests can order from the table QR code; staff confirm
-  kitchenStations      String     @default("[]") // JSON names of cooking stations, e.g. ["Tandoor", "Bar"]; each prints its own kitchen ticket
-  logoPath             String?
-  billTemplate         String     @default("{}") // JSON, see src/lib/bill-template.ts
-  updatedAt            DateTime   @updatedAt
-  restaurant           Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                    String     @id @default(cuid())
+  restaurantId          String     @unique
+  restaurantName        String     @default("My Restaurant")
+  legalName             String? // registered business name, if different
+  address               String?
+  city                  String?
+  phone                 String?
+  email                 String?
+  gstin                 String?
+  fssai                 String? // food licence number, printed on bills in India
+  currency              String     @default("INR")
+  timezone              String     @default("Asia/Kolkata")
+  taxMode               String     @default("gst") // gst (CGST + SGST), simple (one tax line), none
+  taxName               String     @default("Tax") // label used when taxMode = simple, e.g. VAT
+  defaultTaxRate        Float      @default(5)
+  pricesIncludeTax      Boolean    @default(false)
+  serviceChargePercent  Float      @default(0)
+  packingCharge         Float      @default(0) // added to every takeaway and delivery order
+  deliveryCharge        Float      @default(0) // added to every delivery order
+  roundOff              Boolean    @default(true)
+  billPrefix            String     @default("")
+  upiId                 String? // printed as a QR code on the bill so guests can pay
+  loyaltyEnabled        Boolean    @default(false)
+  loyaltyEarnPercent    Float      @default(5) // points earned = this % of the bill; 1 point = 1 rupee off
+  loyaltyMinRedeem      Float      @default(100) // points a guest needs before they can use them
+  qrMenuEnabled         Boolean    @default(true) // guests can open the menu from a QR code
+  qrOrderingEnabled     Boolean    @default(false) // guests can order from the table QR code; staff confirm
+  kitchenStations       String     @default("[]") // JSON names of cooking stations, e.g. ["Tandoor", "Bar"]; each prints its own kitchen ticket
+  deliveryRiders        String     @default("[]") // JSON [{ "name": "Raju", "phone": "98…" }]
+  appCommission         String     @default("{}") // JSON % the apps keep, e.g. { "zomato": 25, "swiggy": 22 }, for the payout report
+  onlineOrderingEnabled Boolean    @default(false) // guests can order takeaway (and delivery) from the restaurant's own link
+  onlineDeliveryEnabled Boolean    @default(false)
+  onlineMinOrder        Float      @default(0)
+  onlineBookingEnabled  Boolean    @default(false) // guests can ask for a table booking from the restaurant's link
+  logoPath              String?
+  billTemplate          String     @default("{}") // JSON, see src/lib/bill-template.ts
+  updatedAt             DateTime   @updatedAt
+  restaurant            Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
 model DiningTable {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   restaurantId String
   name         String // "T1", "Garden 4"
-  area         String     @default("Main hall")
-  seats        Int        @default(4)
-  sortOrder    Int        @default(0)
-  active       Boolean    @default(true)
-  qrToken      String     @unique @default(cuid()) // in the table's QR code, so guests can order for this table
+  area         String        @default("Main hall")
+  seats        Int           @default(4)
+  sortOrder    Int           @default(0)
+  active       Boolean       @default(true)
+  qrToken      String        @unique @default(cuid()) // in the table's QR code, so guests can order for this table
   callType     String? // a guest pressed "Call waiter" (waiter) or "Ask for the bill" (bill)
   callAt       DateTime?
-  createdAt    DateTime   @default(now())
-  orders       Order[]    @relation("TableOrders")
-  activeOrder  Order?     @relation("ActiveTableOrder")
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  reservations Reservation[]
+  orders       Order[]       @relation("TableOrders")
+  activeOrder  Order?        @relation("ActiveTableOrder")
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, name])
 }
@@ -216,6 +231,11 @@ model Order {
   discountMax          Float? // most a percent discount may take off (from an offer)
   offerId              String? // the offer the discount came from
   complimentary        Boolean      @default(false) // on the house: nothing to pay, kept apart in reports
+  scheduledFor         DateTime? // pickup / delivery time asked for (online and advance orders)
+  riderName            String? // who takes a delivery order out
+  deliveryStatus       String? // out, delivered
+  outAt                DateTime?
+  deliveredAt          DateTime?
   pointsRedeemed       Float        @default(0) // loyalty points used on this bill
   pointsEarned         Float        @default(0) // loyalty points given when it was paid
   // Tax rules copied from settings when the order is opened, so later changes
@@ -344,6 +364,8 @@ model Expense {
   createdById   String?
   createdByName String
   createdAt     DateTime   @default(now())
+  supplierId    String? // a payment to a supplier
+  supplier      Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, date])
@@ -544,4 +566,124 @@ model CustomerTxn {
 
   @@index([restaurantId, customerId, createdAt])
   @@index([restaurantId, date])
+}
+
+// A table booked for later, by phone, walk-in or the restaurant's booking link.
+model Reservation {
+  id            String       @id @default(cuid())
+  restaurantId  String
+  name          String
+  phone         String
+  guests        Int          @default(2)
+  date          String // "YYYY-MM-DD"
+  time          String // "19:30"
+  tableId       String?
+  status        String       @default("booked") // requested (from the link, to confirm), booked, seated, cancelled, no_show
+  source        String       @default("phone") // phone, walk_in, online
+  occasion      String? // birthday, anniversary…
+  notes         String?
+  orderId       String? // the order opened when they were seated
+  createdByName String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  table         DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+}
+
+// Someone the restaurant buys from: vegetables, meat, dairy, packaging…
+model Supplier {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String
+  phone        String?
+  gstin        String?
+  address      String?
+  notes        String?
+  balance      Float      @default(0) // what the restaurant owes them
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  purchases    Purchase[]
+  payments     Expense[]
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, name])
+}
+
+// A purchase order sent to a supplier; when the goods arrive it is received into stock.
+model Purchase {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  number        Int // counts up per restaurant
+  supplierId    String?
+  supplierName  String
+  status        String     @default("ordered") // ordered, received, cancelled
+  invoiceNo     String? // the supplier's bill number
+  orderedOn     String // "YYYY-MM-DD"
+  receivedOn    String?
+  lines         String     @default("[]") // JSON [{ "stockItemId", "name", "unit", "quantity", "rate" }]
+  total         Float      @default(0)
+  notes         String?
+  createdByName String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  supplier      Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, number])
+  @@index([restaurantId, status])
+}
+
+// What a guest thought of their visit, from the link on their e-bill.
+model Feedback {
+  id           String     @id @default(cuid())
+  restaurantId String
+  orderId      String     @unique
+  customerId   String?
+  name         String?
+  phone        String?
+  rating       Int // 1 to 5
+  food         Int?
+  service      Int?
+  ambience     Int?
+  comment      String?
+  followedUp   Boolean    @default(false) // the owner called back about a low rating
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+}
+
+// A WhatsApp message to a group of customers (birthdays, not seen lately…), sent one tap at a time.
+model Campaign {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  name          String
+  segment       String // all, birthday, inactive, regulars, top, owes
+  message       String
+  recipients    String     @default("[]") // JSON [{ "customerId", "name", "phone", "sentAt" }]
+  createdByName String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+}
+
+// A staff member's working day: when they started and finished.
+model Attendance {
+  id           String     @id @default(cuid())
+  restaurantId String
+  staffId      String
+  staffName    String
+  date         String // business day, "YYYY-MM-DD"
+  inAt         DateTime
+  outAt        DateTime?
+  note         String?
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+  @@index([restaurantId, staffId, date])
 }

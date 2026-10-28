@@ -4,13 +4,19 @@ import { groupsForItem, parseVariants } from "./menu";
 import { publicPhotoUrl } from "./menu-photos";
 import { activeLists, menuPrice } from "./pricing";
 
-/** A restaurant whose QR menu guests may open, with its settings. Null when it is paused or the QR menu is off. */
-export async function findPublicRestaurant(slug: string) {
+/** An active restaurant and its settings, for pages guests open without signing in. */
+export async function findRestaurantBySlug(slug: string) {
+  if (!slug || slug.length > 80) return null;
   const restaurant = await rawPrisma.restaurant.findUnique({ where: { slug }, select: { id: true, slug: true, status: true } });
   if (!restaurant || restaurant.status !== "active") return null;
   const settings = await runForRestaurant(restaurant.id, () => getSettings());
-  if (!settings.qrMenuEnabled) return null;
   return { restaurant, settings };
+}
+
+/** A restaurant whose QR menu guests may open, with its settings. Null when it is paused or the QR menu is off. */
+export async function findPublicRestaurant(slug: string) {
+  const found = await findRestaurantBySlug(slug);
+  return found && found.settings.qrMenuEnabled ? found : null;
 }
 
 /** The table a QR code belongs to, inside runForRestaurant(). */

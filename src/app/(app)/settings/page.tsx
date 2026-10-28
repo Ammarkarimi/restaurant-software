@@ -11,10 +11,11 @@ import { api } from "@/lib/client";
 import { calculateBill } from "@/lib/billing";
 import { formatDateTime, label } from "@/lib/utils";
 import { parseList } from "@/lib/menu";
+import { parseRiders } from "@/lib/riders";
 import type { SettingsDTO } from "@/lib/types";
 
-type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "kitchen" | "staff" | "activity";
-const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "kitchen", "staff", "activity"];
+type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "online" | "kitchen" | "staff" | "activity";
+const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "online", "kitchen", "staff", "activity"];
 
 const TIMEZONES = ["Asia/Kolkata", "Asia/Dubai", "Asia/Kathmandu", "Asia/Dhaka", "Asia/Colombo", "Asia/Singapore", "Europe/London", "America/New_York", "Australia/Sydney"];
 
@@ -293,7 +294,138 @@ function KitchenTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s:
         Then open <b>Menu</b>, choose a category and pick its station (for example Breads → Tandoor, Beverages → Bar). Each station&apos;s ticket prints on its own slip; on a station&apos;s kitchen screen tap its name at the top.
       </Tip>
       <SaveBar saving={saving} changed={changed} onSave={save} />
+      <Card>
+        <CardHeader
+          title="Token screen for takeaway"
+          description="Put a TV or tablet where guests wait. It shows takeaway and delivery order numbers as Preparing, then Ready — with a sound and a voice saying the number. The number is printed big on takeaway bills."
+        />
+        <CardContent>
+          <a href="/display" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline">Open the token screen</Button>
+          </a>
+          <p className="mt-2 text-sm text-slate-500">Sign in on the TV with a kitchen account, open this page and tap “Tap to turn sound on”. Orders show as ready when the kitchen marks them ready, and go away when they are marked served.</p>
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function LinkBox({ url, label: text }: { url: string; label: string }) {
+  const { toast } = useApp();
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+      <span className="text-sm font-semibold text-slate-700">{text}</span>
+      <code className="min-w-0 flex-1 truncate text-sm text-slate-600">{url}</code>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          navigator.clipboard?.writeText(url).then(() => toast("Link copied"), () => toast(url, "info"));
+        }}
+      >
+        Copy link
+      </Button>
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        <Button size="sm" variant="outline">Open</Button>
+      </a>
+    </div>
+  );
+}
+
+function OnlineTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
+  const { form: f, set, save, saving, changed } = useSettingsForm(settings, onSaved, ["onlineOrderingEnabled", "onlineDeliveryEnabled", "onlineMinOrder", "onlineBookingEnabled"]);
+  const [slug, setSlug] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ slug: string }>("/api/settings/slug").then((r) => setSlug(r.slug), () => null);
+  }, []);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader title="Order online from your own link" description="Guests order takeaway (and delivery) from your link on Instagram, Google Maps or WhatsApp — no commission. Orders appear on the Tables screen for you to accept." />
+        <CardContent className="space-y-4">
+          <Toggle checked={Boolean(f.onlineOrderingEnabled)} onChange={(v) => set({ onlineOrderingEnabled: v })} label="Take online orders" description="Guests pay at pickup or delivery (cash or UPI). You accept each order before it goes to the kitchen." />
+          {f.onlineOrderingEnabled && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Toggle checked={Boolean(f.onlineDeliveryEnabled)} onChange={(v) => set({ onlineDeliveryEnabled: v })} label="Also deliver" description="Otherwise pickup only. Your delivery charge is added." />
+              <Field label="Minimum order (₹)" hint="0 for none">
+                <Input type="number" min={0} step="1" value={String(f.onlineMinOrder ?? 0)} onChange={(e) => set({ onlineMinOrder: Number(e.target.value) })} />
+              </Field>
+            </div>
+          )}
+          {slug && settings.onlineOrderingEnabled && <LinkBox url={`${origin}/m/${slug}?order=1`} label="Ordering link" />}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader title="Table booking link" description="Guests ask for a table from your link. Requests appear in Reservations for you to confirm on WhatsApp." />
+        <CardContent className="space-y-4">
+          <Toggle checked={Boolean(f.onlineBookingEnabled)} onChange={(v) => set({ onlineBookingEnabled: v })} label="Take booking requests" />
+          {slug && settings.onlineBookingEnabled && <LinkBox url={`${origin}/r/${slug}`} label="Booking link" />}
+        </CardContent>
+      </Card>
+      <SaveBar saving={saving} changed={changed} onSave={save} />
+      {(!settings.onlineOrderingEnabled || !settings.onlineBookingEnabled) && <p className="text-sm text-slate-500">Links appear here after you switch them on and save.</p>}
+      <RidersCard settings={settings} onSaved={onSaved} />
+    </div>
+  );
+}
+
+function RidersCard({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
+  const { toast } = useApp();
+  const saved = parseRiders(settings.deliveryRiders);
+  const [riders, setRiders] = useState(saved);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function save(next: typeof riders) {
+    setSaving(true);
+    try {
+      const r = await api<{ settings: SettingsDTO }>("/api/settings", { method: "PATCH", body: { deliveryRiders: next } });
+      onSaved(r.settings);
+      setRiders(next);
+      toast("Riders saved");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Card>
+      <CardHeader title="Delivery riders" description="Choose the rider on a delivery order, mark it out for delivery and delivered. Reports show each rider's deliveries and the cash they collected." />
+      <CardContent className="space-y-3">
+        {riders.length > 0 && (
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            {riders.map((r, i) => (
+              <li key={r.name} className="flex items-center justify-between gap-2 px-3 py-2 text-[15px]">
+                <span>
+                  <b>{r.name}</b> {r.phone && <span className="text-slate-500">· {r.phone}</span>}
+                </span>
+                <Button size="sm" variant="ghost" className="text-red-600" disabled={saving} onClick={() => save(riders.filter((_, j) => j !== i))} aria-label={`Remove ${r.name}`}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rider name" aria-label="Rider name" className="w-48" maxLength={40} />
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" aria-label="Rider phone" className="w-44" maxLength={20} type="tel" />
+          <Button
+            variant="outline"
+            disabled={!name.trim() || saving}
+            onClick={() => {
+              if (riders.some((r) => r.name.toLowerCase() === name.trim().toLowerCase())) return toast(`${name.trim()} is already a rider`, "info");
+              save([...riders, { name: name.trim(), phone: phone.trim() }]);
+              setName("");
+              setPhone("");
+            }}
+          >
+            Add rider
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -568,6 +700,7 @@ function SettingsView() {
           { value: "bill", label: "Bill design" },
           { value: "loyalty", label: "Loyalty" },
           { value: "qr", label: "QR menu" },
+          { value: "online", label: "Online & delivery" },
           { value: "kitchen", label: "Kitchen" },
           { value: "staff", label: "Staff" },
           { value: "activity", label: "Activity history" },
@@ -579,6 +712,7 @@ function SettingsView() {
       {tab === "loyalty" && <LoyaltyTab key={settings.id + "l"} settings={settings} onSaved={saved} />}
       {tab === "qr" && <QrTab key={settings.id + "q"} settings={settings} onSaved={saved} />}
       {tab === "kitchen" && <KitchenTab key={settings.id + "k"} settings={settings} onSaved={saved} />}
+      {tab === "online" && <OnlineTab key={settings.id + "o"} settings={settings} onSaved={saved} />}
       {tab === "staff" && <StaffTab />}
       {tab === "activity" && <ActivityTab />}
     </div>

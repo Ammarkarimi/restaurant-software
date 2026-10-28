@@ -15,6 +15,7 @@ export const EXPENSE_CATEGORIES = [
   "Cleaning",
   "Packaging",
   "Marketing",
+  "Supplier payment",
   "Other",
 ];
 

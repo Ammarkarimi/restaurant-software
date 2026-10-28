@@ -13,11 +13,16 @@ export async function GET() {
   return withAuth(async (user) => {
     const settings = await getSettings();
     const today = todayKey(settings.timezone);
-    const [tables, running, todayOrders, stock] = await Promise.all([
+    const [tables, running, todayOrders, stock, bookings] = await Promise.all([
       prisma.diningTable.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
       prisma.order.findMany({ where: { status: { in: ACTIVE_STATUSES } }, include: orderInclude, orderBy: { createdAt: "asc" } }),
       prisma.order.findMany({ where: { status: "settled", businessDate: today }, select: { total: true, guests: true } }),
       isAdmin(user) ? prisma.stockItem.findMany({ where: { active: true, lowAt: { not: null } }, select: { name: true, quantity: true, lowAt: true } }) : [],
+      prisma.reservation.findMany({
+        where: { date: today, status: { in: ["booked", "requested"] } },
+        select: { id: true, name: true, guests: true, time: true, tableId: true, status: true },
+        orderBy: { time: "asc" },
+      }),
     ]);
     const lowStock = stock.filter(isLow).map((s) => s.name);
 
@@ -44,6 +49,9 @@ export async function GET() {
         guestNew: o.items.filter((i) => i.status === "active" && i.kotNumber === null && i.byGuest).length,
         // Dishes the kitchen marked ready that are not served yet.
         ready: o.items.filter((i) => i.status === "active" && i.kotNumber !== null && i.kitchenStatus === "ready").length,
+        riderName: o.riderName,
+        deliveryStatus: o.deliveryStatus,
+        scheduledFor: o.scheduledFor,
       };
     });
     const byTable = new Map(summaries.filter((s) => s.tableId).map((s) => [s.tableId!, s]));
@@ -54,6 +62,7 @@ export async function GET() {
       today,
       tables: tables.map((t) => ({ ...t, order: byTable.get(t.id) ?? null, extraBills: extraBills.get(t.id) ?? 0 })),
       otherOrders: summaries.filter((s) => !s.tableId),
+      bookings,
       stats: {
         sales: round2(todayOrders.reduce((sum, o) => sum + o.total, 0)),
         bills: todayOrders.length,

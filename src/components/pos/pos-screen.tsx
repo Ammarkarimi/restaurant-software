@@ -47,7 +47,8 @@ import { normalizePhone } from "@/lib/phone";
 import { calculateBill } from "@/lib/billing";
 import { addonText, addonsTotal, groupsForItem, parseVariants, type ChosenAddon } from "@/lib/menu";
 import { activeLists, menuPrice } from "@/lib/pricing";
-import { cn, formatCurrency, formatTime, label } from "@/lib/utils";
+import { cn, formatCurrency, formatTime, label, minutesSince } from "@/lib/utils";
+import { parseRiders } from "@/lib/riders";
 import type { AddonGroupDTO, CategoryDTO, CustomerLookup, MenuItemDTO, MenuResponse, OfferDTO, OrderDTO, OrderItemDTO, PriceListDTO, SettingsDTO, TableDTO } from "@/lib/types";
 
 /** An item added on this screen and not saved yet. */
@@ -509,6 +510,15 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     await run("pay", () => settle([]));
   }
 
+  async function delivery(body: { riderName?: string | null; status?: "out" | "delivered" | null }, message: string) {
+    if (!order) return;
+    await run("delivery", async () => {
+      const r = await api<{ order: OrderDTO }>(`/api/orders/${order.id}/delivery`, { body });
+      setOrder(r.order);
+      toast(message);
+    });
+  }
+
   async function openMove() {
     setDialog(null);
     const r = await run("move", () => api<{ tables: Array<TableDTO & { order: unknown }> }>("/api/pos"));
@@ -566,6 +576,8 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
 
   if (error) return <Tip tone="danger">{error}</Tip>;
   if (!categories || !settings || !totals || (orderId && !order)) return <Loading />;
+  const riders = parseRiders(settings.deliveryRiders);
+  const minutesSinceLabel = (d: string) => minutesSince(d, clock);
 
   const title = orderType === "dine_in" ? `Table ${tableName ?? "?"}` : label(orderType);
   const source = order ? order.source : draftCustomer.source;
@@ -747,6 +759,59 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         </Button>
       </div>
 
+      {order && orderType === "delivery" && order.status !== "cancelled" && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-sky-50/60 px-4 py-2 text-sm">
+          {order.deliveryStatus === "delivered" ? (
+            <span className="font-semibold text-emerald-700">
+              Delivered{order.riderName ? ` by ${order.riderName}` : ""}
+              {order.deliveredAt ? ` at ${formatTime(order.deliveredAt, shell.timezone)}` : ""}
+            </span>
+          ) : order.deliveryStatus === "out" ? (
+            <>
+              <span className="font-semibold text-sky-800">
+                Out with {order.riderName}
+                {order.outAt ? ` · ${minutesSinceLabel(order.outAt)}` : ""}
+              </span>
+              <Button size="sm" variant="success" className="ml-auto" loading={busy === "delivery"} onClick={() => delivery({ status: "delivered" }, "Marked delivered")}>
+                Delivered
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="text-slate-600">Rider</span>
+              <select
+                value={order.riderName ?? ""}
+                onChange={(e) => delivery({ riderName: e.target.value || null }, e.target.value ? `${e.target.value} will deliver` : "Rider removed")}
+                className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+                aria-label="Rider"
+              >
+                <option value="">Choose…</option>
+                {riders.map((r) => (
+                  <option key={r.name} value={r.name}>{r.name}</option>
+                ))}
+                {order.riderName && !riders.some((r) => r.name === order.riderName) && <option value={order.riderName}>{order.riderName}</option>}
+              </select>
+              <Button size="sm" className="ml-auto" disabled={!order.riderName} loading={busy === "delivery"} onClick={() => delivery({ status: "out" }, `Out for delivery with ${order.riderName}`)}>
+                Out for delivery
+              </Button>
+            </>
+          )}
+          {order.customerPhone && order.deliveryStatus === "out" && (
+            <a
+              href={whatsappLink(
+                order.customerPhone,
+                `Hello${order.customerName ? ` ${order.customerName}` : ""}, your order #${order.number} from ${settings.restaurantName} is on the way with ${order.riderName}${riders.find((r) => r.name === order.riderName)?.phone ? ` (${riders.find((r) => r.name === order.riderName)!.phone})` : ""}.`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-emerald-700 hover:underline"
+            >
+              Tell the customer
+            </a>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-4">
         {activeItems.length + cart.length === 0 && cancelledItems.length === 0 && (
           <p className="py-10 text-center text-slate-500">Tap dishes on the menu to add them.</p>
@@ -774,13 +839,13 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             </ul>
           </>
         )}
-        {readyItems.length > 0 && editable && (
+        {readyItems.length > 0 && (editable || (order?.status === "settled" && orderType !== "dine_in")) && (
           <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
             <span>
               {readyItems.length} dish{readyItems.length === 1 ? " is" : "es are"} ready in the kitchen
             </span>
             <Button size="sm" variant="success" loading={busy === "served"} onClick={markServed}>
-              Served
+              {orderType === "dine_in" ? "Served" : "Handed over"}
             </Button>
           </div>
         )}

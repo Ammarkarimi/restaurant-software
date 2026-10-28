@@ -153,6 +153,8 @@ export function BillView({
   if (t.showServedBy && b.servedBy) infoPairs.push(["Served by", b.servedBy]);
 
   const customer = t.showCustomer && (b.customerName || b.customerPhone);
+  // Takeaway guests collect their food by this number (shown on the token screen).
+  const token = b.type === "takeaway" && !a4 ? <p className="my-1 text-center font-black" style={{ fontSize: "1.8em" }}>TOKEN {b.orderNumber}</p> : null;
 
   const itemsTable = (
     <table className="w-full border-collapse" style={{ tableLayout: "auto" }}>
@@ -282,6 +284,7 @@ export function BillView({
           <p className="text-center font-bold uppercase tracking-wider">{t.billTitle}</p>
         </>
       )}
+      {token}
       <div className={cn(a4 ? "mt-4 grid grid-cols-2 gap-6 rounded border border-slate-200 p-3" : "mt-1")}>
         <div className={cn(!a4 && "grid grid-cols-2 gap-x-2")}>
           {infoPairs.map(([k, v]) => (

@@ -95,6 +95,9 @@ export interface OrderSummary {
   unsent: number;
   guestNew: number;
   ready: number;
+  riderName: string | null;
+  deliveryStatus: string | null;
+  scheduledFor: string | null;
 }
 
 export interface OrderItemDTO {
@@ -151,6 +154,11 @@ export interface OrderDTO {
   discountMax: number | null;
   offerId: string | null;
   complimentary: boolean;
+  scheduledFor: string | null;
+  riderName: string | null;
+  deliveryStatus: string | null;
+  outAt: string | null;
+  deliveredAt: string | null;
   taxMode: string;
   taxName: string;
   pricesIncludeTax: boolean;
@@ -220,6 +228,14 @@ export interface SettingsDTO {
   qrOrderingEnabled: boolean;
   /** JSON names of kitchen stations. */
   kitchenStations: string;
+  /** JSON [{ name, phone }] */
+  deliveryRiders: string;
+  /** JSON { zomato: 25, swiggy: 22 } */
+  appCommission: string;
+  onlineOrderingEnabled: boolean;
+  onlineDeliveryEnabled: boolean;
+  onlineMinOrder: number;
+  onlineBookingEnabled: boolean;
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;
@@ -258,4 +274,16 @@ export interface OfferDTO {
   validTo: string | null;
   active: boolean;
   timesUsed: number;
+}
+
+/** A takeaway / delivery order on the token screen guests watch. */
+export interface DisplayToken {
+  orderId: string;
+  token: number;
+  type: string;
+  source: string;
+  sourceRef: string | null;
+  name: string | null;
+  status: "preparing" | "ready";
+  readyAt: string | null;
 }

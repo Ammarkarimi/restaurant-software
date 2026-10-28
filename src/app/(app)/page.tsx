@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Armchair, BellRing, Bike, ChefHat, IndianRupee, Plus, QrCode, ReceiptText, ShoppingBag, Split, Users } from "lucide-react";
+import { Armchair, BellRing, Bike, CalendarClock, ChefHat, IndianRupee, Plus, QrCode, ReceiptText, ShoppingBag, Split, Users } from "lucide-react";
 import { Button, EmptyState, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { api } from "@/lib/client";
 import { ding } from "@/lib/ding";
 import { cn, formatCurrency, label, minutesSince } from "@/lib/utils";
+import { minutesOf, timeLabel } from "@/lib/reservations";
 import type { OrderSummary, TableDTO } from "@/lib/types";
 
 interface PosData {
   today: string;
   tables: Array<TableDTO & { order: OrderSummary | null; extraBills: number }>;
   otherOrders: OrderSummary[];
+  bookings: Array<{ id: string; name: string; guests: number; time: string; tableId: string | null; status: string }>;
   stats: { sales: number; bills: number; guests: number; running: number; runningValue: number };
   lowStock: string[];
 }
@@ -48,6 +50,9 @@ function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
         <span className="text-xs text-slate-500">{minutesSince(o.createdAt, now)}</span>
       </span>
       <span className="truncate text-sm text-slate-600">{o.customerName || (o.splitOf ? `${o.splitOf} · separate bill` : label(o.type))}</span>
+      {o.deliveryStatus === "out" && <span className="truncate text-xs font-semibold text-sky-700">Out with {o.riderName}</span>}
+      {o.deliveryStatus === "delivered" && <span className="truncate text-xs font-semibold text-emerald-700">Delivered</span>}
+      {o.type === "delivery" && !o.deliveryStatus && o.riderName && <span className="truncate text-xs text-slate-500">Rider: {o.riderName}</span>}
       {o.source !== "counter" && (
         <span className="truncate text-xs font-semibold text-violet-700">
           {label(o.source)}
@@ -64,7 +69,7 @@ function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
 }
 
 export default function TablesPage() {
-  const { isAdmin, toast } = useApp();
+  const { isAdmin, toast, settings } = useApp();
   const [data, setData] = useState<PosData | null>(null);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => Date.now());
@@ -116,6 +121,11 @@ export default function TablesPage() {
   if (!data) return <Loading />;
   const s = data.stats;
   const calls = data.tables.filter((t) => t.callType);
+  // Bookings coming up in the next 2 hours mark their table as reserved.
+  const clock = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: settings.timezone }).format(now).split(":");
+  const nowMin = Number(clock[0]) * 60 + Number(clock[1]);
+  const reservedFor = (tableId: string) => data.bookings.find((b) => b.tableId === tableId && minutesOf(b.time) - nowMin <= 120 && minutesOf(b.time) - nowMin >= -45);
+  const requests = data.bookings.filter((b) => b.status === "requested").length;
   const qrOrders = data.tables.filter((t) => t.order && t.order.guestNew > 0);
 
   return (
@@ -125,6 +135,11 @@ export default function TablesPage() {
         description="Tap a table to take an order. Running tables show the amount so far."
         actions={
           <>
+            <Link href="/reservations">
+              <Button variant="outline">
+                <CalendarClock className="h-5 w-5" /> Bookings{data.bookings.length ? ` (${data.bookings.length})` : ""}
+              </Button>
+            </Link>
             <Link href="/orders/new?type=takeaway">
               <Button variant="outline">
                 <ShoppingBag className="h-5 w-5" /> New takeaway
@@ -155,6 +170,16 @@ export default function TablesPage() {
         <Link href="/stock" className="block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:border-amber-300">
           <b>Running low:</b> {data.lowStock.slice(0, 6).join(", ")}
           {data.lowStock.length > 6 && ` and ${data.lowStock.length - 6} more`}. Tap to see stock.
+        </Link>
+      )}
+
+      {requests > 0 && (
+        <Link href="/reservations" className="flex items-center gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3">
+          <CalendarClock className="h-6 w-6 text-amber-700" />
+          <p className="flex-1 font-semibold text-amber-900">
+            {requests} table booking request{requests === 1 ? "" : "s"} from your booking link. Confirm {requests === 1 ? "it" : "them"}.
+          </p>
+          <Button size="sm">Open</Button>
         </Link>
       )}
 
@@ -226,13 +251,15 @@ export default function TablesPage() {
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-8">
                 {tables.map((t) => {
                   const o = t.order;
+                  const booking = !o ? reservedFor(t.id) : undefined;
                   return (
                     <Link
                       key={t.id}
                       href={o ? `/orders/${o.id}` : `/orders/new?type=dine_in&table=${t.id}`}
                       className={cn(
                         "relative flex aspect-square flex-col items-center justify-center rounded-2xl border-2 p-2 text-center transition",
-                        STATUS_STYLE[o?.status ?? "free"]
+                        STATUS_STYLE[o?.status ?? "free"],
+                        booking && "border-violet-300 bg-violet-50"
                       )}
                     >
                       {t.callType && (
@@ -261,6 +288,11 @@ export default function TablesPage() {
                           <span className="text-sm font-semibold text-slate-800">{formatCurrency(o.total)}</span>
                           <span className="text-xs text-slate-500">{o.status === "billed" ? "Bill printed" : minutesSince(o.createdAt, now)}</span>
                         </>
+                      ) : booking ? (
+                        <span className="text-xs font-semibold text-violet-700" title={`${booking.name}, ${booking.guests} guests`}>
+                          Reserved {timeLabel(booking.time)}
+                          <span className="block truncate font-normal">{booking.name} ({booking.guests})</span>
+                        </span>
                       ) : (
                         <span className="text-xs text-slate-400">{t.seats} seats</span>
                       )}

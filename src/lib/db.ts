@@ -60,6 +60,12 @@ const RESTAURANT_MODELS = new Set([
   "PriceList",
   "Offer",
   "CustomerTxn",
+  "Reservation",
+  "Supplier",
+  "Purchase",
+  "Feedback",
+  "Campaign",
+  "Attendance",
 ]);
 
 type Args = Record<string, unknown> & { where?: object; data?: unknown; create?: object };

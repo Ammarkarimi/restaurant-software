@@ -136,6 +136,12 @@ export const LABELS: Record<string, string> = {
   admin: "Owner / Manager",
   staff: "Cashier / Captain",
   kitchen: "Kitchen screen only",
+  // bookings
+  requested: "Asked online",
+  booked: "Booked",
+  seated: "Seated",
+  no_show: "Did not come",
+  walk_in: "Walk-in",
   // kitchen screen
   new: "Cooking",
   ready: "Ready",
