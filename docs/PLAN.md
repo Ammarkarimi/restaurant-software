@@ -1,4 +1,4 @@
-# Restaurant Manager: research and plan
+# RestoOwl: research and plan
 
 This document explains **what** we built and **why**. It is written so a
 restaurant owner can read it, with a technical section at the end.

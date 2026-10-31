@@ -1,7 +1,7 @@
 // Emails to the software provider, sent with Resend (https://resend.com) over its HTTP API.
 // Nothing is sent until RESEND_API_KEY and ENQUIRY_EMAIL_TO are set.
 
-const FROM = process.env.EMAIL_FROM?.trim() || "Restaurant Manager <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM?.trim() || "RestoOwl <onboarding@resend.dev>";
 
 export function enquiryEmail() {
   const to = process.env.ENQUIRY_EMAIL_TO?.trim() || null;

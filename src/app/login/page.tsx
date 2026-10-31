@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, UtensilsCrossed } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { BRAND, BrandName, OwlMark } from "@/components/brand";
 import { Button, Card, CardContent, Field, Input } from "@/components/ui";
 
 const SHOW_DEMO = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -44,10 +45,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardContent className="px-6 py-8 sm:px-8">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-100 text-primary-600">
-              <UtensilsCrossed className="h-8 w-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
+            <OwlMark className="mx-auto mb-3 h-16 w-16" />
+            <BrandName className="text-2xl" />
+            <p className="mt-0.5 text-sm text-slate-500">{BRAND.slogan}</p>
+            <h1 className="mt-6 text-xl font-bold text-slate-900">Welcome back</h1>
             <p className="mt-1 text-[15px] text-slate-500">Sign in to your restaurant</p>
           </div>
 

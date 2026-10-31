@@ -1,7 +1,7 @@
-# Restaurant Manager compared with Petpooja
+# RestoOwl compared with Petpooja
 
 Petpooja is one of the most widely used restaurant POS systems in India. This page compares it
-with Restaurant Manager feature by feature. It shows what we already had, what we added after
+with RestoOwl feature by feature. It shows what we already had, what we added after
 the comparison (October 2026), and what we don't do yet, with the reason.
 
 The Petpooja column comes from Petpooja's public product pages and from third-party reviews.
@@ -13,7 +13,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Billing and orders
 
-| Feature | Petpooja | Restaurant Manager |
+| Feature | Petpooja | RestoOwl |
 |---|---|---|
 | Table view with free / running / billed tables | Yes | ✅ |
 | Fast order screen, search, short codes | Yes | ✅ |
@@ -38,7 +38,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Kitchen
 
-| Feature | Petpooja | Restaurant Manager |
+| Feature | Petpooja | RestoOwl |
 |---|---|---|
 | KOT printing, only new dishes, cancelled items | Yes | ✅ |
 | Station-wise KOT (tandoor, bar, Chinese…) | Yes | 🆕 Each category goes to a station; one ticket per station |
@@ -48,7 +48,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Online orders and guests
 
-| Feature | Petpooja | Restaurant Manager |
+| Feature | Petpooja | RestoOwl |
 |---|---|---|
 | Zomato / Swiggy orders arrive in the POS by themselves | Yes (paid integration) | ❌ Entered by hand with the app's order ID |
 | App prices, app commission and payout report | Yes (reconciliation) | 🆕 App price list; commission % per app; payout in reports |
@@ -61,7 +61,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Customers and marketing
 
-| Feature | Petpooja | Restaurant Manager |
+| Feature | Petpooja | RestoOwl |
 |---|---|---|
 | Customer database from bills | Yes | ✅ |
 | Loyalty points | Yes | ✅ |
@@ -71,7 +71,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Stock and purchasing
 
-| Feature | Petpooja | Restaurant Manager |
+| Feature | Petpooja | RestoOwl |
 |---|---|---|
 | Raw materials, recipes, automatic stock use | Yes | ✅ |
 | Wastage, stock counts, low-stock alerts | Yes | ✅ |
@@ -83,7 +83,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Staff, reports and business
 
-| Feature | Petpooja | Restaurant Manager |
+| Feature | Petpooja | RestoOwl |
 |---|---|---|
 | Staff roles | Yes | ✅ Owner / manager, cashier / captain, kitchen |
 | Rights per staff member | Yes | 🆕 Discount limit, remove dishes, cancel, reprint, complimentary, pay later, change payment, see sales, expenses |

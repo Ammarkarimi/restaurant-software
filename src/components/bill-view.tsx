@@ -330,7 +330,7 @@ export function BillView({
       )}
       {(t.footerText || t.showPoweredBy) && <div className={cn(a4 ? "mt-6 border-t border-slate-200 pt-3" : cn("my-1.5", rule))} />}
       {t.footerText && <p className={cn("whitespace-pre-line font-semibold", a4 ? "text-center" : "text-center")}>{t.footerText}</p>}
-      {t.showPoweredBy && <p className="mt-1 text-center opacity-60" style={{ fontSize: "0.85em" }}>Powered by Restaurant Manager</p>}
+      {t.showPoweredBy && <p className="mt-1 text-center opacity-60" style={{ fontSize: "0.85em" }}>Powered by RestoOwl</p>}
     </div>
   );
 }

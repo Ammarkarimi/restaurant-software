@@ -33,10 +33,11 @@ import {
 } from "lucide-react";
 import { TourVideo } from "./tour-video";
 import { EnquiryForm } from "./enquiry-form";
+import { BRAND, BrandName, OwlMark } from "@/components/brand";
 
-const TITLE = "Restaurant Manager — billing, KOT, kitchen screen and QR ordering for restaurants";
+const TITLE = "RestoOwl — billing, KOT, kitchen screen and QR ordering for restaurants";
 const DESCRIPTION =
-  "Simple restaurant software for India: table orders, kitchen tickets, GST bills with your logo, UPI payments, QR menu ordering, your own online ordering, Zomato & Swiggy orders, table bookings, offers, customers and loyalty, day close, stock and reports. Works on PC, tablet and phone.";
+  "RestoOwl — always watching over your restaurant. Simple restaurant software for India: table orders, kitchen tickets, GST bills with your logo, UPI payments, QR menu ordering, your own online ordering, Zomato & Swiggy orders, table bookings, offers, customers and loyalty, day close, stock and reports. Works on PC, tablet and phone.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -259,11 +260,12 @@ export default function WelcomePage() {
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/welcome" className="flex items-center gap-2">
-            <span className="rounded-xl bg-primary-600 p-1.5 text-white">
-              <UtensilsCrossed className="h-5 w-5" />
+          <Link href="/welcome" className="flex items-center gap-2.5" aria-label={`${BRAND.name} home`}>
+            <OwlMark className="h-10 w-10 shrink-0" />
+            <span className="leading-tight">
+              <BrandName className="block text-xl" />
+              <span className="hidden text-xs font-medium text-slate-500 sm:block">{BRAND.slogan}</span>
             </span>
-            <span className="text-lg font-extrabold tracking-tight">Restaurant Manager</span>
           </Link>
           <nav className="ml-6 hidden items-center gap-1 text-sm font-semibold text-slate-600 lg:flex">
             <a href="#tour" className="rounded-lg px-3 py-2 hover:bg-slate-100">Watch the tour</a>
@@ -287,14 +289,14 @@ export default function WelcomePage() {
         <section className="relative overflow-hidden bg-gradient-to-b from-primary-50 via-white to-white">
           <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:pb-24 lg:pt-20">
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-primary-700 ring-1 ring-primary-200">
-                Made for Indian restaurants, cafés & cloud kitchens
+              <p className="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-sm font-semibold text-primary-700 ring-1 ring-primary-200">
+                <OwlMark className="h-6 w-6" /> {BRAND.slogan}
               </p>
               <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
                 Run your restaurant from <span className="text-primary-600">one simple screen</span>
               </h1>
               <p className="mt-5 max-w-xl text-lg text-slate-600">
-                Table orders, kitchen tickets, GST bills with your logo, UPI payments, QR and online ordering, Zomato & Swiggy orders, table bookings, offers, customers,
+                Made for Indian restaurants, cafés and cloud kitchens. Table orders, kitchen tickets, GST bills with your logo, UPI payments, QR and online ordering, Zomato & Swiggy orders, table bookings, offers, customers,
                 stock and reports — easy enough for every cashier, on the PC, tablet and phones you already have.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
@@ -485,11 +487,12 @@ export default function WelcomePage() {
 
       <footer className="border-t border-slate-200 bg-slate-900 text-slate-300">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="rounded-xl bg-primary-600 p-1.5 text-white">
-              <UtensilsCrossed className="h-5 w-5" />
+          <div className="flex items-center gap-2.5">
+            <OwlMark className="h-10 w-10 shrink-0" />
+            <span className="leading-tight">
+              <BrandName dark className="block text-lg" />
+              <span className="block text-sm text-slate-400">{BRAND.slogan}</span>
             </span>
-            <span className="font-bold text-white">Restaurant Manager</span>
           </div>
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <a href="#tour" className="hover:text-white">Watch the tour</a>

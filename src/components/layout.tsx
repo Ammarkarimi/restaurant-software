@@ -19,11 +19,11 @@ import {
   Armchair,
   UserCircle,
   Users,
-  UtensilsCrossed,
   Wallet,
   Warehouse,
   X,
 } from "lucide-react";
+import { BRAND, OwlMark } from "@/components/brand";
 import { cn, formatTime, label } from "@/lib/utils";
 import { AppProvider, useApp, type ShellSettings } from "@/components/app-provider";
 import { Button } from "@/components/ui";
@@ -102,13 +102,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={settings.logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-xl object-contain" />
         ) : (
-          <div className="rounded-xl bg-primary-600 p-2 text-white">
-            <UtensilsCrossed className="h-6 w-6" />
-          </div>
+          <OwlMark className="h-10 w-10 shrink-0" />
         )}
         <div className="min-w-0">
           <p className="truncate text-base font-bold text-slate-900">{settings.restaurantName}</p>
-          <p className="text-xs text-slate-500">Restaurant manager</p>
+          <p className="text-xs text-slate-500">on {BRAND.name}</p>
         </div>
       </div>
       {settings.outlets && settings.outlets.length > 1 && (

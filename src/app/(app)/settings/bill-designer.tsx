@@ -262,7 +262,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               <Field label="Thank-you message" optional hint="Several lines are fine: offers, Instagram handle, Wi-Fi password…">
                 <Textarea rows={3} value={t.footerText} onChange={(e) => set({ footerText: e.target.value })} maxLength={300} />
               </Field>
-              <Checks t={t} set={set} items={[["showPoweredBy", "“Powered by Restaurant Manager” line"]]} />
+              <Checks t={t} set={set} items={[["showPoweredBy", "“Powered by RestoOwl” line"]]} />
             </Section>
           </CardContent>
         </Card>

@@ -1,4 +1,6 @@
-# Restaurant Manager — simple restaurant billing, tables, menu & KOT
+# RestoOwl — always watching over your restaurant
+
+Simple restaurant billing, tables, menu & KOT software.
 
 Point-of-sale software for independent restaurants, cafés, dhabas and cloud
 kitchens: a **table view**, a fast **order screen**, **kitchen tickets (KOT)**
@@ -117,7 +119,7 @@ status, **Add as restaurant**). To also get each one by email:
 3. In the owner panel open **Enquiries → Send a test email**.
 
 Without your own domain, Resend only delivers to the email you signed up with. To send to
-any address, verify a domain in Resend and set `EMAIL_FROM`, e.g. `Restaurant Manager <hello@yourdomain.com>`.
+any address, verify a domain in Resend and set `EMAIL_FROM`, e.g. `RestoOwl <hello@yourdomain.com>`.
 
 ## Deploying (Vercel + Postgres)
 

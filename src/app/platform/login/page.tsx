@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { BrandName, OwlMark } from "@/components/brand";
 import { Button, Card, CardContent, Field, Input } from "@/components/ui";
 
 export default function PlatformLoginPage() {
@@ -42,10 +43,9 @@ export default function PlatformLoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardContent className="px-6 py-8 sm:px-8">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white">
-              <ShieldCheck className="h-8 w-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Owner panel</h1>
+            <OwlMark className="mx-auto mb-3 h-16 w-16" />
+            <BrandName className="text-xl" />
+            <h1 className="mt-4 text-2xl font-bold text-slate-900">Owner panel</h1>
             <p className="mt-1 text-[15px] text-slate-500">Manage the restaurants that use your software</p>
           </div>
 

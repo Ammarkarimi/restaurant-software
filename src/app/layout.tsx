@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Restaurant Manager", template: "%s · Restaurant Manager" },
-  description: "Simple restaurant billing, tables, menu and KOT software",
-  appleWebApp: { capable: true, title: "Restaurant", statusBarStyle: "default" },
+  title: { default: "RestoOwl", template: "%s · RestoOwl" },
+  description: "RestoOwl — always watching over your restaurant. Simple restaurant billing, tables, menu and KOT software",
+  appleWebApp: { capable: true, title: "RestoOwl", statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
 

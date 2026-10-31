@@ -39,7 +39,7 @@ function LeadCard({ lead, onChange, onDelete }: { lead: Lead; onChange: (l: Lead
       setError((e as Error).message);
     }
   }
-  const hello = `Hello ${lead.name}, thank you for asking about Restaurant Manager${lead.restaurantName ? ` for ${lead.restaurantName}` : ""}. When is a good time to show you a demo?`;
+  const hello = `Hello ${lead.name}, thank you for asking about RestoOwl${lead.restaurantName ? ` for ${lead.restaurantName}` : ""}. When is a good time to show you a demo?`;
   const newRestaurant = `/platform/restaurants/new?${new URLSearchParams({ name: lead.restaurantName ?? "", city: lead.city ?? "", owner: lead.name, phone: lead.phone })}`;
   return (
     <Card className="p-5">

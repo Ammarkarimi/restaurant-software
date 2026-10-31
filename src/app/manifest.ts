@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 /** Lets restaurants "Install app" / "Add to home screen" on the billing PC, tablets and captains' phones. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Restaurant Manager",
-    short_name: "Restaurant",
-    description: "Billing, tables, menu, kitchen tickets and reports for your restaurant",
+    name: "RestoOwl",
+    short_name: "RestoOwl",
+    description: "Always watching over your restaurant: billing, tables, menu, kitchen tickets and reports",
     // Sign-in opens the Tables screen when already signed in, and skips the landing page.
     start_url: "/login",
     scope: "/",
