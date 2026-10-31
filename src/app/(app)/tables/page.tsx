@@ -6,6 +6,7 @@ import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Field, Input,
 import { useApp } from "@/components/app-provider";
 import { api } from "@/lib/client";
 import type { TableDTO } from "@/lib/types";
+import { freeTableNames, rangeLabel, tableRange } from "@/lib/table-names";
 
 export default function TableSetupPage() {
   const { toast, confirm } = useApp();
@@ -72,6 +73,14 @@ export default function TableSetupPage() {
 
   if (!tables) return <Loading />;
   const knownAreas = [...new Set(tables.map((t) => t.area))];
+  // Names that are already used (on any floor): warn before adding and offer free names.
+  const from = Number(bulk.from);
+  const to = Number(bulk.to);
+  const wanted = bulk.prefix.trim() && to >= from && to - from < 200 ? tableRange(bulk.prefix.trim(), from, to) : [];
+  const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
+  const clashes = wanted.filter((n) => byName.has(n.toLowerCase()));
+  const clashAreas = [...new Set(clashes.map((n) => byName.get(n.toLowerCase())!.area))];
+  const options = clashes.length ? freeTableNames(tables, bulk.prefix.trim(), wanted.length, bulk.area) : [];
 
   return (
     <div className="space-y-6">
@@ -105,9 +114,31 @@ export default function TableSetupPage() {
               ))}
             </datalist>
           </form>
-          <p className="mt-2 text-sm text-slate-500">
-            Will add: {Number(bulk.to) >= Number(bulk.from) ? `${bulk.prefix}${bulk.from} … ${bulk.prefix}${bulk.to} (${Number(bulk.to) - Number(bulk.from) + 1} tables)` : "—"} in {bulk.area}. For one table, use the same number in both boxes.
-          </p>
+          {clashes.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p>
+                <b>
+                  {clashes.length === wanted.length ? "All of these names are" : `${clashes.join(", ")} ${clashes.length === 1 ? "is" : "are"}`} already used
+                </b>{" "}
+                in {clashAreas.join(", ")}. Every table needs its own name — even on another floor — so kitchen tickets and bills show the right table.
+                {clashes.length < wanted.length && ` Only the other ${wanted.length - clashes.length} will be added.`}
+              </p>
+              {options.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span>Use instead:</span>
+                  {options.map((o) => (
+                    <Button key={o.prefix + o.from} type="button" size="sm" variant="outline" onClick={() => setBulk({ ...bulk, prefix: o.prefix, from: String(o.from), to: String(o.to) })}>
+                      {rangeLabel(o)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">
+              Will add: {to >= from ? `${bulk.prefix}${bulk.from} … ${bulk.prefix}${bulk.to} (${to - from + 1} tables)` : "—"} in {bulk.area}. For one table, use the same number in both boxes.
+            </p>
+          )}
         </CardContent>
       </Card>
 
