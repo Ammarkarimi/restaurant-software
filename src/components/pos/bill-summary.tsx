@@ -1,5 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { taxRowsFor, type BillTotals } from "@/lib/billing";
 import { cn, formatCurrency } from "@/lib/utils";
+
+const DETAILS_KEY = "pos:bill-details";
 
 /** The totals block under a cart or order: items, discount, service charge, packing / delivery, tax, round-off, total. */
 export function BillSummary({
@@ -14,6 +20,7 @@ export function BillSummary({
   usualServiceCharge = 0,
   pointsAction,
   discountLabel,
+  collapsible = false,
   className,
 }: {
   totals: BillTotals;
@@ -31,17 +38,58 @@ export function BillSummary({
   /** "Use loyalty points (120)" when the customer has points to use. */
   pointsAction?: { label: string; onClick: () => void };
   discountLabel?: string;
+  /** On the order screen: items total, charges and tax fold into one line on short screens, so more dishes fit. */
+  collapsible?: boolean;
   className?: string;
 }) {
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (!collapsible) return;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(DETAILS_KEY);
+    } catch {
+      // private mode: fall back to the screen height
+    }
+    setOpen(saved ? saved === "open" : window.innerHeight >= 900);
+  }, [collapsible]);
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(DETAILS_KEY, open ? "closed" : "open");
+    } catch {
+      // the choice lasts until the page closes
+    }
+  };
+  const folded = collapsible && !open;
   const taxRows = taxRowsFor(totals, taxMode, taxName);
   const row = "flex items-center justify-between gap-3 py-0.5";
   const manualDiscount = Math.round((totals.discount - totals.pointsDiscount) * 100) / 100;
   return (
     <div className={cn("text-[15px]", className)}>
-      <div className={row}>
-        <span className="text-slate-600">Items total ({totals.itemCount})</span>
-        <span>{formatCurrency(totals.itemsTotal)}</span>
-      </div>
+      {folded ? (
+        <button type="button" onClick={toggle} className={cn(row, "w-full text-left text-sm text-slate-500 hover:text-slate-800")}>
+          <span>
+            Items ({totals.itemCount}) {formatCurrency(totals.itemsTotal)}
+            {totals.total - totals.itemsTotal + totals.discount > 0.009 && ` + tax & charges ${formatCurrency(totals.total - totals.itemsTotal + totals.discount)}`}
+          </span>
+          <span className="flex shrink-0 items-center gap-0.5 font-semibold text-primary-700">
+            Details <ChevronDown className="h-4 w-4" />
+          </span>
+        </button>
+      ) : (
+        <div className={row}>
+          <span className="text-slate-600">Items total ({totals.itemCount})</span>
+          <span className="flex items-center gap-2">
+            {collapsible && (
+              <button type="button" onClick={toggle} className="flex items-center gap-0.5 text-sm font-semibold text-primary-700" aria-label="Hide bill details">
+                Hide <ChevronUp className="h-4 w-4" />
+              </button>
+            )}
+            {formatCurrency(totals.itemsTotal)}
+          </span>
+        </div>
+      )}
       {onDiscountClick ? (
         <button type="button" onClick={onDiscountClick} className={cn(row, "w-full text-left")}>
           <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">
@@ -76,7 +124,7 @@ export function BillSummary({
           </button>
         )
       )}
-      {totals.serviceCharge > 0 &&
+      {!folded && totals.serviceCharge > 0 &&
         (onServiceChargeClick ? (
           <button type="button" onClick={onServiceChargeClick} className={cn(row, "w-full text-left")}>
             <span className="text-slate-600 underline-offset-2 hover:underline">Service charge ({serviceChargePercent}%)</span>
@@ -88,12 +136,12 @@ export function BillSummary({
             <span>{formatCurrency(totals.serviceCharge)}</span>
           </div>
         ))}
-      {totals.serviceCharge === 0 && onServiceChargeClick && usualServiceCharge > 0 && (
+      {!folded && totals.serviceCharge === 0 && onServiceChargeClick && usualServiceCharge > 0 && (
         <button type="button" onClick={onServiceChargeClick} className={cn(row, "w-full text-left")}>
           <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">+ Service charge ({usualServiceCharge}%)</span>
         </button>
       )}
-      {totals.charges.map((c) =>
+      {!folded && totals.charges.map((c) =>
         onChargesClick ? (
           <button key={c.name} type="button" onClick={onChargesClick} className={cn(row, "w-full text-left")}>
             <span className="text-slate-600 underline-offset-2 hover:underline">{c.name}</span>
@@ -106,12 +154,12 @@ export function BillSummary({
           </div>
         )
       )}
-      {onChargesClick && totals.charges.length === 0 && (
+      {!folded && onChargesClick && totals.charges.length === 0 && (
         <button type="button" onClick={onChargesClick} className={cn(row, "w-full text-left")}>
           <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">+ Packing / delivery charge</span>
         </button>
       )}
-      {pricesIncludeTax
+      {folded ? null : pricesIncludeTax
         ? totals.tax > 0 && (
             <div className={cn(row, "text-sm text-slate-500")}>
               <span>Includes {taxMode === "gst" ? "GST" : taxName}</span>
@@ -124,7 +172,7 @@ export function BillSummary({
               <span>{formatCurrency(t.amount)}</span>
             </div>
           ))}
-      {totals.roundOff !== 0 && (
+      {!folded && totals.roundOff !== 0 && (
         <div className={cn(row, "text-sm text-slate-500")}>
           <span>Round off</span>
           <span>{totals.roundOff > 0 ? "+" : "−"} {formatCurrency(Math.abs(totals.roundOff))}</span>

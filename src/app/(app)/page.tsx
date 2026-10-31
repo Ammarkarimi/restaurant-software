@@ -50,7 +50,7 @@ function OrderCard({ o, now }: { o: OrderSummary; now: number }) {
         <span className="text-xs text-slate-500">{minutesSince(o.createdAt, now)}</span>
       </span>
       <span className="truncate text-sm text-slate-600">{o.customerName || (o.splitOf ? `${o.splitOf} · separate bill` : label(o.type))}</span>
-      {o.deliveryStatus === "out" && <span className="truncate text-xs font-semibold text-sky-700">Out with {o.riderName}</span>}
+      {o.deliveryStatus === "out" && <span className="truncate text-xs font-semibold text-sky-700">{o.riderName ? `Out with ${o.riderName}` : "Out for delivery"}</span>}
       {o.deliveryStatus === "delivered" && <span className="truncate text-xs font-semibold text-emerald-700">Delivered</span>}
       {o.type === "delivery" && !o.deliveryStatus && o.riderName && <span className="truncate text-xs text-slate-500">Rider: {o.riderName}</span>}
       {o.source !== "counter" && (

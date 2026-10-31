@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (order.type !== "delivery") fail("Only delivery orders have a rider.");
     if (order.status === "cancelled") fail("This order was cancelled.");
     const rider = body.riderName !== undefined ? body.riderName || null : order.riderName;
-    if (body.status === "out" && !rider) fail("Choose the rider first.");
+    // A rider is optional: small restaurants often send whoever is free without noting it.
     const now = new Date();
     await prisma.order.update({
       where: { id },
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
     const updated = await loadOrder(id);
-    if (body.status === "out") await logActivity(user, "Out for delivery", `Order #${order.number} with ${rider}`);
+    if (body.status === "out") await logActivity(user, "Out for delivery", `Order #${order.number}${rider ? ` with ${rider}` : ""}`);
     else if (body.status === "delivered") await logActivity(user, "Delivered", `Order #${order.number}${rider ? ` by ${rider}` : ""}`);
     else if (body.riderName !== undefined && rider !== order.riderName) await logActivity(user, "Chose rider", `Order #${order.number}: ${rider ?? "none"}`);
     return NextResponse.json({ order: serializeOrder(updated) });

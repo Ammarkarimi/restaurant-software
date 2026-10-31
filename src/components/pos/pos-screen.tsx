@@ -23,7 +23,7 @@ import {
   User,
   Wallet,
 } from "lucide-react";
-import { Badge, Button, Loading, Modal, StatusBadge, Tip } from "@/components/ui";
+import { Badge, Button, Field, Input, Loading, Modal, StatusBadge, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { FoodMark } from "@/components/food-mark";
 import { BillSummary } from "@/components/pos/bill-summary";
@@ -82,9 +82,52 @@ type Dialog =
   | { kind: "repay" }
   | { kind: "service" }
   | { kind: "more" }
+  | { kind: "rider" }
   | null;
 
 const AUTO_KOT_KEY = "pos:auto-print-kot";
+const NEW_RIDER = "__new_rider__";
+
+/** Adds a delivery rider from the order screen, so nobody has to leave the order for Settings. */
+function NewRiderDialog({ canSave, onClose, onAdd }: { canSave: boolean; onClose: () => void; onAdd: (r: { name: string; phone: string }) => Promise<void> }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="New rider"
+      description={canSave ? "Saved to your riders list (Settings → Online & delivery) for next time." : "Noted on this order. The owner can add riders for good in Settings → Online & delivery."}
+      size="sm"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            loading={saving}
+            disabled={!name.trim()}
+            onClick={async () => {
+              setSaving(true);
+              await onAdd({ name: name.trim().slice(0, 40), phone: phone.trim() });
+              setSaving(false);
+            }}
+          >
+            Add rider
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field label="Rider name" htmlFor="rider-name">
+          <Input id="rider-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus />
+        </Field>
+        <Field label="Phone" htmlFor="rider-phone" optional hint="Sent to the customer with “Tell the customer”">
+          <Input id="rider-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={15} />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
 
 function readAutoPrint() {
   try {
@@ -685,7 +728,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     l: { name: string; variant: string | null; foodType: string; price: number; quantity: number; note: string | null; addons: string | ChosenAddon[] },
     opts: { onMinus?: () => void; onPlus?: () => void; onNote?: () => void; tag?: React.ReactNode; muted?: boolean; busyKey?: string }
   ) => (
-    <li key={key} className={cn("flex items-start gap-2 py-2", opts.muted && "opacity-50")}>
+    <li key={key} className={cn("flex items-start gap-2 py-1.5", opts.muted && "opacity-50")}>
       <FoodMark type={l.foodType} className="mt-1" />
       <div className="min-w-0 flex-1">
         <p className={cn("text-[15px] font-semibold leading-snug text-slate-900", opts.muted && "line-through")}>
@@ -698,36 +741,36 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         </p>
         {l.note && <p className="text-xs font-medium text-amber-700">“{l.note}”</p>}
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-[15px] font-semibold">{formatCurrency(l.price * l.quantity)}</span>
+      <div className="flex shrink-0 items-center gap-2">
         {opts.onMinus ? (
           <div className="flex items-center gap-1">
             {opts.onNote && (
-              <button onClick={opts.onNote} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Add a note for the kitchen">
+              <button onClick={opts.onNote} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Add a note for the kitchen">
                 <MessageSquare className="h-4 w-4" />
               </button>
             )}
-            <button onClick={opts.onMinus} disabled={busy === opts.busyKey} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50" aria-label="One less">
+            <button onClick={opts.onMinus} disabled={busy === opts.busyKey} className="rounded-lg border border-slate-200 p-1 hover:bg-slate-50" aria-label="One less">
               {l.quantity === 1 ? <Trash2 className="h-4 w-4 text-red-600" /> : <Minus className="h-4 w-4" />}
             </button>
             <span className="w-7 text-center font-bold">{l.quantity}</span>
             {opts.onPlus ? (
-              <button onClick={opts.onPlus} disabled={busy === opts.busyKey} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50" aria-label="One more">
+              <button onClick={opts.onPlus} disabled={busy === opts.busyKey} className="rounded-lg border border-slate-200 p-1 hover:bg-slate-50" aria-label="One more">
                 <Plus className="h-4 w-4" />
               </button>
             ) : (
-              <span className="w-[30px]" />
+              <span className="w-[26px]" />
             )}
           </div>
         ) : (
           <span className="text-sm text-slate-500">× {l.quantity}</span>
         )}
+        <span className="min-w-[4.25rem] text-right text-[15px] font-semibold">{formatCurrency(l.price * l.quantity)}</span>
       </div>
     </li>
   );
 
   const orderPanel = (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-20 lg:max-h-[calc(100vh-10.5rem)]">
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
       <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">
@@ -788,7 +831,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           ) : order.deliveryStatus === "out" ? (
             <>
               <span className="font-semibold text-sky-800">
-                Out with {order.riderName}
+                {order.riderName ? `Out with ${order.riderName}` : "Out for delivery"}
                 {order.outAt ? ` · ${minutesSinceLabel(order.outAt)}` : ""}
               </span>
               <Button size="sm" variant="success" className="ml-auto" loading={busy === "delivery"} onClick={() => delivery({ status: "delivered" }, "Marked delivered")}>
@@ -800,17 +843,21 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               <span className="text-slate-600">Rider</span>
               <select
                 value={order.riderName ?? ""}
-                onChange={(e) => delivery({ riderName: e.target.value || null }, e.target.value ? `${e.target.value} will deliver` : "Rider removed")}
+                onChange={(e) => {
+                  if (e.target.value === NEW_RIDER) return setDialog({ kind: "rider" });
+                  void delivery({ riderName: e.target.value || null }, e.target.value ? `${e.target.value} will deliver` : "Rider removed");
+                }}
                 className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm"
                 aria-label="Rider"
               >
-                <option value="">Choose…</option>
+                <option value="">{riders.length ? "Choose…" : "No riders yet"}</option>
                 {riders.map((r) => (
                   <option key={r.name} value={r.name}>{r.name}</option>
                 ))}
                 {order.riderName && !riders.some((r) => r.name === order.riderName) && <option value={order.riderName}>{order.riderName}</option>}
+                <option value={NEW_RIDER}>+ New rider…</option>
               </select>
-              <Button size="sm" className="ml-auto" disabled={!order.riderName} loading={busy === "delivery"} onClick={() => delivery({ status: "out" }, `Out for delivery with ${order.riderName}`)}>
+              <Button size="sm" className="ml-auto" loading={busy === "delivery"} onClick={() => delivery({ status: "out" }, order.riderName ? `Out for delivery with ${order.riderName}` : "Out for delivery")}>
                 Out for delivery
               </Button>
             </>
@@ -819,7 +866,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <a
               href={whatsappLink(
                 order.customerPhone,
-                `Hello${order.customerName ? ` ${order.customerName}` : ""}, your order #${order.number} from ${settings.restaurantName} is on the way with ${order.riderName}${riders.find((r) => r.name === order.riderName)?.phone ? ` (${riders.find((r) => r.name === order.riderName)!.phone})` : ""}.`
+                `Hello${order.customerName ? ` ${order.customerName}` : ""}, your order #${order.number} from ${settings.restaurantName} is on the way${order.riderName ? ` with ${order.riderName}` : ""}${riders.find((r) => r.name === order.riderName)?.phone ? ` (${riders.find((r) => r.name === order.riderName)!.phone})` : ""}.`
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -831,7 +878,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4">
+      <div className="min-h-[7.5rem] flex-1 overflow-y-auto px-4">
         {activeItems.length + cart.length === 0 && cancelledItems.length === 0 && (
           <p className="py-10 text-center text-slate-500">Tap dishes on the menu to add them.</p>
         )}
@@ -906,6 +953,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
 
       <div className="border-t border-slate-100 px-4 py-3">
         <BillSummary
+          collapsible
           totals={totals}
           taxMode={rules!.taxMode}
           taxName={order?.taxName ?? settings.taxName}
@@ -1131,6 +1179,24 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             } catch (e) {
               toast((e as Error).message, "error");
             }
+          }}
+        />
+      )}
+      {dialog?.kind === "rider" && order && (
+        <NewRiderDialog
+          canSave={isAdmin}
+          onClose={() => setDialog(null)}
+          onAdd={async (rider) => {
+            // Owners keep the rider in Settings for next time; cashiers just note them on this order.
+            if (isAdmin && !riders.some((r) => r.name.toLowerCase() === rider.name.toLowerCase())) {
+              const r = await api<{ settings: SettingsDTO }>("/api/settings", { method: "PATCH", body: { deliveryRiders: [...riders, rider] } }).catch((e) => {
+                toast((e as Error).message, "error");
+                return null;
+              });
+              if (r) setSettings(r.settings);
+            }
+            setDialog(null);
+            await delivery({ riderName: rider.name }, `${rider.name} will deliver`);
           }}
         />
       )}

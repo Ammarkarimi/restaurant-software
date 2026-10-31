@@ -46,7 +46,7 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
       "Tap “Add customer” to choose where the order came from: walk-in, phone, Zomato, Swiggy or another app, and type the app's order ID. It prints on the kitchen ticket and the bill.",
       "Packing and delivery charges are added by themselves (set them in Settings → Tax & charges). Tap them on the order to change or remove them.",
       "Orders from Zomato or Swiggy open the payment as “Paid online / app”, so your cash stays correct. With a special price list for the apps, their dishes take the app price by themselves.",
-      "Delivery: choose the rider on the order, press “Out for delivery” and then “Delivered”. “Tell the customer” sends them a WhatsApp that the order is on the way.",
+      "Delivery: open the delivery order (from the card on Tables). In the blue bar at the top, choose the rider — or “+ New rider…” to add one — then press “Out for delivery” and later “Delivered”. Choosing a rider is optional. “Tell the customer” sends them a WhatsApp that the order is on the way.",
       "Takeaway: each order gets a token number on the kitchen ticket and bill. Open Settings → Kitchen → Token screen on a TV so guests see when their order is ready, and press “Handed over” when they collect it.",
       "Running takeaway and delivery orders, and new orders from your online ordering link, show at the top of Tables.",
     ],
