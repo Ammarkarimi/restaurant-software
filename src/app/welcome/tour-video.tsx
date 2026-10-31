@@ -33,8 +33,8 @@ export function TourVideo() {
           className="block aspect-[1280/824] w-full bg-slate-900"
           onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)}
         >
-          <source src="/landing/restaurant-manager-tour.webm" type="video/webm" />
-          <source src="/landing/restaurant-manager-tour.mp4" type="video/mp4" />
+          <source src="/landing/restoowl-tour.webm" type="video/webm" />
+          <source src="/landing/restoowl-tour.mp4" type="video/mp4" />
           Your browser cannot play this video.
         </video>
       </div>

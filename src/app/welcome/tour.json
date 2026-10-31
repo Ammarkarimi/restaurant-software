@@ -1,64 +1,84 @@
 {
-  "duration": 232,
+  "duration": 306,
   "chapters": [
     {
-      "t": 7.8,
+      "t": 9,
       "label": "Tables at a glance"
     },
     {
-      "t": 12.9,
-      "label": "Taking an order"
+      "t": 13.9,
+      "label": "Taking an order & add-ons"
     },
     {
-      "t": 29.4,
-      "label": "Kitchen ticket & screen"
+      "t": 39,
+      "label": "Kitchen tickets & screen"
     },
     {
-      "t": 49.7,
-      "label": "Customers, discounts & points"
+      "t": 63.2,
+      "label": "Customers & loyalty"
     },
     {
-      "t": 66.5,
+      "t": 69.9,
+      "label": "Offers & coupons"
+    },
+    {
+      "t": 79.8,
       "label": "GST bill & UPI payment"
     },
     {
-      "t": 86.3,
-      "label": "WhatsApp e-bill"
+      "t": 99.3,
+      "label": "WhatsApp bill & ratings"
     },
     {
-      "t": 95.3,
+      "t": 112.7,
       "label": "QR menu & table ordering"
     },
     {
-      "t": 126.7,
+      "t": 133.7,
+      "label": "Your own online ordering"
+    },
+    {
+      "t": 164.7,
+      "label": "Accepting online orders"
+    },
+    {
+      "t": 171.9,
+      "label": "Token screen & delivery riders"
+    },
+    {
+      "t": 181.2,
       "label": "Zomato & Swiggy orders"
     },
     {
-      "t": 145.6,
+      "t": 201.5,
       "label": "Split bill"
     },
     {
-      "t": 156,
-      "label": "Customer list"
+      "t": 211.5,
+      "label": "Table reservations"
     },
     {
-      "t": 162.4,
+      "t": 216.8,
+      "label": "Customers, ratings & offers"
+    },
+    {
+      "t": 233.2,
       "label": "Expenses & day close"
     },
     {
-      "t": 180,
-      "label": "Stock & recipes"
+      "t": 250.3,
+      "label": "Stock, suppliers & costing"
     },
     {
-      "t": 191.5,
-      "label": "Reports"
+      "t": 261.3,
+      "label": "Reports & staff rights"
     },
     {
-      "t": 202.4,
+      "t": 279.6,
       "label": "Bill design & QR codes"
     },
     {
-      "t": 214.9,
+      "t": 288.7,
       "label": "Captain's phone"
     }
   ]

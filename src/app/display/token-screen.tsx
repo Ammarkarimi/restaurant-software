@@ -75,16 +75,21 @@ export function TokenScreen({ restaurantName, logoUrl }: { restaurantName: strin
   const preparing = (tokens ?? []).filter((t) => t.status === "preparing");
   const ready = (tokens ?? []).filter((t) => t.status === "ready").sort((a, b) => (b.readyAt ?? "").localeCompare(a.readyAt ?? ""));
 
+  // Order numbers grow over the months: longer numbers get a smaller font so they never overflow the card.
+  const digits = (t: DisplayToken) => String(t.token).length;
+  const size = (t: DisplayToken, big: boolean) =>
+    big ? (digits(t) <= 3 ? "text-8xl" : digits(t) === 4 ? "text-7xl" : "text-6xl") : digits(t) <= 3 ? "text-6xl" : digits(t) === 4 ? "text-5xl" : "text-4xl";
+
   const card = (t: DisplayToken, big: boolean) => (
     <div
       key={t.orderId}
       className={cn(
-        "flex flex-col items-center justify-center rounded-3xl px-4 py-5 text-center shadow-lg",
+        "flex min-w-0 flex-col items-center justify-center overflow-hidden rounded-3xl px-4 py-5 text-center shadow-lg",
         big ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-100",
         fresh.has(t.token) && "scale-105 ring-8 ring-emerald-300"
       )}
     >
-      <span className={cn("font-black tabular-nums leading-none", big ? "text-7xl xl:text-8xl" : "text-5xl xl:text-6xl")}>{t.token}</span>
+      <span className={cn("font-black tabular-nums leading-none", size(t, big))}>{t.token}</span>
       <span className={cn("mt-2 text-sm font-semibold uppercase tracking-wide", big ? "text-emerald-50" : "text-slate-400")}>
         {t.source !== "counter" && t.source !== "website" ? `${label(t.source)}${t.sourceRef ? ` ${t.sourceRef}` : ""}` : t.type === "delivery" ? "Delivery" : t.name || "Takeaway"}
       </span>
@@ -130,7 +135,7 @@ export function TokenScreen({ restaurantName, logoUrl }: { restaurantName: strin
           {preparing.length === 0 ? (
             <p className="text-lg text-slate-500">Nothing cooking right now.</p>
           ) : (
-            <div className="grid grid-cols-3 gap-4 xl:grid-cols-4">{preparing.map((t) => card(t, false))}</div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-4">{preparing.map((t) => card(t, false))}</div>
           )}
         </section>
         <section className="flex flex-col rounded-3xl bg-slate-900 p-6">
@@ -138,7 +143,7 @@ export function TokenScreen({ restaurantName, logoUrl }: { restaurantName: strin
           {ready.length === 0 ? (
             <p className="text-lg text-slate-500">Your order number appears here when it is ready.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">{ready.map((t) => card(t, true))}</div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-5">{ready.map((t) => card(t, true))}</div>
           )}
         </section>
       </div>

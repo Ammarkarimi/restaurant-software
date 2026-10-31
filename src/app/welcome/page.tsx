@@ -329,8 +329,8 @@ export default function WelcomePage() {
               <p className="text-sm font-bold uppercase tracking-wide text-primary-700">See it working</p>
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">A day in a restaurant, in five minutes</h2>
               <p className="mt-3 text-lg text-slate-600">
-                From the first order to closing the till: taking orders, the kitchen screen, GST bills, UPI payments, guests ordering from the QR code, Zomato orders,
-                customers, day close, stock and reports.
+                From the first order to closing the till: taking orders with add-ons and offers, kitchen stations, GST bills, UPI payments, QR and online ordering,
+                the token screen, delivery riders, Zomato orders, reservations, customers and ratings, day close, suppliers and reports.
               </p>
             </div>
             <TourVideo />
