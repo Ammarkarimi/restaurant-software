@@ -3,8 +3,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, withAdmin } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
+import { raiseAlert } from "@/lib/alerts";
+import { sendDailyReport } from "@/lib/daily-report";
 import { getSettings } from "@/lib/settings";
-import { isDateKey, todayKey } from "@/lib/dates";
+import { formatDateKey, isDateKey, todayKey } from "@/lib/dates";
 import { round2 } from "@/lib/billing";
 import { daySummary, type DaySummaryJson } from "@/lib/cash";
 import { formatCurrency } from "@/lib/utils";
@@ -66,6 +68,24 @@ export async function POST(request: NextRequest) {
     });
     const diff = close.difference === 0 ? "cash matches" : `${close.difference < 0 ? "short" : "extra"} ${formatCurrency(Math.abs(close.difference), settings.currency)}`;
     await logActivity(user, s.close ? "Corrected day close" : "Closed the day", `${body.date}: sales ${formatCurrency(close.sales, settings.currency)}, ${diff}`);
+    if (close.difference < 0) {
+      // A fact about the drawer, so the owner hears about it whoever counted.
+      await raiseAlert(
+        user,
+        (rules, currency) =>
+          -close.difference + 0.001 < rules.cashShortAmount
+            ? null
+            : {
+                kind: "cash_short",
+                title: "Cash short at day close",
+                message: `${formatDateKey(body.date)}: expected ${formatCurrency(close.expectedCash, currency)} in the drawer, counted ${formatCurrency(close.countedCash, currency)} — ${formatCurrency(-close.difference, currency)} short.${close.notes ? ` Note: ${close.notes}` : ""}`,
+                amount: -close.difference,
+              },
+        { evenForManagers: true }
+      );
+    }
+    // The owner's daily report goes out when the day is closed (once per day).
+    if (!s.close) await sendDailyReport(body.date);
     return NextResponse.json({ summary: await daySummary(body.date) });
   });
 }

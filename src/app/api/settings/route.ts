@@ -6,6 +6,8 @@ import { logActivity } from "@/lib/activity";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { billTemplateSchema } from "@/lib/bill-template";
 import { TAX_MODES } from "@/lib/utils";
+import { parseAlertRules } from "@/lib/alert-rules";
+import { randomBytes } from "node:crypto";
 
 export async function GET() {
   return withAuth(async () => NextResponse.json({ settings: publicSettings(await getSettings()) }));
@@ -64,10 +66,35 @@ const schema = z
     onlineBookingEnabled: z.boolean(),
     googleReviewUrl: z.string().trim().max(300).url("Paste the full link, starting with https://").or(z.literal("")).nullable(),
     billTemplate: billTemplateSchema,
+    sacCode: z.string().trim().regex(/^\d{4,8}$/, "SAC / HSN code is 4 to 8 digits"),
+    alertPhone: z.string().trim().max(20).regex(/^$|^[+\d][\d\s-]{8,18}$/, "Enter the WhatsApp number with 10 digits").nullable(),
+    alertEmail: z.string().trim().email("Email is not valid").or(z.literal("")).nullable(),
+    alertRules: z
+      .object({
+        billChanged: z.boolean(),
+        kotCancel: z.boolean(),
+        discount: z.boolean(),
+        discountPercent: z.coerce.number().min(1).max(100),
+        paymentMode: z.boolean(),
+        cashShort: z.boolean(),
+        cashShortAmount: z.coerce.number().min(0).max(1_000_000),
+        includeManagers: z.boolean(),
+      })
+      .partial()
+      .transform((o) => JSON.stringify(o)),
+    dailyReportEnabled: z.boolean(),
+    // Keys are write-only: send a value to save it, null to remove it, leave out to keep it.
+    razorpayKeyId: z.string().trim().max(60).regex(/^$|^rzp_(live|test)_\w+$/, "The Key ID starts with rzp_live_ or rzp_test_").nullable(),
+    razorpayKeySecret: z.string().trim().max(100).nullable(),
+    razorpayWebhookSecret: z.string().trim().max(100).nullable(),
+    aggregatorEnabled: z.boolean(),
+    aggregatorAutoAccept: z.boolean(),
+    urbanpiperUser: z.string().trim().max(100).nullable(),
+    urbanpiperApiKey: z.string().trim().max(200).nullable(),
   })
   .partial();
 
-const NULLABLE = new Set(["legalName", "address", "city", "phone", "email", "gstin", "fssai", "upiId", "googleReviewUrl"]);
+const NULLABLE = new Set(["legalName", "address", "city", "phone", "email", "gstin", "fssai", "upiId", "googleReviewUrl", "alertPhone", "alertEmail", "razorpayKeyId", "razorpayKeySecret", "razorpayWebhookSecret", "urbanpiperUser", "urbanpiperApiKey"]);
 
 export async function PATCH(request: NextRequest) {
   return withAdmin(async (user) => {
@@ -89,9 +116,21 @@ export async function PATCH(request: NextRequest) {
         ...blankToNull,
         ...(rest.currency && { currency: rest.currency.toUpperCase() }),
         ...(billTemplate && { billTemplate: JSON.stringify(billTemplate) }),
+        ...(rest.alertRules && { alertRules: JSON.stringify({ ...parseAlertRules(current.alertRules), ...JSON.parse(rest.alertRules) }) }),
+        // Zomato / Swiggy: the secret webhook address is made the first time it is switched on.
+        ...(rest.aggregatorEnabled && !current.aggregatorToken && { aggregatorToken: randomBytes(18).toString("base64url") }),
       },
     });
-    const what = [billTemplate && "bill design", Object.keys(rest).length && "restaurant details"].filter(Boolean).join(" and ");
+    const keys = Object.keys(rest);
+    const what = [
+      billTemplate && "bill design",
+      keys.some((k) => k.startsWith("alert") || k === "dailyReportEnabled") && "owner alerts",
+      keys.some((k) => k.startsWith("razorpay")) && "Razorpay UPI",
+      keys.some((k) => k.startsWith("aggregator") || k.startsWith("urbanpiper")) && "Zomato / Swiggy link",
+      keys.some((k) => !/^(alert|dailyReport|razorpay|aggregator|urbanpiper)/.test(k)) && "restaurant details",
+    ]
+      .filter(Boolean)
+      .join(", ");
     await logActivity(user, "Changed settings", what || undefined);
     return NextResponse.json({ settings: publicSettings(updated) });
   });

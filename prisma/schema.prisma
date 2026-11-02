@@ -54,6 +54,8 @@ model Restaurant {
   feedback             Feedback[]
   campaigns            Campaign[]
   attendance           Attendance[]
+  alerts               Alert[]
+  upiRequests          UpiRequest[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -144,6 +146,23 @@ model RestaurantSettings {
   googleReviewUrl       String? // guests who rate their visit 4 or 5 stars are asked to review here
   logoPath              String?
   billTemplate          String     @default("{}") // JSON, see src/lib/bill-template.ts
+  sacCode               String     @default("996331") // GST service code for restaurant service, for GSTR-1
+  // Owner alerts (bill changed after printing, items removed after KOT, big discounts, cash short) and the daily report
+  alertPhone            String? // owner's WhatsApp number
+  alertEmail            String?
+  alertRules            String     @default("{}") // JSON, see src/lib/alerts.ts
+  dailyReportEnabled    Boolean    @default(true)
+  dailyReportSentFor    String? // business day of the last daily report sent, "YYYY-MM-DD"
+  // Razorpay: a UPI QR code per bill that closes the bill by itself when the guest pays
+  razorpayKeyId         String?
+  razorpayKeySecret     String?
+  razorpayWebhookSecret String?
+  // Zomato / Swiggy orders through UrbanPiper
+  aggregatorEnabled     Boolean    @default(false)
+  aggregatorToken       String?    @unique // secret part of the webhook address UrbanPiper sends orders to
+  aggregatorAutoAccept  Boolean    @default(false) // accept and send to the kitchen without a tap at the counter
+  urbanpiperUser        String?
+  urbanpiperApiKey      String?
   updatedAt             DateTime   @updatedAt
   restaurant            Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
@@ -250,6 +269,11 @@ model Order {
   deliveryCharge       Float        @default(0)
   chargeTaxRate        Float        @default(0) // tax rate on packing and delivery charges
   billNumber           String?
+  printedTotal         Float? // total on the bill when it was first printed; a lower paid total raises an owner alert
+  customerGstin        String? // business customer's GSTIN: the bill counts as B2B in GSTR-1
+  aggregatorStatus     String? // Zomato / Swiggy through UrbanPiper: placed, acknowledged, food_ready, dispatched, completed, cancelled
+  clientId             String? // id given by a counter that billed while offline, so a sync never adds the bill twice
+  offline              Boolean      @default(false) // billed while the internet was down, synced later
   // Totals saved when the bill is printed and again when it is paid.
   subtotal             Float        @default(0)
   discountAmount       Float        @default(0)
@@ -276,6 +300,7 @@ model Order {
 
   @@unique([restaurantId, number])
   @@unique([restaurantId, billNumber])
+  @@unique([restaurantId, clientId])
   @@index([restaurantId, status])
   @@index([restaurantId, businessDate])
   @@index([restaurantId, createdAt])
@@ -687,4 +712,42 @@ model Attendance {
 
   @@index([restaurantId, date])
   @@index([restaurantId, staffId, date])
+}
+
+// Something the owner should know about: a bill paid for less than printed, a dish taken off
+// after the kitchen got it, a big discount, cash short at day close. Also sent on WhatsApp / email.
+model Alert {
+  id           String     @id @default(cuid())
+  restaurantId String
+  kind         String // bill_changed, kot_cancel, order_cancel, discount, complimentary, payment_mode, cash_short
+  title        String
+  message      String
+  orderId      String?
+  staffName    String?
+  amount       Float      @default(0) // money involved, for sorting and totals
+  sentVia      String? // "whatsapp", "email", "whatsapp,email"
+  readAt       DateTime?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+}
+
+// A UPI QR code made for one bill with Razorpay. When the guest pays it, the bill closes by itself.
+model UpiRequest {
+  id           String     @id @default(cuid())
+  restaurantId String
+  orderId      String
+  provider     String     @default("razorpay")
+  qrId         String     @unique
+  amount       Float
+  imageUrl     String
+  status       String     @default("pending") // pending, paid, closed
+  paymentId    String?
+  createdBy    String?
+  createdAt    DateTime   @default(now())
+  paidAt       DateTime?
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, orderId])
 }

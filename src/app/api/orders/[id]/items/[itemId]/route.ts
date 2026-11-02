@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
+import { raiseAlert } from "@/lib/alerts";
+import { formatCurrency } from "@/lib/utils";
 import { assertEditable, loadOrder, saveTotals, serializeOrder, type FullOrder } from "@/lib/orders";
 import { can } from "@/lib/permissions";
 
@@ -70,6 +72,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (item.kotNumber !== null && quantity < item.quantity) {
       await logActivity(user, "Removed item after KOT", `Order #${order.number}: ${item.quantity - quantity} × ${itemName(item)} (${body.reason})`);
+      await kotAlert(user, order, item, item.quantity - quantity, body.reason ?? "");
     }
     return NextResponse.json({ order: serializeOrder(updated) });
   });
@@ -90,7 +93,19 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     });
     if (item.kotNumber !== null) {
       await logActivity(user, "Removed item after KOT", `Order #${order.number}: ${item.quantity} × ${itemName(item)} (${reason})`);
+      await kotAlert(user, order, item, item.quantity, reason ?? "");
     }
     return NextResponse.json({ order: serializeOrder(updated) });
   });
+}
+
+/** A dish taken off after the kitchen got it: the classic way food goes out unbilled. */
+function kotAlert(user: { name: string; role: string }, order: { id: string; number: number; table: { name: string } | null }, item: { name: string; variant: string | null; price: number; kotNumber: number | null }, quantity: number, reason: string) {
+  return raiseAlert(user, (_, currency) => ({
+    kind: "kot_cancel",
+    title: "Dish removed after KOT",
+    message: `${quantity} × ${itemName(item)} (${formatCurrency(item.price * quantity, currency)}) taken off order #${order.number}${order.table ? ` (${order.table.name})` : ""} after KOT ${item.kotNumber}. Reason: ${reason || "none given"}.`,
+    orderId: order.id,
+    amount: item.price * quantity,
+  }));
 }

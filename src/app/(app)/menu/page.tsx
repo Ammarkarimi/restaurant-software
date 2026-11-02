@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, BookOpen, Camera, ClipboardPaste, Eye, EyeOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Eye, EyeOff, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea, Tip, Toggle } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { FoodMark } from "@/components/food-mark";
@@ -12,6 +12,7 @@ import type { AddonGroupDTO, CategoryDTO, MenuItemDTO, MenuResponse, OfferDTO, P
 import { AddonsTab } from "./addons-tab";
 import { PricesTab } from "./prices-tab";
 import { OffersTab } from "./offers-tab";
+import { ImportDialog } from "./import-dialog";
 
 type MenuTab = "dishes" | "addons" | "prices" | "offers";
 
@@ -250,91 +251,6 @@ function ItemDialog({
   );
 }
 
-function QuickAddDialog({ categories, onClose, onSaved }: { categories: CategoryDTO[]; onClose: () => void; onSaved: () => void }) {
-  const { toast } = useApp();
-  const [text, setText] = useState("");
-  const [defaultCategory, setDefaultCategory] = useState(categories[0]?.name ?? "Main course");
-  const [preview, setPreview] = useState<{ rows: Array<{ name: string; price: number; category: string; foodType: string; shortCode?: string }>; errors: string[] } | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!text.trim()) return setPreview(null);
-    const t = setTimeout(() => {
-      api<typeof preview>("/api/menu/import", { body: { text, defaultCategory, dryRun: true } }).then(setPreview, () => setPreview(null));
-    }, 400);
-    return () => clearTimeout(t);
-  }, [text, defaultCategory]);
-
-  async function add() {
-    setSaving(true);
-    try {
-      const r = await api<{ added: number }>("/api/menu/import", { body: { text, defaultCategory } });
-      toast(`${r.added} dishes added`);
-      onSaved();
-    } catch (e) {
-      toast((e as Error).message, "error");
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Quick add many dishes"
-      description="Paste one dish per line. You can copy columns straight from Excel."
-      size="xl"
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button loading={saving} disabled={!preview?.rows.length} onClick={add}>
-            Add {preview?.rows.length ?? 0} dishes
-          </Button>
-        </>
-      }
-    >
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="space-y-3">
-          <Tip>
-            Format: <b>name, price, category, veg / non-veg / egg, short code</b>. Only name and price are needed.
-            <br />
-            <span className="font-mono text-xs">Paneer Tikka, 280, Starters, veg, PT</span>
-          </Tip>
-          <Textarea rows={12} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Paneer Tikka, 280, Starters, veg\nChicken 65, 320, Starters, non-veg\nMasala Dosa, 120"} className="font-mono text-sm" />
-          <Field label="Category when a line has none">
-            <Input value={defaultCategory} onChange={(e) => setDefaultCategory(e.target.value)} list="menu-categories" />
-          </Field>
-          <datalist id="menu-categories">
-            {categories.map((c) => (
-              <option key={c.id} value={c.name} />
-            ))}
-          </datalist>
-        </div>
-        <div>
-          <p className="mb-2 text-sm font-semibold text-slate-700">Preview</p>
-          {!preview ? (
-            <p className="text-sm text-slate-500">Dishes appear here as you type.</p>
-          ) : (
-            <div className="space-y-2">
-              {preview.errors.map((e) => (
-                <p key={e} className="text-sm text-red-700">{e}</p>
-              ))}
-              <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
-                {preview.rows.map((r, i) => (
-                  <li key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
-                    <span className="flex items-center gap-2"><FoodMark type={r.foodType} /> {r.name} {r.shortCode && <span className="text-xs text-slate-400">{r.shortCode}</span>}</span>
-                    <span className="text-slate-500">{r.category} · <b className="text-slate-800">{formatCurrency(r.price)}</b></span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 export default function MenuPage() {
   const { isAdmin, toast, confirm } = useApp();
   const [tab, setTab] = useState<MenuTab>("dishes");
@@ -456,7 +372,7 @@ export default function MenuPage() {
           tab === "dishes" && (
             <>
               <Button variant="outline" onClick={() => setQuickAdd(true)}>
-                <ClipboardPaste className="h-5 w-5" /> Quick add many
+                <Upload className="h-5 w-5" /> Import menu
               </Button>
               <Button
                 onClick={() => {
@@ -494,7 +410,7 @@ export default function MenuPage() {
         <EmptyState
           icon={<BookOpen className="h-6 w-6" />}
           title="Your menu is empty"
-          description="Start with a category like “Starters”, then add dishes. Or paste your whole menu at once with Quick add."
+          description="Start with a category like “Starters”, then add dishes. Or import your whole menu at once from an Excel sheet or a photo of your menu card."
           action={
             isAdmin && (
               <div className="flex flex-wrap justify-center gap-2">
@@ -502,7 +418,7 @@ export default function MenuPage() {
                   <Plus className="h-4 w-4" /> Add a category
                 </Button>
                 <Button variant="outline" onClick={() => setQuickAdd(true)}>
-                  <ClipboardPaste className="h-4 w-4" /> Quick add many
+                  <Upload className="h-4 w-4" /> Import from Excel or photo
                 </Button>
               </div>
             )
@@ -661,7 +577,7 @@ export default function MenuPage() {
         />
       )}
       {quickAdd && (
-        <QuickAddDialog
+        <ImportDialog
           categories={categories}
           onClose={() => setQuickAdd(false)}
           onSaved={() => {

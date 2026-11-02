@@ -1,6 +1,7 @@
 import { currentRestaurantId, prisma } from "./db";
 import { parseBillTemplate } from "./bill-template";
 import { todayKey } from "./dates";
+import { parseAlertRules } from "./alert-rules";
 
 /** The current restaurant's profile and preferences (created with defaults on first use). */
 export async function getSettings() {
@@ -16,9 +17,15 @@ export type SettingsRecord = Awaited<ReturnType<typeof getSettings>>;
 
 /** Settings as sent to the browser: the bill template is parsed and the logo becomes a URL. */
 export function publicSettings(s: SettingsRecord) {
-  const { billTemplate, logoPath, ...rest } = s;
+  // Keys for Razorpay / UrbanPiper never leave the server; the screens only learn whether they are set.
+  const { billTemplate, logoPath, razorpayKeySecret, razorpayWebhookSecret, urbanpiperApiKey, aggregatorToken, alertRules, ...rest } = s;
   return {
     ...rest,
+    alertRules: parseAlertRules(alertRules),
+    razorpayConnected: Boolean(s.razorpayKeyId && razorpayKeySecret),
+    razorpayWebhookSet: Boolean(razorpayWebhookSecret),
+    urbanpiperConnected: Boolean(s.urbanpiperUser && urbanpiperApiKey),
+    aggregatorWebhookPath: aggregatorToken ? `/api/public/aggregator/${aggregatorToken}` : null,
     billTemplate: parseBillTemplate(billTemplate),
     logoUrl: logoUrl(s),
     today: todayKey(s.timezone),

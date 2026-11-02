@@ -29,6 +29,8 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         billNumber,
         billedAt: new Date(),
       });
+      // Remember the highest total ever printed: paying less than that later raises an owner alert.
+      if (updated.total > (order.printedTotal ?? 0)) await tx.order.update({ where: { id }, data: { printedTotal: updated.total } });
       return { order: updated, kotNumber };
     });
     await logActivity(
