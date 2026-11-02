@@ -108,15 +108,25 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 - **WhatsApp first.** Bills, tracking links, delivery messages, purchase orders, due reminders and
   offers all go through the restaurant's own WhatsApp — no SMS credits.
 
+## Added in November 2026
+
+| Feature | Petpooja | RestoOwl |
+|---|---|---|
+| Zomato / Swiggy orders arriving by themselves | Yes (direct) | 🆕 Through UrbanPiper: orders arrive with a sound, Accept / Food ready / Handed to rider go back to the app, app cancellations sync |
+| Offline billing | Yes (desktop app) | 🆕 In the browser: saved menu, KOT and bill printing, own bill series per counter, automatic sync with the real day and time |
+| Tally export | Yes | 🆕 Tally XML ledgers and sales vouchers (per day or per bill) |
+| GSTR-1 reports | Yes | 🆕 B2CS, B2B (guest GSTIN on the bill), HSN / SAC, documents, Zomato / Swiggy, in the GST offline tool's layout |
+| UPI payment that confirms itself | Yes (Scan & Pay add-on) | 🆕 Razorpay QR per bill on the counter and the WhatsApp bill; the bill closes by itself |
+| Menu import | Excel import | 🆕 Excel / CSV in any layout **and from photos of the printed menu card (AI)** |
+| Owner alerts for leakage | Limited | 🆕 WhatsApp alerts: bill paid less than printed, removed after KOT, big discounts, payment mode changes, cash short — with who did it |
+| Daily owner report on WhatsApp | Yes (SMS / app) | 🆕 Sent at day close or 7 am next day |
+
 ## Not built yet, and why
 
 | Feature | Why not (yet) |
 |---|---|
-| Zomato / Swiggy orders arriving by themselves | Needs a signed integration partnership with each app; they don't offer open APIs to new POS vendors. Orders are entered by hand with the app's order ID, and reports show the payout after commission |
-| Offline billing | The app runs in the browser and needs the internet. A billing PC on a mobile hotspot as backup is the usual answer; true offline mode needs a desktop app with a local database and syncing |
 | Automatic printer routing and cash drawer | Browsers can't pick a printer or open a cash drawer by themselves. Needs a small print helper installed on the billing PC |
 | E-invoicing (IRN) and e-way bills | E-invoicing applies only to bills to other businesses (B2B) above ₹5 crore turnover, and e-way bills to moving goods; both need registration with a GST suvidha provider |
-| Tally integration | CSV downloads cover most accountants; a direct Tally XML export can be added on request |
 | Central kitchen and transfers between outlets | Useful for chains; each outlet keeps its own stock today |
 | Hindi and regional languages | The screens are written in simple English; translations can be added screen by screen |
 | Payroll | Attendance is there; salary rules vary a lot by restaurant |

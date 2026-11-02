@@ -47,7 +47,12 @@ and pause restaurants that don't pay. Each restaurant only ever sees its own dat
 | **Stock & recipes** | Stock items with units, purchases (optionally saved as a cash expense), wastage, stock counts. **Recipes per dish** (per portion if needed): paid bills take ingredients out automatically, cancelled bills put them back. Low-stock warnings, stock value, usage report with CSV. **Suppliers**, **purchase orders** (send on WhatsApp, receive into stock), supplier dues and payments, **dish costing** (cost and profit per plate) |
 | **Bill design** | Upload your **logo**, start from 4 ready-made styles (Classic thermal, Modern café, Compact 58 mm, A4 invoice), show / hide every line (GSTIN, FSSAI, table, staff, customer, veg marks, tax table, amount in words…), header and thank-you message, font, size, colour, **UPI QR code**, 58 mm / 80 mm thermal or A4. **Live preview** and a **test print** |
 | **Bills** | Every order by date and status, search by bill no., order no., table, name or phone, reprint any bill |
-| **Menu** | Categories (reorder, hide), dishes with price or portions, food type, short code, tax rate, description, “sold out today” switch (cashiers can use it too). **Quick add**: paste your whole menu, or copy columns from Excel |
+| **Menu** | Categories (reorder, hide), dishes with price or portions, food type, short code, tax rate, description, “sold out today” switch (cashiers can use it too). **Import menu**: from an Excel / CSV sheet (any column order, Half / Full columns become portions, other billing software's exports work), from **photos of the printed menu card** (read by AI), or pasted lines — checked and corrected before adding; dishes already on the menu are skipped |
+| **Owner alerts** | WhatsApp / email / in-app alerts the moment money may leak: bill paid for less than printed, dish removed or order cancelled after KOT, paid bill cancelled, discount over your limit, complimentary bill, payment mode changed on a paid bill, cash short at day close — each says who did it. **Daily report** on WhatsApp when the day is closed (or 7 am next day): sales, top dishes, payments, discounts, cancellations, cash count, low stock |
+| **UPI that confirms itself** | With the restaurant's own **Razorpay** account: a UPI QR for the exact bill on the counter screen and on the WhatsApp bill; the bill closes by itself when the guest pays (webhook, with polling as backup) |
+| **Zomato & Swiggy** | Orders arrive by themselves through **UrbanPiper** with a sound; Accept / Reject, Food ready and Handed to rider go back to the app; app cancellations cancel here; no GST on app bills (section 9(5)); test order for training |
+| **Offline billing** | When the internet drops the billing PC keeps going: saved menu, KOT and bill printing, own bill number series per counter (e.g. `OFFKQ-12`); bills sync by themselves later with their real day and time, never twice |
+| **GST & Tally** | **GSTR-1** tables (B2CS, B2B with the guest's GSTIN, HSN / SAC, documents, Zomato / Swiggy) as CSV in the GST offline tool's layout. **Tally** XML: ledgers and sales vouchers (per day or per bill) |
 | **Table setup** | Add many tables at once (T1–T10), areas, seats. Tables with old bills are hidden, never lost |
 | **Reports** (owner) | Sales, bills, average bill, guests, discounts, tax, cancellations; sales by day, by hour and by weekday; payment modes; order types and sources with **app commission and payout**; sales by staff; **discounts by staff and offer**; **complimentary bills**; **removed dishes**; riders; ratings; customer dues; best-selling dishes; category sales; GST summary; expenses. CSV downloads for Excel |
 | **Several outlets** | One owner, many restaurants: switch outlets from the menu, see all outlets' sales side by side. Linked from the owner panel |
@@ -120,6 +125,22 @@ status, **Add as restaurant**). To also get each one by email:
 
 Without your own domain, Resend only delivers to the email you signed up with. To send to
 any address, verify a domain in Resend and set `EMAIL_FROM`, e.g. `RestoOwl <hello@yourdomain.com>`.
+
+## Owner alerts, AI menu reading and other services
+
+These are set once by the software provider (Vercel → Settings → Environment Variables):
+
+| Variable | What it switches on |
+|---|---|
+| `CRON_SECRET` | The daily job (`vercel.json` → `/api/cron/daily`, 7 am IST) that sends yesterday's report to owners who did not close the day |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Automatic WhatsApp alerts and daily reports from your WhatsApp Business number (Meta WhatsApp Cloud API) |
+| `WHATSAPP_ALERT_TEMPLATE` (default `owner_alert`), `WHATSAPP_REPORT_TEMPLATE` (default `daily_report`), `WHATSAPP_TEMPLATE_LANG` (default `en`) | The approved message templates: `owner_alert` = “Alert from {{1}}: {{2}}”, `daily_report` = “Daily report for {{1}}, {{2}}: {{3}}” (category Utility) |
+| `RESEND_API_KEY` (+ a verified domain in `EMAIL_FROM`) | Alerts and daily reports by email |
+| `ANTHROPIC_API_KEY` | Menu → Import → **Menu photo** (reads dishes off menu card photos with Claude) |
+
+Each restaurant connects its own **Razorpay** keys and **UrbanPiper** details in
+Settings → UPI & Zomato / Swiggy. Without WhatsApp set up, alerts still appear under
+**Alerts** in the app and the daily report can be sent from the owner's phone with one tap.
 
 ## Deploying (Vercel + Postgres)
 

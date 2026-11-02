@@ -29,9 +29,11 @@ export const paymentsSchema = z
 type Who = Pick<SessionUser, "name" | "role" | "permissions"> & { id: string | null };
 
 /** Takes payment (cash, UPI, card or a mix) and closes the bill. The table becomes free. */
-export async function settleOrder(user: Who, id: string, payments: z.infer<typeof paymentsSchema>, opts: { expectTotal?: number } = {}) {
+export async function settleOrder(user: Who, id: string, payments: z.infer<typeof paymentsSchema>, opts: { expectTotal?: number; businessDate?: string; paidAt?: Date } = {}) {
   const body = { payments };
   const settings = await getSettings();
+  // A bill synced from a counter that was offline keeps the day and time it was paid.
+  const day = opts.businessDate ?? todayKey(settings.timezone);
   const order = await loadOrder(id);
   if (opts.expectTotal !== undefined && Math.abs(totalsOf(order).total - opts.expectTotal) > 0.01) fail("The bill changed after the QR code was made. Show a new QR code.");
   assertEditable(order);
@@ -59,27 +61,27 @@ export async function settleOrder(user: Who, id: string, payments: z.infer<typeo
     const billNumber = order.billNumber ?? `${settings.billPrefix}${await nextNumber(tx, "billSeq")}`;
     if (body.payments.length) {
       await tx.payment.createMany({
-        data: body.payments.map((p) => ({ restaurantId: settings.restaurantId, orderId: id, method: p.method, amount: round2(p.amount), reference: p.reference || null, receivedBy: user.name })),
+        data: body.payments.map((p) => ({ restaurantId: settings.restaurantId, orderId: id, method: p.method, amount: round2(p.amount), reference: p.reference || null, receivedBy: user.name, ...(opts.paidAt && { paidAt: opts.paidAt }) })),
       });
     }
-    const now = new Date();
+    const now = opts.paidAt ?? new Date();
     const visit = await recordVisit(tx, order, total, settings);
     if (onAccount > 0 && visit.customerId) {
       await addAccountEntry(
         tx,
-        { customerId: visit.customerId, type: "bill", amount: -onAccount, orderId: id, billNumber, date: todayKey(settings.timezone), createdByName: user.name },
+        { customerId: visit.customerId, type: "bill", amount: -onAccount, orderId: id, billNumber, date: day, createdByName: user.name },
         { mayGiveCredit: can(user, "payLater") }
       );
     }
     if (offer) await tx.offer.update({ where: { id: offer.id }, data: { timesUsed: { increment: 1 } } });
-    await takeStockForOrder(tx, { ...(await loadOrder(id, tx)), billNumber }, todayKey(settings.timezone), user.name);
+    await takeStockForOrder(tx, { ...(await loadOrder(id, tx)), billNumber }, day, user.name);
     const updated = await saveTotals(tx, await loadOrder(id, tx), {
       ...visit.data,
       status: "settled",
       billNumber,
       billedAt: order.billedAt ?? now,
       settledAt: now,
-      businessDate: todayKey(settings.timezone),
+      businessDate: day,
       activeTable: { disconnect: true },
     });
     return { order: updated, kotNumber };

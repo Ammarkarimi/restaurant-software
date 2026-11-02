@@ -28,6 +28,7 @@ import { BRAND, OwlMark } from "@/components/brand";
 import { cn, formatTime, label } from "@/lib/utils";
 import { AppProvider, useApp, type ShellSettings } from "@/components/app-provider";
 import { Button } from "@/components/ui";
+import { OfflineKeeper } from "@/components/offline-keeper";
 import type { SessionUser } from "@/lib/session";
 
 const NAV = [
@@ -282,6 +283,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             {settings.subscriptionNotice}
           </div>
         )}
+        <OfflineKeeper />
         <main className={cn("mx-auto px-4 py-6 sm:px-6", wide ? "max-w-[1600px] lg:px-6" : "max-w-7xl lg:px-8")}>{children}</main>
       </div>
     </div>
