@@ -161,7 +161,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const [error, setError] = useState("");
   const [mobileTab, setMobileTab] = useState<"menu" | "order">("menu");
   const [autoKot, setAutoKot] = useState(true);
-  const [draftCustomer, setDraftCustomer] = useState<CustomerForm>({ customerName: "", customerPhone: "", customerAddress: "", guests: "", notes: "", source: "counter", sourceRef: "" });
+  const [draftCustomer, setDraftCustomer] = useState<CustomerForm>({ customerName: "", customerPhone: "", customerAddress: "", customerGstin: "", guests: "", notes: "", source: "counter", sourceRef: "" });
   const [known, setKnown] = useState<CustomerLookup | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const keySeq = useRef(1);
@@ -337,6 +337,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           customerName: draftCustomer.customerName || null,
           customerPhone: draftCustomer.customerPhone || null,
           customerAddress: draftCustomer.customerAddress || null,
+          customerGstin: draftCustomer.customerGstin || null,
           guests: Number(draftCustomer.guests) || 0,
           notes: draftCustomer.notes || null,
           items: cartPayload(),
@@ -442,6 +443,28 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     setDialog(null);
     toast(`Paid · Bill ${r.order.billNumber}${tableName ? ` · ${tableName} is free now` : ""}`);
     showSavedOrder(r.order.id);
+  }
+
+  /** The guest paid the Razorpay QR: the server already closed the bill. */
+  const upiPaid = useCallback(
+    (paid: OrderDTO) => {
+      setOrder(paid);
+      setDialog(null);
+      toast(`UPI received · Bill ${paid.billNumber}${tableName ? ` · ${tableName} is free now` : ""}`);
+      showSavedOrder(paid.id);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tableName]
+  );
+
+  /** Zomato / Swiggy order: accept, food ready, handed to the rider (UrbanPiper tells the app). */
+  async function appStep(step: "acknowledged" | "food_ready" | "dispatched", done: string) {
+    if (!order) return;
+    await run("app", async () => {
+      const r = await api<{ order: OrderDTO; kotNumber: number | null; warning: string | null }>(`/api/orders/${order.id}/aggregator`, { body: { step } });
+      setOrder(r.order);
+      toast(r.warning ? `${done} · but the app was not updated: ${r.warning}` : done, r.warning ? "error" : "success");
+    });
   }
 
   async function markServed() {
@@ -821,7 +844,30 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         </Button>
       </div>
 
-      {order && orderType === "delivery" && order.status !== "cancelled" && (
+      {order && order.aggregatorStatus && order.status !== "cancelled" && order.status !== "settled" && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-violet-50/70 px-4 py-2 text-sm">
+          <span className="font-semibold text-violet-900">
+            {label(source)}:{" "}
+            {{ placed: "new order — accept it", acknowledged: "accepted, cooking", food_ready: "food ready, waiting for the rider", dispatched: "picked up by the rider", completed: "delivered" }[order.aggregatorStatus] ?? order.aggregatorStatus}
+          </span>
+          <span className="ml-auto flex gap-2">
+            {order.aggregatorStatus === "placed" && (
+              <>
+                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => cancelOrder()}>Reject</Button>
+                <Button size="sm" loading={busy === "app"} onClick={() => appStep("acknowledged", "Accepted · sent to the kitchen")}>Accept & send to kitchen</Button>
+              </>
+            )}
+            {order.aggregatorStatus === "acknowledged" && (
+              <Button size="sm" loading={busy === "app"} onClick={() => appStep("food_ready", "Marked food ready")}>Food ready</Button>
+            )}
+            {order.aggregatorStatus === "food_ready" && (
+              <Button size="sm" loading={busy === "app"} onClick={() => appStep("dispatched", "Handed to the rider")}>Handed to rider</Button>
+            )}
+          </span>
+        </div>
+      )}
+
+      {order && orderType === "delivery" && !order.aggregatorStatus && order.status !== "cancelled" && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-sky-50/60 px-4 py-2 text-sm">
           {order.deliveryStatus === "delivered" ? (
             <span className="font-semibold text-emerald-700">
@@ -1113,6 +1159,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                   customerName: order.customerName ?? "",
                   customerPhone: order.customerPhone ?? "",
                   customerAddress: order.customerAddress ?? "",
+                  customerGstin: order.customerGstin ?? "",
                   guests: order.guests ? String(order.guests) : "",
                   notes: order.notes ?? "",
                   source: order.source,
@@ -1133,6 +1180,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                   customerName: f.customerName || null,
                   customerPhone: f.customerPhone || null,
                   customerAddress: f.customerAddress || null,
+                  customerGstin: f.customerGstin || null,
                   guests: Number(f.guests) || 0,
                   notes: f.notes || null,
                   ...(orderType !== "dine_in" && { source: f.source, sourceRef: f.sourceRef || null }),
@@ -1276,6 +1324,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               ? { name: known?.name || order.customerName || phone, balance: known?.balance ?? 0, creditLimit: known?.creditLimit ?? null, canGiveCredit: can(user, "payLater") }
               : null
           }
+          autoUpi={settings.razorpayConnected ? { orderId: order.id, onPaid: upiPaid } : null}
           onClose={() => setDialog(null)}
           onPay={settle}
         />

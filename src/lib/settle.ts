@@ -25,7 +25,8 @@ export const paymentsSchema = z
   )
   .max(10);
 
-type Who = Pick<SessionUser, "id" | "name" | "role" | "permissions">;
+/** Who took the payment: a signed-in person, or the system (id null) for a UPI QR the guest paid. */
+type Who = Pick<SessionUser, "name" | "role" | "permissions"> & { id: string | null };
 
 /** Takes payment (cash, UPI, card or a mix) and closes the bill. The table becomes free. */
 export async function settleOrder(user: Who, id: string, payments: z.infer<typeof paymentsSchema>, opts: { expectTotal?: number } = {}) {

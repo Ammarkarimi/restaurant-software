@@ -194,9 +194,9 @@ export default function TablesPage() {
             <Link key={o.id} href={`/orders/${o.id}`} className="flex items-center gap-3 rounded-2xl border-2 border-violet-300 bg-violet-50 px-4 py-3">
               {o.type === "delivery" ? <Bike className="h-6 w-6 text-violet-700" /> : <ShoppingBag className="h-6 w-6 text-violet-700" />}
               <p className="flex-1 font-semibold text-violet-900">
-                New {o.source === "website" ? "online" : ""} {label(o.type).toLowerCase()} order #{o.number}
+                New {o.source === "website" ? "online " : ["zomato", "swiggy"].includes(o.source) ? `${label(o.source)} ` : ""}{label(o.type).toLowerCase()} order #{o.number}
                 {o.customerName ? ` from ${o.customerName}` : ""} · {formatCurrency(o.total)}
-                {o.scheduledFor && <span className="font-normal"> · for {timeOf(o.scheduledFor)}</span>}. Check it and send it to the kitchen to accept.
+                {o.scheduledFor && <span className="font-normal"> · for {timeOf(o.scheduledFor)}</span>}. {["zomato", "swiggy"].includes(o.source) ? "Open it and accept it." : "Check it and send it to the kitchen to accept."}
               </p>
               <Button size="sm">Open</Button>
             </Link>

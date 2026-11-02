@@ -30,6 +30,7 @@ export interface BillData {
   customerName: string | null;
   customerPhone: string | null;
   customerAddress: string | null;
+  customerGstin?: string | null;
   date: string | Date;
   items: Array<{ name: string; variant: string | null; foodType: string; quantity: number; price: number; note: string | null; addons?: string }>;
   totals: BillTotals;
@@ -152,7 +153,7 @@ export function BillView({
   if (t.showGuests && b.guests > 0) infoPairs.push(["Guests", String(b.guests)]);
   if (t.showServedBy && b.servedBy) infoPairs.push(["Served by", b.servedBy]);
 
-  const customer = t.showCustomer && (b.customerName || b.customerPhone);
+  const customer = (t.showCustomer && (b.customerName || b.customerPhone)) || b.customerGstin;
   // Takeaway guests collect their food by this number (shown on the token screen).
   const token = b.type === "takeaway" && !a4 ? <p className="my-1 text-center font-black" style={{ fontSize: "1.8em" }}>TOKEN {b.orderNumber}</p> : null;
 
@@ -301,6 +302,7 @@ export function BillView({
               {[b.customerName, b.customerPhone].filter(Boolean).join(", ")}
             </p>
             {b.customerAddress && <p className="whitespace-pre-line">{b.customerAddress}</p>}
+            {b.customerGstin && <p>Customer GSTIN: {b.customerGstin}</p>}
           </div>
         )}
       </div>

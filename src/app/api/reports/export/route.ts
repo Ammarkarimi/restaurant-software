@@ -1,10 +1,14 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { csvResponse, fail, withAdmin } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
 import { addDays, diffDays, isDateKey, todayKey } from "@/lib/dates";
 import { parseCommission, salesReport, settledOrders } from "@/lib/reports";
 import { totalsOf } from "@/lib/orders";
 import { label } from "@/lib/utils";
+import { prisma } from "@/lib/db";
+import { buildGstr1, tallyLedgers, tallyVouchers, type AccountingBill } from "@/lib/accounting";
+import type { ReportRange } from "@/lib/reports";
+import type { SettingsRecord } from "@/lib/settings";
 
 /** Downloads a spreadsheet (CSV) that opens in Excel or Google Sheets. */
 export async function GET(request: NextRequest) {
@@ -33,6 +37,8 @@ export async function GET(request: NextRequest) {
         }),
       ]);
     }
+
+    if (type.startsWith("gstr1-") || type.startsWith("tally")) return accountingFile(type, range, settings, sp, suffix);
 
     const report = await salesReport(range, { commission: parseCommission(settings.appCommission) });
     if (type === "discounts") {
@@ -65,4 +71,54 @@ export async function GET(request: NextRequest) {
     }
     fail("Unknown report type");
   });
+}
+
+async function accountingBills(range: ReportRange): Promise<AccountingBill[]> {
+  const orders = await settledOrders(range);
+  return orders
+    .filter((o) => o.billNumber && o.businessDate)
+    .map((o) => {
+      const t = totalsOf(o);
+      return {
+        billNumber: o.billNumber!,
+        date: o.businessDate!,
+        total: t.total,
+        taxable: t.taxable,
+        tax: t.tax,
+        roundOff: t.roundOff,
+        taxLines: t.taxLines,
+        payments: o.payments.map((p) => ({ method: p.method, amount: p.amount })),
+        customerGstin: o.customerGstin,
+        customerName: o.customerName,
+        source: o.source,
+        taxMode: o.taxMode,
+      };
+    });
+}
+
+/** GSTR-1 tables (CSV in the GST offline tool's layout) and Tally import files (XML). */
+async function accountingFile(type: string, range: ReportRange, settings: SettingsRecord, sp: URLSearchParams, suffix: string) {
+  const bills = await accountingBills(range);
+  if (type.startsWith("tally")) {
+    const company = (sp.get("company") || settings.legalName || settings.restaurantName).slice(0, 100);
+    const gst = settings.taxMode === "gst";
+    const body = type === "tally-ledgers" ? tallyLedgers(company, gst) : tallyVouchers(bills, { company, perBill: sp.get("per") === "bill", gst });
+    return new NextResponse(body, {
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${type === "tally-ledgers" ? "tally_ledgers.xml" : `tally_sales_${suffix.replace(".csv", ".xml")}`}"`,
+      },
+    });
+  }
+  const cancelled = await prisma.order.findMany({ where: { status: "cancelled", billNumber: { not: null }, businessDate: { gte: range.from, lte: range.to } }, select: { billNumber: true } });
+  const g = buildGstr1(bills, {
+    gstin: settings.gstin,
+    sacCode: settings.sacCode,
+    cancelled: cancelled.map((c) => c.billNumber!),
+    allBillNumbers: [...bills.map((b) => b.billNumber), ...cancelled.map((c) => c.billNumber!)],
+  });
+  if (type === "gstr1-summary") return NextResponse.json({ summary: g.summary, gstin: settings.gstin, taxMode: settings.taxMode });
+  const table = type.slice("gstr1-".length) as "b2b" | "b2cs" | "hsn" | "docs" | "eco";
+  if (!(table in g) || table === ("summary" as string)) fail("Unknown GSTR-1 table");
+  return csvResponse(`gstr1_${table}_${suffix}`, g[table]);
 }

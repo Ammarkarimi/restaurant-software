@@ -10,6 +10,7 @@ import { verifyBillShareToken } from "@/lib/share";
 import { BillView, pageCss, upiLink } from "@/components/bill-view";
 import { PrintButton } from "@/components/print-button";
 import { FeedbackForm } from "./feedback-form";
+import { PayOnline } from "./pay-online";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your bill", robots: { index: false, follow: false } };
@@ -45,6 +46,9 @@ export default async function SharedBillPage({ params }: { params: Promise<{ tok
         <div className="mx-auto w-fit max-w-full bg-white p-4 shadow print:p-0 print:shadow-none">
           <BillView template={template} profile={settings} bill={bill} logoUrl={publicLogoUrl(owner.restaurant.slug, settings)} qrDataUrl={qr} upiId={settings.upiId} timezone={settings.timezone} />
         </div>
+        {due > 0 && settings.razorpayKeyId && settings.razorpayKeySecret && order.status !== "settled" && (
+          <PayOnline token={decodeURIComponent(token)} amount={due} currency={settings.currency} />
+        )}
         {order.pointsEarned > 0 && (
           <p className="no-print mx-auto mt-4 max-w-sm rounded-xl bg-emerald-50 px-4 py-2 text-center text-sm font-semibold text-emerald-800">
             You earned {order.pointsEarned} loyalty points on this bill.

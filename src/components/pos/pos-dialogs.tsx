@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Banknote, BookUser, CreditCard, Minus, Plus, QrCode, Smartphone, Split, Trash2 } from "lucide-react";
 import { Button, Field, Input, Modal, Select, Textarea, Tip } from "@/components/ui";
@@ -9,7 +9,7 @@ import { round2 } from "@/lib/billing";
 import { addonsTotal, choiceHint, chooseAddons, parseAddonOptions, parseVariants, type AddonGroupData, type ChosenAddon } from "@/lib/menu";
 import { cn, formatCurrency, label } from "@/lib/utils";
 import { api } from "@/lib/client";
-import type { CustomerLookup, MenuItemDTO, OfferDTO, OrderItemDTO, TableDTO } from "@/lib/types";
+import type { CustomerLookup, MenuItemDTO, OfferDTO, OrderDTO, OrderItemDTO, TableDTO } from "@/lib/types";
 import { offerProblem, offerRules, offerValue } from "@/lib/offers";
 
 /** A dish with portions or add-ons: choose them, see the price, add to the order. */
@@ -219,6 +219,7 @@ export interface CustomerForm {
   customerName: string;
   customerPhone: string;
   customerAddress: string;
+  customerGstin: string;
   guests: string;
   notes: string;
   source: string;
@@ -357,6 +358,9 @@ export function CustomerDialog({
             <Textarea rows={2} value={form.customerAddress} onChange={(e) => set({ customerAddress: e.target.value })} />
           </Field>
         )}
+        <Field label="Business GSTIN" optional hint="For a company bill (B2B): printed on the bill and in GSTR-1">
+          <Input value={form.customerGstin} maxLength={15} onChange={(e) => set({ customerGstin: e.target.value.toUpperCase().replace(/\s/g, "") })} placeholder="27ABCDE1234F1Z5" />
+        </Field>
         <Field label="Number of guests" optional>
           <Input type="number" min={0} inputMode="numeric" value={form.guests} onChange={(e) => set({ guests: e.target.value })} />
         </Field>
@@ -738,10 +742,13 @@ export function PaymentDialog({
   title,
   submitLabel = "Payment received",
   account,
+  autoUpi,
   onPay,
   onClose,
 }: {
   total: number;
+  /** Razorpay is connected: offer a QR for the exact bill that closes the bill by itself when paid. */
+  autoUpi?: { orderId: string; onPaid: (order: OrderDTO) => void } | null;
   /** The customer on the bill, so it can go on their account (pay later / wallet). Null without a phone number. */
   account?: { name: string; balance: number; creditLimit: number | null; canGiveCredit: boolean } | null;
   /** Start from these payments (when correcting how a paid bill was paid). */
@@ -910,7 +917,9 @@ export function PaymentDialog({
           </div>
         )}
 
-        {qr && (
+        {autoUpi && rows.length === 1 && rows[0].method === "upi" && Math.abs(upiAmount - total) < 0.01 ? (
+          <AutoUpiPanel orderId={autoUpi.orderId} amount={total} onPaid={autoUpi.onPaid} />
+        ) : qr && (
           <div className="flex items-center gap-4 rounded-xl border border-slate-200 p-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qr} alt="UPI QR code" className="h-32 w-32" />
@@ -1048,5 +1057,74 @@ export function TransferDialog({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** A Razorpay QR for the exact bill. The screen checks every few seconds; once paid, the bill is closed. */
+function AutoUpiPanel({ orderId, amount, onPaid }: { orderId: string; amount: number; onPaid: (order: OrderDTO) => void }) {
+  const [qr, setQr] = useState<{ id: string; imageUrl: string; status: string } | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const paidRef = useRef(false);
+
+  async function make() {
+    setLoading(true);
+    setError("");
+    try {
+      const r = await api<{ qr: { id: string; imageUrl: string; status: string } }>(`/api/orders/${orderId}/upi-qr`, { method: "POST" });
+      setQr(r.qr);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!qr || qr.status !== "pending") return;
+    const t = setInterval(async () => {
+      try {
+        const r = await api<{ qr: { id: string; imageUrl: string; status: string } | null; order: OrderDTO | null }>(`/api/orders/${orderId}/upi-qr?qr=${qr.id}`);
+        if (r.qr) setQr(r.qr);
+        if (r.qr?.status === "paid" && r.order && !paidRef.current) {
+          paidRef.current = true;
+          onPaid(r.order);
+        }
+      } catch {
+        // try again on the next tick
+      }
+    }, 3000);
+    return () => clearInterval(t);
+  }, [qr, orderId, onPaid]);
+
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+      {!qr ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">UPI QR that confirms itself</p>
+            <p>The bill closes on its own when the guest pays {formatCurrency(amount)} — no screenshot needed.</p>
+          </div>
+          <Button onClick={make} loading={loading}>Show QR</Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr.imageUrl} alt="UPI QR code for this bill" className="h-44 w-44 rounded-lg bg-white object-contain" />
+          <div className="text-sm text-slate-700">
+            {qr.status === "pending" && (
+              <>
+                <p className="text-base font-bold text-slate-900">Scan to pay {formatCurrency(amount)}</p>
+                <p className="mt-1 flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-600" /> Waiting for payment… the bill closes by itself.</p>
+              </>
+            )}
+            {qr.status === "paid" && <p className="text-base font-bold text-emerald-700">Paid ✓ Bill closed.</p>}
+            {qr.status === "received" && <p className="font-semibold text-amber-700">Payment received, but the bill changed after the QR was made. Take the payment as UPI by hand.</p>}
+            {qr.status === "closed" && <p>This QR was closed. Show a new one.</p>}
+          </div>
+        </div>
+      )}
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+    </div>
   );
 }

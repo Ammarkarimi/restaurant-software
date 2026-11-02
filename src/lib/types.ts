@@ -147,6 +147,10 @@ export interface OrderDTO {
   customerName: string | null;
   customerPhone: string | null;
   customerAddress: string | null;
+  customerGstin: string | null;
+  aggregatorStatus: string | null;
+  printedTotal: number | null;
+  offline: boolean;
   guests: number;
   notes: string | null;
   discountType: string;
@@ -203,6 +207,7 @@ export interface CustomerLookup {
 
 export interface SettingsDTO {
   id: string;
+  restaurantId: string;
   restaurantName: string;
   legalName: string | null;
   address: string | null;
