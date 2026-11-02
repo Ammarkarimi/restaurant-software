@@ -12,8 +12,9 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
       "Settings → Tax & charges: GST rate (usually 5%), whether menu prices include tax, service charge, packing and delivery charges, round-off.",
       "Settings → Bill design: upload your logo, pick a style, choose what to print, and press Save. Use “Test print” to check your printer.",
       "Table setup: add your areas and tables (for example T1 to T12 in the Main hall).",
-      "Menu: add categories and dishes, or paste your whole menu with “Quick add many”.",
+      "Menu → Import menu: upload your Excel / CSV sheet (or the export from your old billing software), take photos of your printed menu card, or paste lines. You check the list — and fix any price — before anything is added.",
       "Settings → Staff: give each cashier and captain their own sign-in. Add a “Kitchen screen only” account for a tablet in the kitchen.",
+      "Settings → Owner alerts: your WhatsApp number, for alerts and the daily report.",
       "Optional: Settings → Loyalty (points for regulars), Settings → QR menu (print QR codes for tables), Settings → Online & delivery (your own ordering and booking links), Stock & recipes.",
     ],
   },
@@ -163,6 +164,54 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
       "Download CSV files for Excel or your accountant.",
       "Settings → Activity history shows who discounted, removed items, cancelled or changed points.",
       "Owners with more than one outlet switch outlets at the top of the menu, and Reports shows all outlets side by side.",
+    ],
+  },
+  {
+    title: "16. Owner alerts and the daily report",
+    who: "Owner / manager",
+    points: [
+      "Settings → Owner alerts: add your WhatsApp number (and email) and choose what to hear about. Alerts are always kept under Alerts in the menu, with a red count.",
+      "You are alerted when: a bill is paid for less than it was printed for; a dish is removed or an order cancelled after the kitchen got it; a paid bill is cancelled; a discount is above your limit (15% by default) or a bill is complimentary; the payment mode of a paid bill is changed (cash → UPI); the cash is short at day close.",
+      "Each alert says who did it — so give every cashier and captain their own sign-in. By default actions by owner / manager sign-ins are not alerted (switch on “Also alert for owner / manager accounts” if you want them).",
+      "The daily report (sales, top dishes, cash vs UPI, discounts, cancellations, the cash count, stock running low) is sent when the day is closed, or at 7 am next morning if nobody closed it. Alerts → “Send on WhatsApp” sends today's report from your phone at any time.",
+    ],
+  },
+  {
+    title: "17. UPI that confirms itself (Razorpay)",
+    who: "Owner / manager",
+    points: [
+      "Settings → UPI & Zomato / Swiggy: add your Razorpay Key ID and Key Secret (Razorpay must switch on “QR Codes” for your account). Add the webhook address shown there in Razorpay with the event qr_code.credited.",
+      "Take payment → UPI → “Show QR”: the guest scans a QR for the exact bill. When they pay, the bill closes by itself — no screenshot to check.",
+      "Bills sent on WhatsApp show a “Pay by UPI” button that works the same way.",
+      "If the bill changes after the QR is shown, the screen says so; take the payment as UPI by hand.",
+    ],
+  },
+  {
+    title: "18. Zomato and Swiggy orders (UrbanPiper)",
+    who: "Owner / manager",
+    points: [
+      "Zomato and Swiggy connect billing software through UrbanPiper. Sign up with UrbanPiper, switch on “Receive Zomato / Swiggy orders” in Settings → UPI & Zomato / Swiggy, and give UrbanPiper the order address shown there, plus your UrbanPiper API username and key.",
+      "New app orders appear at the top of Tables with a sound. Open one and press “Accept & send to kitchen” (or Reject). Then “Food ready” and “Handed to rider” — each step is sent back to Zomato / Swiggy.",
+      "“Accept orders automatically” sends every app order straight to the kitchen. “Try a test order” makes a pretend Zomato order so staff can practise.",
+      "App orders carry no GST on your bill: Zomato / Swiggy pay GST on them (section 9(5)). If an app cancels an order, it is cancelled here too.",
+    ],
+  },
+  {
+    title: "19. When the internet goes down",
+    points: [
+      "Open the app once on each billing computer while the internet works: the menu and the offline billing screen are saved on that computer.",
+      "When the internet drops, a red bar says so — press “Open offline billing” (or just open any page). Tap dishes, then “Print KOT” and “Paid by Cash / UPI / Card”: the bill prints and is saved on the computer.",
+      "Offline bills get their own numbers (for example OFFKQ-12) so they never clash with normal bills or another counter. Special prices and offers are not used offline.",
+      "When the internet is back, the bills go to your account by themselves, with the day and time they were paid — they show in Bills, Reports, stock and the day close. Don't clear the browser's data while bills are waiting to sync.",
+    ],
+  },
+  {
+    title: "20. GST return (GSTR-1) and Tally",
+    who: "Owner / manager",
+    points: [
+      "Reports → choose last month → “GST return & Tally”.",
+      "GSTR-1: download B2CS, B2B, HSN / SAC and Documents tables as CSV files in the GST offline tool's layout. A bill becomes B2B when you add the guest's GSTIN (order screen → customer → Business GSTIN); the GSTIN prints on the bill.",
+      "Tally: import the Ledgers file once (Gateway → Import → Masters), then the Sales vouchers file each month (Import → Transactions). Choose one entry per day or one per bill.",
     ],
   },
 ];

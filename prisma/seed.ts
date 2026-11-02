@@ -805,6 +805,16 @@ async function seedDemo() {
         createdAt: sentOn,
       },
     });
+    // Owner alerts from the last few days, so the Alerts page has something to show.
+    const ago = (h: number) => new Date(Date.now() - h * 3600_000);
+    await prisma.restaurantSettings.update({ where: { restaurantId }, data: { alertPhone: "9876543210" } });
+    await prisma.alert.createMany({
+      data: [
+        { restaurantId, kind: "kot_cancel", title: "Dish removed after KOT", message: "1 × Butter Chicken (Full) (₹380) taken off order #212 (T4) after KOT 188. Reason: guest changed mind.", staffName: "Ravi Kumar", amount: 380, createdAt: ago(30), readAt: ago(28) },
+        { restaurantId, kind: "discount", title: "20% discount", message: "Bill SG241 (T7): ₹310 off ₹1,550 — reason: regular guest. Paid ₹1,305.", staffName: "Ravi Kumar", amount: 310, createdAt: ago(50), readAt: ago(48) },
+        { restaurantId, kind: "payment_mode", title: "Payment mode changed", message: "Bill SG233 (₹840): Cash ₹840 → UPI / QR ₹840. Cash in the drawer should be ₹840 less.", staffName: "Ravi Kumar", amount: 840, createdAt: ago(75), readAt: ago(70) },
+      ],
+    });
     console.log(`Demo restaurant created: ${tableRows.length} tables, ${dishes.length} dishes, ${orderSeq} orders, ${customerIds.size} regular customers, ${stockList.length} stock items.`);
   });
 }

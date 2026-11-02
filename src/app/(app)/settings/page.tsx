@@ -15,43 +15,15 @@ import { parseRiders } from "@/lib/riders";
 import { DEFAULT_PERMISSIONS, RIGHTS, parsePermissions, type Permissions } from "@/lib/permissions";
 import type { SettingsDTO } from "@/lib/types";
 
-type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "online" | "kitchen" | "staff" | "activity";
-const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "online", "kitchen", "staff", "activity"];
+type Tab = "restaurant" | "tax" | "bill" | "loyalty" | "qr" | "online" | "kitchen" | "alerts" | "connect" | "staff" | "activity";
+const TABS: Tab[] = ["restaurant", "tax", "bill", "loyalty", "qr", "online", "kitchen", "alerts", "connect", "staff", "activity"];
+
+import { SaveBar, useSettingsForm } from "./form";
+import { AlertsTab } from "./alerts-tab";
+import { IntegrationsTab } from "./integrations-tab";
 
 const TIMEZONES = ["Asia/Kolkata", "Asia/Dubai", "Asia/Kathmandu", "Asia/Dhaka", "Asia/Colombo", "Asia/Singapore", "Europe/London", "America/New_York", "Australia/Sydney"];
 
-function useSettingsForm(settings: SettingsDTO, onSaved: (s: SettingsDTO) => void, pick: Array<keyof SettingsDTO>) {
-  const { toast } = useApp();
-  const initial = Object.fromEntries(pick.map((k) => [k, settings[k]])) as Partial<SettingsDTO>;
-  const [form, setForm] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const changed = JSON.stringify(form) !== JSON.stringify(initial);
-  const set = (p: Partial<SettingsDTO>) => setForm((f) => ({ ...f, ...p }));
-  async function save() {
-    setSaving(true);
-    try {
-      const r = await api<{ settings: SettingsDTO }>("/api/settings", { method: "PATCH", body: form });
-      onSaved(r.settings);
-      toast("Settings saved");
-    } catch (e) {
-      toast((e as Error).message, "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-  return { form, set, save, saving, changed };
-}
-
-function SaveBar({ saving, changed, onSave }: { saving: boolean; changed: boolean; onSave: () => void }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Button size="lg" loading={saving} disabled={!changed} onClick={onSave}>
-        Save changes
-      </Button>
-      {changed && <span className="text-sm font-medium text-amber-700">Not saved yet</span>}
-    </div>
-  );
-}
 
 function RestaurantTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s: SettingsDTO) => void }) {
   const { form: f, set, save, saving, changed } = useSettingsForm(settings, onSaved, [
@@ -891,6 +863,8 @@ function SettingsView() {
           { value: "qr", label: "QR menu" },
           { value: "online", label: "Online & delivery" },
           { value: "kitchen", label: "Kitchen" },
+          { value: "alerts", label: "Owner alerts" },
+          { value: "connect", label: "UPI & Zomato / Swiggy" },
           { value: "staff", label: "Staff" },
           { value: "activity", label: "Activity history" },
         ]}
@@ -902,6 +876,8 @@ function SettingsView() {
       {tab === "qr" && <QrTab key={settings.id + "q"} settings={settings} onSaved={saved} />}
       {tab === "kitchen" && <KitchenTab key={settings.id + "k"} settings={settings} onSaved={saved} />}
       {tab === "online" && <OnlineTab key={settings.id + "o"} settings={settings} onSaved={saved} />}
+      {tab === "alerts" && <AlertsTab key={settings.id + "a"} settings={settings} onSaved={saved} />}
+      {tab === "connect" && <IntegrationsTab key={settings.id + "c"} settings={settings} onSaved={saved} />}
       {tab === "staff" && (
         <div className="space-y-6">
           <StaffTab />

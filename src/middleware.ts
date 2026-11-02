@@ -5,7 +5,8 @@ import { COOKIE_NAME, PLATFORM_COOKIE_NAME, verifyPlatformToken, verifySessionTo
 // Pages and APIs anyone can open without signing in.
 // "/b" is a bill sent to a guest on WhatsApp, "/m" the QR / online ordering menu, "/r" the table booking link,
 // "/o" a guest's order tracking page, "/api/public" what those pages load.
-const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/b", "/m", "/r", "/o", "/api/public", "/welcome"];
+// "/api/cron" the daily job, which checks its own secret.
+const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/b", "/m", "/r", "/o", "/api/public", "/api/cron", "/welcome"];
 
 // The software provider's panel. It has its own sign-in; restaurant accounts never get in.
 const platformPaths = ["/platform", "/api/platform"];
@@ -64,5 +65,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|icons/|landing/|manifest.webmanifest).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|icons/|landing/|manifest.webmanifest|sw.js).*)"],
 };

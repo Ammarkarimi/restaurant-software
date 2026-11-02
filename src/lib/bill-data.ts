@@ -28,6 +28,7 @@ export function billDataFor(order: FullOrder, currency: string): BillData {
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     customerAddress: order.customerAddress,
+    customerGstin: order.customerGstin,
     date: order.settledAt ?? order.billedAt ?? order.createdAt,
     items: billItems(order),
     totals: totalsOf(order),

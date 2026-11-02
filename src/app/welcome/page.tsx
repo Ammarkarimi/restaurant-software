@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  BellRing,
+  FileSpreadsheet,
+  ScanLine,
+  WifiOff,
   Armchair,
   BadgeIndianRupee,
   Bike,
@@ -73,7 +77,7 @@ function PhoneShot({ src, alt, className = "" }: { src: string; alt: string; cla
 
 const STEPS = [
   { title: "Get your sign-in", text: "We create your restaurant and send you a sign-in on WhatsApp. Nothing to install — open it in Chrome." },
-  { title: "Add tables and menu", text: "Add T1 to T20 in one go and paste your whole menu from Excel. Upload your logo and choose your bill style." },
+  { title: "Add tables and menu", text: "Add T1 to T20 in one go and import your menu from Excel or a photo of your menu card. Upload your logo and choose your bill style." },
   { title: "Take orders", text: "Tap a table, tap dishes, press Send to kitchen. The kitchen gets a ticket on the printer or the kitchen screen." },
   { title: "Bill, get paid, relax", text: "Print or WhatsApp the GST bill, take cash, UPI or card, and see today's sales from anywhere." },
 ];
@@ -156,7 +160,7 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
     icon: Bike,
     eyebrow: "Takeaway & delivery",
     title: "Zomato, Swiggy, your own online orders and walk-ins",
-    text: "Take orders from your own link with no commission, and note Zomato and Swiggy orders with their order ID. Packing and delivery charges are added automatically.",
+    text: "Take orders from your own link with no commission, and get Zomato and Swiggy orders straight on the counter. Packing and delivery charges are added automatically.",
     points: [
       "Your own ordering link for Instagram, Google Maps and WhatsApp",
       "Guests choose a pickup or delivery time and follow their order",
@@ -224,6 +228,11 @@ const FEATURES: Array<{ icon: typeof Armchair; eyebrow: string; title: string; t
 ];
 
 const MORE = [
+  { icon: BellRing, title: "Leak alerts on WhatsApp", text: "Bill changed after printing, dish removed after KOT, big discount, cash short — you know at once, with who did it." },
+  { icon: ScanLine, title: "Menu from a photo", text: "Photograph your menu card or upload your Excel sheet — your whole menu is in, ready to check." },
+  { icon: WifiOff, title: "Works when the internet doesn't", text: "Keep billing and printing offline. Bills sync by themselves when the internet is back." },
+  { icon: QrCode, title: "UPI that confirms itself", text: "A QR for the exact bill; it closes by itself when the guest pays. No screenshots to check." },
+  { icon: FileSpreadsheet, title: "GSTR-1 & Tally files", text: "B2C, B2B, HSN and document tables, and a Tally import file — for your accountant in one click." },
   { icon: Globe, title: "Your own online ordering", text: "Takeaway and delivery from your own link — no commission to any app." },
   { icon: CalendarClock, title: "Table reservations", text: "Bookings by phone or from your booking link. Seat guests with one tap." },
   { icon: Tag, title: "Offers & coupons", text: "“10% off above ₹1000”, WELCOME50, weekday lunch — used only when the rules match." },
@@ -246,14 +255,15 @@ const FAQ = [
   { q: "Do I need to buy special hardware?", a: "No. It runs in Chrome on the computer you already have, on tablets and on phones. Any USB or network thermal printer works for bills and kitchen tickets." },
   { q: "Does it work on a phone?", a: "Yes. Captains can take orders on their own phones, the owner can check sales from home, and the kitchen can use any tablet as a kitchen screen." },
   { q: "Is it ready for GST in India?", a: "Yes. Bills show CGST and SGST, your GSTIN and FSSAI number, and the tax summary report is ready for your accountant. Prices can include or exclude tax." },
-  { q: "Can I use it with Zomato and Swiggy?", a: "Yes. Enter app orders with their order ID; they take your app prices, print on the kitchen ticket, are marked “paid online”, and reports show what the apps pay you after commission. Orders don't arrive by themselves yet — that needs a partnership with each app." },
+  { q: "Can I use it with Zomato and Swiggy?", a: "Yes. Connect through UrbanPiper and Zomato and Swiggy orders arrive by themselves with a sound; accept them, mark food ready and hand to the rider — the app is told each step. Reports show what the apps pay you after commission." },
+  { q: "What if the internet goes down?", a: "Keep billing. The billing computer keeps the menu, prints kitchen tickets and bills, and sends the bills to your account by itself when the internet is back." },
   { q: "Can guests order from us directly, without the apps?", a: "Yes. You get your own ordering link for takeaway and delivery to share on Instagram, Google Maps and WhatsApp, with no commission. Guests choose a time, and orders appear on your Tables screen to accept. A booking link for table reservations works the same way." },
-  { q: "How long does it take to start?", a: "Most restaurants are taking orders the same day. Add your tables in one go, paste your menu from Excel, upload your logo, and you are ready." },
+  { q: "How long does it take to start?", a: "Most restaurants are taking orders the same day. Add your tables in one go, import your menu from Excel or a photo of your menu card, upload your logo, and you are ready." },
   { q: "Is my data safe?", a: "Each restaurant only ever sees its own data. Every sign-in is personal, and owners can see who did what in the activity history." },
   { q: "What if I have more than one outlet?", a: "Each outlet has its own tables, menu and staff, and the owner switches between them with one sign-in and sees all outlets' sales together." },
 ];
 
-const INDIA = ["CGST + SGST on every bill", "GSTIN and FSSAI printed", "UPI QR with the amount filled in", "Half / Full portions", "Veg, non-veg and egg marks", "Zomato & Swiggy order IDs", "Rupees and Indian number format", "Thermal printers you already use"];
+const INDIA = ["CGST + SGST on every bill", "GSTIN and FSSAI printed", "UPI QR with the amount filled in", "Half / Full portions", "Veg, non-veg and egg marks", "GSTR-1 and Tally files", "Rupees and Indian number format", "Thermal printers you already use"];
 
 export default function WelcomePage() {
   return (

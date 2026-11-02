@@ -1,3 +1,4 @@
+import type { AlertRules } from "./alert-rules";
 // Shapes of the JSON the API sends to the browser (dates arrive as strings).
 import type { BillTemplate } from "./bill-template";
 import type { BillTotals } from "./billing";
@@ -146,6 +147,10 @@ export interface OrderDTO {
   customerName: string | null;
   customerPhone: string | null;
   customerAddress: string | null;
+  customerGstin: string | null;
+  aggregatorStatus: string | null;
+  printedTotal: number | null;
+  offline: boolean;
   guests: number;
   notes: string | null;
   discountType: string;
@@ -202,6 +207,7 @@ export interface CustomerLookup {
 
 export interface SettingsDTO {
   id: string;
+  restaurantId: string;
   restaurantName: string;
   legalName: string | null;
   address: string | null;
@@ -241,6 +247,20 @@ export interface SettingsDTO {
   billTemplate: BillTemplate;
   logoUrl: string | null;
   today: string;
+  sacCode: string;
+  alertPhone: string | null;
+  alertEmail: string | null;
+  alertRules: AlertRules;
+  dailyReportEnabled: boolean;
+  dailyReportSentFor: string | null;
+  razorpayKeyId: string | null;
+  razorpayConnected: boolean;
+  razorpayWebhookSet: boolean;
+  aggregatorEnabled: boolean;
+  aggregatorAutoAccept: boolean;
+  urbanpiperUser: string | null;
+  urbanpiperConnected: boolean;
+  aggregatorWebhookPath: string | null;
 }
 
 /** A kitchen order ticket on the kitchen screen. */

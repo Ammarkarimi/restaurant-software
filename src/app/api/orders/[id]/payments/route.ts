@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { fail, withAuth } from "@/lib/api";
 import { can } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
+import { raiseAlert } from "@/lib/alerts";
 import { getSettings } from "@/lib/settings";
 import { round2 } from "@/lib/billing";
 import { loadOrder, serializeOrder } from "@/lib/orders";
@@ -51,6 +52,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const after = updated.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount, settings.currency)}`).join(" + ");
     const closed = order.businessDate ? await prisma.dayClose.findFirst({ where: { date: order.businessDate } }) : null;
     await logActivity(user, "Changed payment mode", `Bill ${order.billNumber}: ${before} → ${after}${closed ? " (that day was already closed)" : ""}`);
+    const cashBefore = order.payments.filter((p) => p.method === "cash").reduce((sum, p) => sum + p.amount, 0);
+    const cashAfter = updated.payments.filter((p) => p.method === "cash").reduce((sum, p) => sum + p.amount, 0);
+    await raiseAlert(user, {
+      kind: "payment_mode",
+      title: "Payment mode changed",
+      message: `Bill ${order.billNumber} (${formatCurrency(order.total, settings.currency)}): ${before} → ${after}${cashAfter < cashBefore ? `. Cash in the drawer should be ${formatCurrency(cashBefore - cashAfter, settings.currency)} less` : ""}${closed ? ". That day was already closed" : ""}.`,
+      orderId: order.id,
+      amount: Math.abs(cashBefore - cashAfter),
+    });
     return NextResponse.json({ order: serializeOrder(updated), dayClosed: !!closed });
   });
 }

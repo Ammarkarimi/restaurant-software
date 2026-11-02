@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, isAdmin, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
+import { raiseAlert } from "@/lib/alerts";
+import { pushStatus, upOrderId } from "@/lib/aggregator";
 import { getSettings } from "@/lib/settings";
 import { todayKey } from "@/lib/dates";
 import { reverseVisit } from "@/lib/customers";
@@ -46,6 +48,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
     const what = order.billNumber ? `Bill ${order.billNumber} (order #${order.number})` : `Order #${order.number}`;
     await logActivity(user, order.status === "settled" ? "Cancelled a paid bill" : "Cancelled order", `${what}, ${formatCurrency(updated.total, settings.currency)}: ${reason}`);
+    // A Zomato / Swiggy order cancelled at the counter is cancelled on the app too.
+    const up = upOrderId(order);
+    if (up && order.aggregatorStatus !== "cancelled") {
+      await prisma.order.update({ where: { id }, data: { aggregatorStatus: "cancelled" } });
+      await pushStatus(settings, up, "cancelled", { message: reason });
+    }
+    if (kitchenHasIt || order.status !== "open") {
+      await raiseAlert(user, {
+        kind: "order_cancel",
+        title: order.status === "settled" ? "Paid bill cancelled" : "Order cancelled after KOT",
+        message: `${what}${order.table ? ` (${order.table.name})` : ""} worth ${formatCurrency(updated.total, settings.currency)} was cancelled. Reason: ${reason}.`,
+        orderId: order.id,
+        amount: updated.total,
+      });
+    }
     return NextResponse.json({ order: serializeOrder(updated) });
   });
 }

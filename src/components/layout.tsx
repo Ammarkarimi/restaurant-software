@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BellRing,
   BarChart3,
   CalendarClock,
   ChefHat,
@@ -27,6 +28,7 @@ import { BRAND, OwlMark } from "@/components/brand";
 import { cn, formatTime, label } from "@/lib/utils";
 import { AppProvider, useApp, type ShellSettings } from "@/components/app-provider";
 import { Button } from "@/components/ui";
+import { OfflineKeeper } from "@/components/offline-keeper";
 import type { SessionUser } from "@/lib/session";
 
 const NAV = [
@@ -40,6 +42,7 @@ const NAV = [
   { href: "/stock", label: "Stock & recipes", icon: Warehouse, hint: "Ingredients, purchases", admin: true },
   { href: "/tables", label: "Table setup", icon: Armchair, hint: "Areas & tables", admin: true },
   { href: "/reports", label: "Reports", icon: BarChart3, hint: "Sales summary", admin: true },
+  { href: "/alerts", label: "Alerts", icon: BellRing, hint: "Leaks & daily report", admin: true },
   { href: "/settings", label: "Settings", icon: Settings, hint: "Bill design, tax, staff", admin: true },
 ];
 
@@ -84,10 +87,34 @@ function ShiftButton() {
   );
 }
 
+/** Number of alerts the owner has not seen, refreshed every minute. */
+function useUnreadAlerts(enabled: boolean) {
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let stop = false;
+    const load = () =>
+      fetch("/api/alerts?count=1")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => !stop && d && setUnread(d.unread))
+        .catch(() => undefined);
+    load();
+    const t = setInterval(load, 60_000);
+    window.addEventListener("alerts:read", load);
+    return () => {
+      stop = true;
+      clearInterval(t);
+      window.removeEventListener("alerts:read", load);
+    };
+  }, [enabled]);
+  return unread;
+}
+
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAdmin, settings } = useApp();
+  const unread = useUnreadAlerts(isAdmin);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -149,6 +176,9 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 <span className="block text-[15px] font-semibold leading-tight">{item.label}</span>
                 <span className="block text-xs text-slate-400">{item.hint}</span>
               </span>
+              {item.href === "/alerts" && unread > 0 && (
+                <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white" aria-label={`${unread} new alerts`}>{unread > 99 ? "99+" : unread}</span>
+              )}
             </Link>
           );
         })}
@@ -253,6 +283,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             {settings.subscriptionNotice}
           </div>
         )}
+        <OfflineKeeper />
         <main className={cn("mx-auto px-4 py-6 sm:px-6", wide ? "max-w-[1600px] lg:px-6" : "max-w-7xl lg:px-8")}>{children}</main>
       </div>
     </div>
