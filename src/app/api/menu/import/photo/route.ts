@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { fail, withAdmin } from "@/lib/api";
 import { menuPhotoReady, readMenuPhotos } from "@/lib/menu-photo-ai";
 import { rateLimit } from "@/lib/rate-limit";
@@ -21,7 +21,7 @@ export async function GET() {
 /** Reads dishes off menu card photos. Nothing is saved: the owner checks the list, then adds it. */
 export async function POST(request: NextRequest) {
   return withAdmin(async (user) => {
-    if (!menuPhotoReady()) fail("Reading menus from photos is not switched on yet. Ask your software provider to add the AI key (ANTHROPIC_API_KEY).", 503);
+    if (!menuPhotoReady()) fail("Reading menus from photos is not switched on yet. Ask your software provider to add the AI key (OPENAI_API_KEY).", 503);
     if (!rateLimit(`menu-photo:${user.restaurantId}`, 20, 60 * 60_000)) fail("Too many photos this hour. Please try again later.", 429);
     const body = schema.parse(await request.json());
     try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       if (!result.rows.length) fail("No dishes with prices were found in these photos. Please try a clearer, straight photo of the menu card.");
       return NextResponse.json(result);
     } catch (error) {
-      if (error instanceof Anthropic.APIError) {
+      if (error instanceof OpenAI.APIError) {
         console.error("Menu photo AI error", error.status, error.message);
         if (error.status === 429 || (error.status ?? 0) >= 500) fail("The menu reader is busy. Please try again in a minute.", 503);
         fail("The menu reader could not read these photos. Please try again with clearer photos.", 502);

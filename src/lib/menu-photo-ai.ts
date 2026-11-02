@@ -1,12 +1,15 @@
-// Reads dishes off photos of a printed menu card with Claude (Anthropic API).
-// Needs ANTHROPIC_API_KEY in the environment; without it the photo option explains how to switch it on.
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+// Reads dishes off photos of a printed menu card with OpenAI (vision + structured output).
+// Needs OPENAI_API_KEY in the environment; OPENAI_MODEL picks the model (default gpt-5.4-mini).
+// Without the key the photo option explains how to switch it on.
+import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod/v4";
 import { guessFoodType, type ImportRow } from "./menu-import";
 
+const MODEL = () => process.env.OPENAI_MODEL?.trim() || "gpt-5.4-mini";
+
 export function menuPhotoReady() {
-  return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 
 const MenuSchema = z.object({
@@ -38,28 +41,32 @@ Rules:
 - Use the green dot / red dot symbols for veg / non-veg when shown; otherwise decide from the dish (chicken, mutton, fish, prawns, keema = non_veg; egg dishes = egg); use unknown only if you really cannot tell.
 - Do not add dishes that are not on the photos. Do not include taxes, notes, phone numbers or headings that are not dishes.`;
 
-/** Sends the photos to Claude and returns the dishes it read, ready for the import preview. */
+/** Sends the photos to OpenAI and returns the dishes it read, ready for the import preview. */
 export async function readMenuPhotos(photos: PhotoInput[]): Promise<{ rows: ImportRow[]; note: string }> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 170_000, maxRetries: 1 });
-  const response = await client.beta.messages.parse({
-    model: "claude-opus-5-5",
-    max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort: "low", format: betaZodOutputFormat(MenuSchema) },
-    messages: [
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 1 });
+  const model = MODEL();
+  const response = await client.responses.parse({
+    model,
+    max_output_tokens: 16000,
+    // Reading a menu is simple extraction: little thinking needed (only reasoning models take this).
+    ...(/^(gpt-5|o\d)/.test(model) && { reasoning: { effort: "low" as const } }),
+    input: [
       {
         role: "user",
         content: [
-          ...photos.map((p) => ({ type: "image" as const, source: { type: "base64" as const, media_type: p.mediaType, data: p.data } })),
-          { type: "text" as const, text: PROMPT },
+          ...photos.map((p) => ({ type: "input_image" as const, image_url: `data:${p.mediaType};base64,${p.data}`, detail: "high" as const })),
+          { type: "input_text" as const, text: PROMPT },
         ],
       },
     ],
+    text: { format: zodTextFormat(MenuSchema, "menu") },
   });
-  if (response.stop_reason === "refusal") throw new Error("The photo could not be read. Please try a clearer photo of the menu card.");
-  if (response.stop_reason === "max_tokens") throw new Error("This menu is too long to read in one go. Please upload fewer pages at a time.");
-  const parsed = response.parsed_output;
+  if (response.status === "incomplete") {
+    throw new Error(response.incomplete_details?.reason === "max_output_tokens" ? "This menu is too long to read in one go. Please upload fewer pages at a time." : "The menu could not be read from these photos. Please try clearer photos.");
+  }
+  const refused = response.output.some((o) => o.type === "message" && o.content.some((c) => c.type === "refusal"));
+  if (refused) throw new Error("The photo could not be read. Please try a clearer photo of the menu card.");
+  const parsed = response.output_parsed;
   if (!parsed) throw new Error("The menu could not be read from these photos. Please try clearer photos.");
 
   const rows: ImportRow[] = [];

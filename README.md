@@ -136,7 +136,7 @@ These are set once by the software provider (Vercel → Settings → Environment
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Automatic WhatsApp alerts and daily reports from your WhatsApp Business number (Meta WhatsApp Cloud API) |
 | `WHATSAPP_ALERT_TEMPLATE` (default `owner_alert`), `WHATSAPP_REPORT_TEMPLATE` (default `daily_report`), `WHATSAPP_TEMPLATE_LANG` (default `en`) | The approved message templates: `owner_alert` = “Alert from {{1}}: {{2}}”, `daily_report` = “Daily report for {{1}}, {{2}}: {{3}}” (category Utility) |
 | `RESEND_API_KEY` (+ a verified domain in `EMAIL_FROM`) | Alerts and daily reports by email |
-| `ANTHROPIC_API_KEY` | Menu → Import → **Menu photo** (reads dishes off menu card photos with Claude) |
+| `OPENAI_API_KEY` (optional `OPENAI_MODEL`, default `gpt-5.4-mini`) | Menu → Import → **Menu photo** (reads dishes off menu card photos with OpenAI) |
 
 Each restaurant connects its own **Razorpay** keys and **UrbanPiper** details in
 Settings → UPI & Zomato / Swiggy. Without WhatsApp set up, alerts still appear under
