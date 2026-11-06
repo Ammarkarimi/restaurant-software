@@ -40,6 +40,8 @@ interface Summary {
   cashExpenses: number;
   cashReceived: number;
   received: Array<{ method: string; amount: number; count: number }>;
+  cashBanquet: number;
+  banquet: Array<{ method: string; amount: number; count: number }>;
   openingCash: number;
   expectedCash: number;
   runningOrders: number;
@@ -80,6 +82,7 @@ function daySummaryText(s: Summary, restaurantName: string, date: string, expect
     `Sales ${formatCurrency(s.sales)} (${s.bills} bills${s.guests ? `, ${s.guests} guests` : ""})`,
     s.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount)}`).join(" · "),
     s.cashReceived > 0 ? `Received on customer accounts (cash) ${formatCurrency(s.cashReceived)}` : "",
+    s.banquet.length ? `Banquet payments ${s.banquet.map((b) => `${label(b.method)} ${formatCurrency(b.amount)}`).join(" · ")}` : "",
     `Expenses ${formatCurrency(s.expensesTotal)}${s.cashExpenses ? ` (${formatCurrency(s.cashExpenses)} cash)` : ""}`,
     `Discounts ${formatCurrency(s.discount)}${s.complimentary.count ? ` · ${s.complimentary.count} complimentary (${formatCurrency(s.complimentary.value)})` : ""}${s.cancelled ? ` · ${s.cancelled} cancelled` : ""}`,
     s.close
@@ -318,7 +321,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
   }, [date, fill, toast]);
 
   if (!s) return <Loading />;
-  const expected = Math.round(((Number(opening) || 0) + s.cashSales + s.cashReceived - s.cashExpenses) * 100) / 100;
+  const expected = Math.round(((Number(opening) || 0) + s.cashSales + s.cashReceived + s.cashBanquet - s.cashExpenses) * 100) / 100;
   const diff = counted === "" ? null : Math.round(((Number(counted) || 0) - expected) * 100) / 100;
 
   async function close() {
@@ -391,6 +394,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
             <div className="rounded-xl bg-slate-50 px-4 py-2">
               <Row label="+ Cash sales">{formatCurrency(s.cashSales)}</Row>
               {s.cashReceived > 0 && <Row label="+ Cash received on customer accounts">{formatCurrency(s.cashReceived)}</Row>}
+              {s.cashBanquet !== 0 && <Row label="+ Banquet cash (advances, payments)">{formatCurrency(s.cashBanquet)}</Row>}
               <Row label="− Cash expenses">{formatCurrency(s.cashExpenses)}</Row>
               <Row label="Should be in the drawer" strong>
                 {formatCurrency(expected)}
@@ -441,6 +445,16 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
                 <div className="mt-3 border-t border-slate-100 pt-2">
                   <p className="text-sm font-semibold text-slate-600">Received on customer accounts</p>
                   {s.received.map((r) => (
+                    <Row key={r.method} label={`${label(r.method)} (${r.count})`}>
+                      {formatCurrency(r.amount)}
+                    </Row>
+                  ))}
+                </div>
+              )}
+              {s.banquet.length > 0 && (
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-sm font-semibold text-slate-600">Banquet payments</p>
+                  {s.banquet.map((r) => (
                     <Row key={r.method} label={`${label(r.method)} (${r.count})`}>
                       {formatCurrency(r.amount)}
                     </Row>

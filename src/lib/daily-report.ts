@@ -14,12 +14,14 @@ import { formatCurrency, label } from "./utils";
 export async function buildDailyReport(date: string) {
   const settings = await getSettings();
   const c = (n: number) => formatCurrency(n, settings.currency);
-  const [r, day, stock, alerts, running] = await Promise.all([
+  const [r, day, stock, alerts, running, functions, upcoming] = await Promise.all([
     salesReport({ from: date, to: date, timezone: settings.timezone }),
     daySummary(date),
     prisma.stockItem.findMany({ where: { active: true, lowAt: { not: null } }, select: { name: true, unit: true, quantity: true, lowAt: true } }),
     prisma.alert.findMany({ where: { createdAt: { gte: new Date(Date.parse(`${date}T00:00:00Z`) - 6 * 3600_000), lt: new Date(Date.parse(`${addDays(date, 1)}T06:00:00Z`)) } }, select: { title: true, amount: true } }),
     prisma.order.count({ where: { status: { in: ["open", "billed"] } } }),
+    prisma.banquetEvent.findMany({ where: { date, status: { in: ["confirmed", "completed"] } }, select: { customerName: true, eventType: true, guests: true } }),
+    prisma.banquetEvent.findMany({ where: { date: { gt: date, lte: addDays(date, 2) }, status: "confirmed" }, select: { date: true, customerName: true, eventType: true, guests: true }, orderBy: { date: "asc" } }),
   ]);
   const low = stock.filter(isLow);
   const t = r.totals;
@@ -40,6 +42,11 @@ export async function buildDailyReport(date: string) {
   if (r.removedItems.count) leaks.push(`${r.removedItems.count} dish${r.removedItems.count === 1 ? "" : "es"} removed after KOT (${c(r.removedItems.value)})`);
   lines.push(leaks.length ? `Watch: ${leaks.join(", ")}` : "Watch: no discounts, cancellations or removed dishes");
   if (r.expenses.total) lines.push(`Expenses: ${c(r.expenses.total)}`);
+  const banquetMoney = day.banquet.reduce((sum, b) => sum + b.amount, 0);
+  if (functions.length || banquetMoney) {
+    lines.push(`Banquets: ${functions.length ? `${functions.length} function${functions.length === 1 ? "" : "s"} today (${functions.map((f) => `${f.eventType} ${f.customerName}, ${f.guests}`).join("; ")})` : "no function today"}${banquetMoney ? `, ${c(banquetMoney)} received` : ""}`);
+  }
+  if (upcoming.length) lines.push(`Coming up: ${upcoming.map((f) => `${formatDateKey(f.date, { day: "numeric", month: "short", year: undefined })} ${f.eventType} ${f.customerName} (${f.guests})`).join("; ")}`);
   if (close) lines.push(`Cash count: ${close.difference === 0 ? "matches" : close.difference < 0 ? `SHORT ${c(-close.difference)}` : `extra ${c(close.difference)}`} (counted ${c(close.countedCash)}, closed by ${close.closedByName})`);
   else lines.push(`Cash: ${c(day.cashSales)} cash sales; the day was not closed${running ? `, ${running} order${running === 1 ? "" : "s"} still running` : ""}`);
   if (alerts.length) lines.push(`Alerts: ${alerts.length} (${[...new Set(alerts.map((a) => a.title))].slice(0, 3).join(", ")})`);

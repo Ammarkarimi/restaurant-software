@@ -38,7 +38,8 @@ export interface AccountingBill {
   taxable: number;
   tax: number;
   roundOff: number;
-  taxLines: Array<{ rate: number; taxable: number; tax: number }>;
+  /** sac: the service code of the line when it is not restaurant service (e.g. 997212 for hall rent). */
+  taxLines: Array<{ rate: number; taxable: number; tax: number; sac?: string }>;
   payments: Array<{ method: string; amount: number }>;
   customerGstin: string | null;
   customerName: string | null;
@@ -87,19 +88,22 @@ export function buildGstr1(bills: AccountingBill[], opts: { gstin: string | null
   const b2cs: Gstr1["b2cs"] = [["Type", "Place Of Supply", "Applicable % of Tax Rate", "Rate", "Taxable Value", "Cess Amount", "E-Commerce GSTIN"]];
   for (const [rate, x] of [...byRate.entries()].sort((a, b) => a[0] - b[0])) if (x.taxable > 0) b2cs.push(["OE", pos, "", rate, r2(x.taxable), 0, ""]);
 
-  // HSN / SAC summary: everything is restaurant service; services have no quantity (UQC "NA").
-  const hsnRate = new Map<number, { value: number; taxable: number; tax: number }>();
+  // HSN / SAC summary: restaurant service, plus hall rent etc. for banquets; services have no quantity (UQC "NA").
+  const SAC_NAMES: Record<string, string> = { "997212": "Hall rent (rental of non-residential property)" };
+  const hsnRows = new Map<string, { sac: string; rate: number; value: number; taxable: number; tax: number }>();
   for (const b of own) for (const t of b.taxLines) {
-    const x = hsnRate.get(t.rate) ?? { value: 0, taxable: 0, tax: 0 };
+    const sac = t.sac ?? opts.sacCode;
+    const k = `${sac}|${t.rate}`;
+    const x = hsnRows.get(k) ?? { sac, rate: t.rate, value: 0, taxable: 0, tax: 0 };
     x.value += t.taxable + t.tax;
     x.taxable += t.taxable;
     x.tax += t.tax;
-    hsnRate.set(t.rate, x);
+    hsnRows.set(k, x);
   }
   const hsn: Gstr1["hsn"] = [["HSN", "Description", "UQC", "Total Quantity", "Total Value", "Rate", "Taxable Value", "Integrated Tax Amount", "Central Tax Amount", "State/UT Tax Amount", "Cess Amount"]];
-  for (const [rate, x] of [...hsnRate.entries()].sort((a, b) => a[0] - b[0])) {
+  for (const x of [...hsnRows.values()].sort((a, b) => a.sac.localeCompare(b.sac) || a.rate - b.rate)) {
     const half = r2(x.tax / 2);
-    hsn.push([opts.sacCode, "Restaurant service", "NA", 0, r2(x.value), rate, r2(x.taxable), 0, half, r2(x.tax - half), 0]);
+    hsn.push([x.sac, SAC_NAMES[x.sac] ?? "Restaurant service", "NA", 0, r2(x.value), x.rate, r2(x.taxable), 0, half, r2(x.tax - half), 0]);
   }
 
   // Documents issued: the bill number series, from the first to the last, with cancelled ones.

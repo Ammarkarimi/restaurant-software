@@ -68,6 +68,10 @@ const RESTAURANT_MODELS = new Set([
   "Attendance",
   "Alert",
   "UpiRequest",
+  "BanquetHall",
+  "BanquetPackage",
+  "BanquetEvent",
+  "BanquetPayment",
 ]);
 
 type Args = Record<string, unknown> & { where?: object; data?: unknown; create?: object };

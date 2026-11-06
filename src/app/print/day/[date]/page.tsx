@@ -33,7 +33,7 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
     </div>
   );
   const rule = <div className="my-1 border-t border-dashed border-black" />;
-  const expected = s.close ? s.close.openingCash + s.cashSales + s.cashReceived - s.cashExpenses : s.expectedCash;
+  const expected = s.close ? s.close.openingCash + s.cashSales + s.cashReceived + s.cashBanquet - s.cashExpenses : s.expectedCash;
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
@@ -66,6 +66,15 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
               ))}
             </>
           )}
+          {s.banquet.length > 0 && (
+            <>
+              {rule}
+              <p className="font-bold">Banquet payments</p>
+              {s.banquet.map((r) => (
+                <Line key={r.method} l={`${label(r.method)} (${r.count})`} v={formatAmount(r.amount)} />
+              ))}
+            </>
+          )}
           {rule}
           <p className="font-bold">Expenses</p>
           {s.expensesByCategory.length === 0 && <p>None</p>}
@@ -78,6 +87,7 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
           <Line l="Opening cash" v={formatAmount(s.close?.openingCash ?? s.openingCash)} />
           <Line l="+ Cash sales" v={formatAmount(s.cashSales)} />
           {s.cashReceived > 0 && <Line l="+ Received on accounts" v={formatAmount(s.cashReceived)} />}
+          {s.cashBanquet !== 0 && <Line l="+ Banquet cash" v={formatAmount(s.cashBanquet)} />}
           <Line l="- Cash expenses" v={formatAmount(s.cashExpenses)} />
           <Line l="Expected" v={formatAmount(expected)} bold />
           {s.close ? (

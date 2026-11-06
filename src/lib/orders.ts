@@ -18,7 +18,7 @@ export const orderInclude = {
 
 export type FullOrder = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
-type Counter = "orderSeq" | "billSeq" | "kotSeq" | "purchaseSeq";
+type Counter = "orderSeq" | "billSeq" | "kotSeq" | "purchaseSeq" | "banquetSeq" | "banquetInvoiceSeq";
 
 /** Hands out the next order, bill or kitchen-ticket number. Safe when two tills save at once. */
 export async function nextNumber(db: Db, counter: Counter): Promise<number> {

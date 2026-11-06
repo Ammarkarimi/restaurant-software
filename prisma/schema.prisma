@@ -25,6 +25,8 @@ model Restaurant {
   billSeq              Int                   @default(0) // last bill number handed out
   kotSeq               Int                   @default(0) // last kitchen ticket number handed out
   purchaseSeq          Int                   @default(0) // last purchase order number handed out
+  banquetSeq           Int                   @default(0) // last banquet booking number handed out
+  banquetInvoiceSeq    Int                   @default(0) // last banquet invoice number handed out (BQ-1, BQ-2…)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   staff                Staff[]
@@ -56,6 +58,10 @@ model Restaurant {
   attendance           Attendance[]
   alerts               Alert[]
   upiRequests          UpiRequest[]
+  banquetHalls         BanquetHall[]
+  banquetPackages      BanquetPackage[]
+  banquetEvents        BanquetEvent[]
+  banquetPayments      BanquetPayment[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -750,4 +756,105 @@ model UpiRequest {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, orderId])
+}
+
+// A party hall, lawn or private dining room the restaurant books out for functions.
+model BanquetHall {
+  id           String         @id @default(cuid())
+  restaurantId String
+  name         String
+  capacity     Int            @default(100)
+  rent         Float          @default(0) // usual hall rent for one function
+  notes        String?
+  active       Boolean        @default(true)
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+  events       BanquetEvent[]
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// A set menu sold per plate for functions, e.g. "Silver veg — ₹650 a plate".
+model BanquetPackage {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  name          String
+  foodType      String     @default("veg") // veg, non_veg, both
+  pricePerPlate Float
+  menu          String     @default("[]") // JSON lines, e.g. ["Welcome drink: Mocktail", "Starters: Paneer Tikka, Hara Bhara Kebab"]
+  minGuests     Int        @default(0)
+  active        Boolean    @default(true)
+  sortOrder     Int        @default(0)
+  createdAt     DateTime   @default(now())
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// A function: birthday, wedding, corporate lunch… from the first enquiry to the final invoice.
+model BanquetEvent {
+  id               String           @id @default(cuid())
+  restaurantId     String
+  number           Int // booking number, counts up per restaurant
+  status           String           @default("enquiry") // enquiry, tentative, confirmed, completed, cancelled
+  customerName     String
+  customerPhone    String
+  customerEmail    String?
+  customerGstin    String?
+  company          String?
+  eventType        String           @default("Birthday") // Birthday, Wedding, Engagement, Corporate, Kitty party…
+  title            String? // "Riya's 1st birthday"
+  date             String // "YYYY-MM-DD"
+  startTime        String           @default("19:00") // "HH:MM"
+  endTime          String           @default("23:00")
+  hallId           String?
+  guests           Int              @default(50) // expected
+  guaranteedGuests Int              @default(0) // plates charged at least
+  finalGuests      Int? // counted on the day
+  packageId        String?
+  packageName      String?
+  pricePerPlate    Float            @default(0)
+  menu             String           @default("[]") // JSON lines of the menu for this function
+  extras           String           @default("[]") // JSON [{ "name": "Decoration", "amount": 15000 }]
+  hallRent         Float            @default(0)
+  discount         Float            @default(0)
+  foodTaxRate      Float            @default(5) // GST on food
+  otherTaxRate     Float            @default(18) // GST on hall rent and extras
+  taxMode          String           @default("gst")
+  notes            String?
+  cancelReason     String?
+  invoiceNumber    String?
+  invoicedAt       DateTime?
+  businessDate     String? // day the invoice was made, for GST and reports
+  total            Float            @default(0) // saved with every change, for lists
+  createdByName    String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  hall             BanquetHall?     @relation(fields: [hallId], references: [id], onDelete: SetNull)
+  payments         BanquetPayment[]
+  restaurant       Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, number])
+  @@unique([restaurantId, invoiceNumber])
+  @@index([restaurantId, date])
+}
+
+// Money taken for a function: advance, part payment, final payment, or a refund (negative).
+model BanquetPayment {
+  id           String       @id @default(cuid())
+  restaurantId String
+  eventId      String
+  amount       Float // less than 0 = refund
+  method       String // cash, upi, card, bank, cheque
+  reference    String?
+  note         String?
+  date         String // business day the money came in, "YYYY-MM-DD" (counts in that day's cash)
+  receivedBy   String?
+  createdAt    DateTime     @default(now())
+  event        BanquetEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+  @@index([restaurantId, eventId])
 }

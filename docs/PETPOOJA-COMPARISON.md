@@ -120,6 +120,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 | Menu import | Excel import | 🆕 Excel / CSV in any layout **and from photos of the printed menu card (AI)** |
 | Owner alerts for leakage | Limited | 🆕 WhatsApp alerts: bill paid less than printed, removed after KOT, big discounts, payment mode changes, cash short — with who did it |
 | Daily owner report on WhatsApp | Yes (SMS / app) | 🆕 Sent at day close or 7 am next day |
+| Banquet management | Yes (add-on) | 🆕 Halls, per-plate packages, enquiry → hold → confirmed → invoice, calendar with double-booking check, advances, function sheet, GST invoice |
 
 ## Not built yet, and why
 
