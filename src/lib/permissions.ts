@@ -12,6 +12,7 @@ export interface Permissions {
   changePayment: boolean;
   seeSales: boolean;
   expenses: boolean;
+  banquets: boolean;
 }
 
 export type Right = Exclude<keyof Permissions, "discountMax">;
@@ -26,6 +27,7 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   changePayment: false,
   seeSales: true,
   expenses: true,
+  banquets: false,
 };
 
 export const RIGHTS: Array<{ key: Right; label: string; hint: string }> = [
@@ -37,6 +39,7 @@ export const RIGHTS: Array<{ key: Right; label: string; hint: string }> = [
   { key: "changePayment", label: "Change how a paid bill was paid", hint: "e.g. cash to UPI" },
   { key: "seeSales", label: "See today's sales on the Tables screen", hint: "" },
   { key: "expenses", label: "Add expenses (money out of the till)", hint: "" },
+  { key: "banquets", label: "Handle banquet bookings", hint: "Enquiries, bookings, function sheets and advance payments" },
 ];
 
 export function parsePermissions(json: string | null | undefined): Permissions {

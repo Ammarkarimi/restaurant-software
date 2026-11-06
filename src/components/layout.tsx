@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BellRing,
+  PartyPopper,
   BarChart3,
   CalendarClock,
   ChefHat,
@@ -30,11 +31,13 @@ import { AppProvider, useApp, type ShellSettings } from "@/components/app-provid
 import { Button } from "@/components/ui";
 import { OfflineKeeper } from "@/components/offline-keeper";
 import type { SessionUser } from "@/lib/session";
+import { can, type Right } from "@/lib/permissions";
 
-const NAV = [
+const NAV: Array<{ href: string; label: string; icon: typeof LayoutGrid; hint: string; admin?: boolean; right?: Right }> = [
   { href: "/", label: "Tables", icon: LayoutGrid, hint: "Take orders & bill" },
   { href: "/bills", label: "Bills", icon: ReceiptText, hint: "All orders & reprints" },
   { href: "/reservations", label: "Reservations", icon: CalendarClock, hint: "Table bookings" },
+  { href: "/banquets", label: "Banquets", icon: PartyPopper, hint: "Functions & parties", right: "banquets" },
   { href: "/menu", label: "Menu", icon: BookOpen, hint: "Dishes & prices" },
   { href: "/customers", label: "Customers", icon: Users, hint: "Regulars & loyalty", admin: true },
   { href: "/cash", label: "Cash & expenses", icon: Wallet, hint: "Expenses, day close" },
@@ -158,7 +161,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       )}
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV.filter((n) => !n.admin || isAdmin).map((item) => {
+        {NAV.filter((n) => (!n.admin || isAdmin) && (!n.right || can(user, n.right))).map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
           return (

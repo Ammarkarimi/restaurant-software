@@ -214,6 +214,19 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
       "Tally: import the Ledgers file once (Gateway → Import → Masters), then the Sales vouchers file each month (Import → Transactions). Choose one entry per day or one per bill.",
     ],
   },
+  {
+    title: "21. Banquets and functions",
+    points: [
+      "Banquets (in the menu): owners, and staff given “Handle banquet bookings” in Settings → Staff.",
+      "First time: Banquets → Halls & packages. Add each hall (guests it holds, usual rent) and your per-plate packages with their menus (one line per course).",
+      "New booking: customer, occasion, date and time, hall, expected guests, guaranteed plates (always charged), package (fills the price and menu — change any line), hall rent, extras (decoration, DJ, cake), discount. GST is 5% on food and 18% on hall rent and extras by default; change it per booking if needed.",
+      "It starts as an Enquiry. “Hold the hall (tentative)” keeps the slot for the customer; “Confirm booking” once they agree. The app refuses to confirm a hall that is already held at the same time, and warns you on the booking.",
+      "Take payment: advance, part or final payment by cash, UPI, card, bank or cheque (tick “refund” to return money). Cash counts in that day's cash drawer and day close.",
+      "Print the quotation / booking slip for the customer, the function sheet (menu, guests, notes, no prices) for the kitchen and staff, or send the details on WhatsApp.",
+      "After the function: “Function done — make invoice”, enter the guests on the day. The tax invoice gets its own number (BQ-1, BQ-2…), shows CGST / SGST, payments and the balance, and goes into GSTR-1 and Tally. The booking is then locked.",
+      "Calendar shows every function by day and hall. The daily report lists today's and the next two days' functions and the banquet money received.",
+    ],
+  },
 ];
 
 export default function HelpPage() {

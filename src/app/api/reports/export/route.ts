@@ -8,6 +8,7 @@ import { label } from "@/lib/utils";
 import { prisma } from "@/lib/db";
 import { buildGstr1, tallyLedgers, tallyVouchers, type AccountingBill } from "@/lib/accounting";
 import type { ReportRange } from "@/lib/reports";
+import { eventInclude, totalsOfEvent } from "@/lib/banquet-server";
 import type { SettingsRecord } from "@/lib/settings";
 
 /** Downloads a spreadsheet (CSV) that opens in Excel or Google Sheets. */
@@ -73,9 +74,9 @@ export async function GET(request: NextRequest) {
   });
 }
 
-async function accountingBills(range: ReportRange): Promise<AccountingBill[]> {
-  const orders = await settledOrders(range);
-  return orders
+async function accountingBills(range: ReportRange, sacCode: string): Promise<AccountingBill[]> {
+  const [orders, banquets] = await Promise.all([settledOrders(range), banquetInvoices(range, sacCode)]);
+  return [...orders
     .filter((o) => o.billNumber && o.businessDate)
     .map((o) => {
       const t = totalsOf(o);
@@ -93,12 +94,37 @@ async function accountingBills(range: ReportRange): Promise<AccountingBill[]> {
         source: o.source,
         taxMode: o.taxMode,
       };
-    });
+    }), ...banquets];
+}
+
+/** Banquet invoices of the period, in the same shape: food at the food rate, hall rent / extras under SAC 997212. */
+async function banquetInvoices(range: ReportRange, sacCode: string): Promise<AccountingBill[]> {
+  const events = await prisma.banquetEvent.findMany({ where: { status: "completed", invoiceNumber: { not: null }, businessDate: { gte: range.from, lte: range.to } }, include: eventInclude, orderBy: { invoicedAt: "asc" } });
+  return events.map((e) => {
+    const t = totalsOfEvent(e);
+    const paid = e.payments.reduce((s, p) => s + p.amount, 0);
+    // Money not yet paid is owed by the customer (their account); bank / cheque go to the bank ledger.
+    const payments = [...e.payments.map((p) => ({ method: p.method === "bank" || p.method === "cheque" ? "online" : p.method, amount: p.amount })), ...(t.total - paid > 0.005 ? [{ method: "account", amount: Math.round((t.total - paid) * 100) / 100 }] : [])];
+    return {
+      billNumber: e.invoiceNumber!,
+      date: e.businessDate!,
+      total: t.total,
+      taxable: t.taxable,
+      tax: t.tax,
+      roundOff: t.roundOff,
+      taxLines: t.taxLines.map((l) => ({ ...l, sac: l.rate === e.foodTaxRate ? sacCode : "997212" })),
+      payments,
+      customerGstin: e.customerGstin,
+      customerName: e.company || e.customerName,
+      source: "banquet",
+      taxMode: e.taxMode,
+    };
+  });
 }
 
 /** GSTR-1 tables (CSV in the GST offline tool's layout) and Tally import files (XML). */
 async function accountingFile(type: string, range: ReportRange, settings: SettingsRecord, sp: URLSearchParams, suffix: string) {
-  const bills = await accountingBills(range);
+  const bills = await accountingBills(range, settings.sacCode);
   if (type.startsWith("tally")) {
     const company = (sp.get("company") || settings.legalName || settings.restaurantName).slice(0, 100);
     const gst = settings.taxMode === "gst";

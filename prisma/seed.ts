@@ -805,6 +805,43 @@ async function seedDemo() {
         createdAt: sentOn,
       },
     });
+    // Banquets: two halls, three per-plate packages and functions at every stage.
+    const grand = await prisma.banquetHall.create({ data: { restaurantId, name: "Grand Hall", capacity: 250, rent: 25000, notes: "AC, stage, 1st floor", sortOrder: 1 } });
+    const terrace = await prisma.banquetHall.create({ data: { restaurantId, name: "Terrace", capacity: 80, rent: 10000, notes: "Open air, fairy lights", sortOrder: 2 } });
+    const silver = ["Welcome drink: Fresh Lime Soda", "Starters (any 2): Paneer Tikka, Hara Bhara Kebab, Veg Crispy", "Main course: Paneer Butter Masala, Dal Makhani, Mix Veg", "Rice & breads: Jeera Rice, Butter Naan, Tandoori Roti", "Salad, raita, papad", "Dessert: Gulab Jamun"];
+    const gold = ["Welcome drinks: Mocktail, Masala Chaas", "Starters: Paneer Tikka, Chicken Tikka, Fish Amritsari, Hara Bhara Kebab", "Main course: Butter Chicken, Mutton Rogan Josh, Paneer Butter Masala, Dal Makhani", "Rice & breads: Chicken Biryani, Jeera Rice, Butter Naan, Lachha Paratha", "Live counter: Chaat", "Desserts: Gulab Jamun, Kulfi Falooda"];
+    const pkgSilver = await prisma.banquetPackage.create({ data: { restaurantId, name: "Silver veg", foodType: "veg", pricePerPlate: 650, menu: JSON.stringify(silver), minGuests: 50, sortOrder: 1 } });
+    const pkgGold = await prisma.banquetPackage.create({ data: { restaurantId, name: "Gold non-veg", foodType: "both", pricePerPlate: 950, menu: JSON.stringify(gold), minGuests: 50, sortOrder: 2 } });
+    await prisma.banquetPackage.create({ data: { restaurantId, name: "Hi-tea", foodType: "veg", pricePerPlate: 350, menu: JSON.stringify(["Tea / coffee", "Samosa, Paneer Pakoda, Sandwiches", "Pastry"]), sortOrder: 3 } });
+    const { banquetTotals } = await import("../src/lib/banquet");
+    const events: Array<{ status: string; name: string; phone: string; type: string; title: string; date: string; start: string; end: string; hall: typeof grand; guests: number; guaranteed: number; final?: number; pkg: typeof pkgSilver; extras: Array<{ name: string; amount: number }>; discount?: number; company?: string; gstin?: string; notes?: string; payments: Array<{ amount: number; method: string; daysAgo: number; note: string }>; cancelReason?: string }> = [
+      { status: "completed", name: "Sunita Verma", phone: "9811122334", type: "Anniversary", title: "Verma 25th anniversary", date: addDays(today, -6), start: "19:30", end: "23:30", hall: grand, guests: 120, guaranteed: 100, final: 132, pkg: pkgGold, extras: [{ name: "Flower decoration", amount: 18000 }, { name: "DJ", amount: 12000 }], payments: [{ amount: 50000, method: "upi", daysAgo: 20, note: "Advance" }, { amount: 108000, method: "bank", daysAgo: 6, note: "Final payment" }] },
+      { status: "confirmed", name: "Riya Kapoor", phone: "9898012345", type: "Birthday", title: "Aarav's 1st birthday", date: addDays(today, 3), start: "19:00", end: "23:00", hall: terrace, guests: 60, guaranteed: 50, pkg: pkgSilver, extras: [{ name: "Balloon decoration", amount: 8000 }, { name: "Cake (5 kg)", amount: 6500 }], notes: "Cake cutting at 8:30 pm. High chair for 3 kids.", payments: [{ amount: 15000, method: "upi", daysAgo: 4, note: "Advance" }] },
+      { status: "confirmed", name: "Anil Deshpande", phone: "9822334455", type: "Corporate", title: "Annual sales meet", date: addDays(today, 9), start: "12:30", end: "16:30", hall: grand, guests: 150, guaranteed: 140, pkg: pkgGold, extras: [{ name: "Projector & sound", amount: 7500 }], discount: 10000, company: "Deccan Pharma Pvt Ltd", gstin: "27AABCD1234E1Z5", payments: [{ amount: 60000, method: "bank", daysAgo: 2, note: "Advance" }, { amount: 5000, method: "cash", daysAgo: 0, note: "Extra for projector" }] },
+      { status: "tentative", name: "Farhan Shaikh", phone: "9765123456", type: "Engagement", title: "Shaikh family engagement", date: addDays(today, 16), start: "19:00", end: "23:30", hall: grand, guests: 200, guaranteed: 180, pkg: pkgGold, extras: [{ name: "Stage decoration", amount: 25000 }], payments: [] },
+      { status: "enquiry", name: "Kavita Joshi", phone: "9850098500", type: "Kitty party", title: "", date: addDays(today, 5), start: "15:00", end: "18:00", hall: terrace, guests: 25, guaranteed: 0, pkg: pkgSilver, extras: [], payments: [] },
+      { status: "cancelled", name: "Rohan Gupta", phone: "9890011223", type: "Get-together", title: "College reunion", date: addDays(today, 7), start: "20:00", end: "23:30", hall: terrace, guests: 45, guaranteed: 40, pkg: pkgSilver, extras: [], cancelReason: "Date changed, will book again", payments: [{ amount: 10000, method: "upi", daysAgo: 12, note: "Advance" }, { amount: -10000, method: "upi", daysAgo: 1, note: "Refund" }] },
+    ];
+    let bq = 0;
+    for (const e of events) {
+      bq += 1;
+      const extrasJson = JSON.stringify(e.extras);
+      const t = banquetTotals({ guests: e.guests, guaranteedGuests: e.guaranteed, finalGuests: e.final ?? null, pricePerPlate: e.pkg.pricePerPlate, hallRent: e.hall.rent, extras: e.extras, discount: e.discount ?? 0, foodTaxRate: 5, otherTaxRate: 18, taxMode: "gst" });
+      const created = await prisma.banquetEvent.create({
+        data: {
+          restaurantId, number: bq, status: e.status, customerName: e.name, customerPhone: e.phone, company: e.company ?? null, customerGstin: e.gstin ?? null, eventType: e.type, title: e.title || null,
+          date: e.date, startTime: e.start, endTime: e.end, hallId: e.hall.id, guests: e.guests, guaranteedGuests: e.guaranteed, finalGuests: e.final ?? null,
+          packageId: e.pkg.id, packageName: e.pkg.name, pricePerPlate: e.pkg.pricePerPlate, menu: e.pkg.menu, extras: extrasJson, hallRent: e.hall.rent, discount: e.discount ?? 0,
+          foodTaxRate: 5, otherTaxRate: 18, notes: e.notes ?? null, cancelReason: e.cancelReason ?? null, total: t.total, createdByName: owner.name, createdAt: at(addDays(today, -25 + bq), 12, 0),
+          ...(e.status === "completed" && { invoiceNumber: "BQ-1", invoicedAt: at(e.date, 23, 45), businessDate: e.date }),
+        },
+      });
+      // The completed function's final payment clears its bill exactly.
+      const pays = e.status === "completed" ? [e.payments[0], { ...e.payments[1], amount: t.total - e.payments[0].amount }] : e.payments;
+      for (const p of pays) await prisma.banquetPayment.create({ data: { restaurantId, eventId: created.id, amount: p.amount, method: p.method, note: p.note, date: addDays(today, -p.daysAgo), receivedBy: owner.name, createdAt: at(addDays(today, -p.daysAgo), 14, 0) } });
+    }
+    await prisma.restaurant.update({ where: { id: restaurantId }, data: { banquetSeq: bq, banquetInvoiceSeq: 1 } });
+
     // Owner alerts from the last few days, so the Alerts page has something to show.
     const ago = (h: number) => new Date(Date.now() - h * 3600_000);
     await prisma.restaurantSettings.update({ where: { restaurantId }, data: { alertPhone: "9876543210" } });

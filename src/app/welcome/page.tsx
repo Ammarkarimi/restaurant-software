@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   BellRing,
+  PartyPopper,
   FileSpreadsheet,
   ScanLine,
   WifiOff,
@@ -233,6 +234,7 @@ const MORE = [
   { icon: WifiOff, title: "Works when the internet doesn't", text: "Keep billing and printing offline. Bills sync by themselves when the internet is back." },
   { icon: QrCode, title: "UPI that confirms itself", text: "A QR for the exact bill; it closes by itself when the guest pays. No screenshots to check." },
   { icon: FileSpreadsheet, title: "GSTR-1 & Tally files", text: "B2C, B2B, HSN and document tables, and a Tally import file — for your accountant in one click." },
+  { icon: PartyPopper, title: "Banquets & parties", text: "Hall bookings, per-plate menus, advances, function sheets for the kitchen and the GST invoice." },
   { icon: Globe, title: "Your own online ordering", text: "Takeaway and delivery from your own link — no commission to any app." },
   { icon: CalendarClock, title: "Table reservations", text: "Bookings by phone or from your booking link. Seat guests with one tap." },
   { icon: Tag, title: "Offers & coupons", text: "“10% off above ₹1000”, WELCOME50, weekday lunch — used only when the rules match." },

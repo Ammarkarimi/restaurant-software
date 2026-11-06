@@ -25,6 +25,8 @@ export interface DaySummaryJson {
   payments: Array<{ method: string; amount: number; count: number }>;
   /** Money received against customer accounts (dues paid, wallet top-ups), by method. */
   received?: Array<{ method: string; amount: number; count: number }>;
+  /** Banquet advances and payments (refunds negative), by method. */
+  banquet?: Array<{ method: string; amount: number; count: number }>;
   expenses: Array<{ category: string; amount: number }>;
   discount: number;
   tax: number;
@@ -33,7 +35,7 @@ export interface DaySummaryJson {
 
 /** What happened on one business day: sales by payment mode, expenses, and the cash that should be in the drawer. */
 export async function daySummary(date: string) {
-  const [orders, cancelled, expenses, running, close, previous, receipts] = await Promise.all([
+  const [orders, cancelled, expenses, running, close, previous, receipts, banquetPayments] = await Promise.all([
     prisma.order.findMany({ where: { status: "settled", businessDate: date }, select: { total: true, guests: true, discountAmount: true, subtotal: true, taxAmount: true, complimentary: true, payments: true } }),
     prisma.order.count({ where: { status: "cancelled", businessDate: date } }),
     prisma.expense.findMany({ where: { date }, orderBy: { createdAt: "asc" } }),
@@ -41,7 +43,16 @@ export async function daySummary(date: string) {
     prisma.dayClose.findFirst({ where: { date } }),
     prisma.dayClose.findFirst({ where: { date: { lt: date } }, orderBy: { date: "desc" } }),
     prisma.customerTxn.findMany({ where: { date, type: "received" }, select: { method: true, amount: true } }),
+    prisma.banquetPayment.findMany({ where: { date }, select: { method: true, amount: true } }),
   ]);
+  const banquet = new Map<string, { method: string; amount: number; count: number }>();
+  for (const p of banquetPayments) {
+    const m = banquet.get(p.method) ?? { method: p.method, amount: 0, count: 0 };
+    m.amount += p.amount;
+    m.count += 1;
+    banquet.set(p.method, m);
+  }
+  const cashBanquet = round2(banquet.get("cash")?.amount ?? 0);
 
   const byMethod = new Map<string, { method: string; amount: number; count: number }>();
   for (const o of orders) {
@@ -84,10 +95,12 @@ export async function daySummary(date: string) {
     expensesByCategory: [...byCategory.entries()].map(([category, amount]) => ({ category, amount: round2(amount) })).sort((a, b) => b.amount - a.amount),
     received: [...received.values()].map((m) => ({ ...m, amount: round2(m.amount) })).sort((a, b) => b.amount - a.amount),
     cashReceived,
+    banquet: [...banquet.values()].map((m) => ({ ...m, amount: round2(m.amount) })).sort((a, b) => b.amount - a.amount),
+    cashBanquet,
     cashSales,
     cashExpenses,
     openingCash,
-    expectedCash: round2(openingCash + cashSales + cashReceived - cashExpenses),
+    expectedCash: round2(openingCash + cashSales + cashReceived + cashBanquet - cashExpenses),
     runningOrders: running,
     close,
     previousClose: previous ? { date: previous.date, cashLeft: previous.cashLeft } : null,
