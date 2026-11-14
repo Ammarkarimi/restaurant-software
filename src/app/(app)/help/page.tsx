@@ -227,6 +227,59 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
       "Calendar shows every function by day and hall. The daily report lists today's and the next two days' functions and the banquet money received.",
     ],
   },
+  {
+    title: "22. Staff salary",
+    who: "Owner / manager",
+    points: [
+      "Staff salary (in the menu) → Add employee: name, work, monthly salary or daily wage, paid days off a month. Cooks and helpers don't need a sign-in; for those who have one, link it and their shifts fill in the days worked.",
+      "Give advance: money before payday, from the till or by UPI. It is saved as today's expense and taken back from the next salary by itself.",
+      "Each month: Salary sheet → Pay salary. Check the days worked, add a bonus or deductions, and pay. Monthly salary is paid per day: salary ÷ days in the month × (days worked + paid days off), never more than the full salary.",
+      "The salary is saved as an expense (cash ones come out of the drawer at day close). Print the payslip to give the employee. Paid by mistake? Undo it: the expense goes and the advance is owed again.",
+    ],
+  },
+  {
+    title: "23. Gift cards",
+    points: [
+      "Gift cards (in the menu) → Sell gift card: value, how the buyer paid, who it is for, a message and an expiry date. Print the card or send it on WhatsApp.",
+      "The money counts in that day's cash drawer, but not as sales: it becomes a sale when the card pays a bill.",
+      "At billing: Take payment → Paid by → Gift card, and type the card number (GC-XXXX-XXXX). The balance shows as you type. Use Split payment when the card doesn't cover the whole bill.",
+      "Cancelling a paid bill, or changing how it was paid, puts the money back on the card. Owners can cancel a lost card and record any money given back.",
+    ],
+  },
+  {
+    title: "24. Walk-in waitlist",
+    points: [
+      "Reservations → Walk-in waitlist → Add to waitlist: name, phone, guests and the wait you told them.",
+      "The list shows how long each party has waited (red when longer than you told them) and which free tables fit them.",
+      "Table ready sends them a WhatsApp message; Seat picks a free table and opens their order with their name and phone. The average wait today helps you quote the next party.",
+    ],
+  },
+  {
+    title: "25. Supplier bills, reordering and outlet transfers",
+    who: "Owner / manager",
+    points: [
+      "Stock → Purchase orders → Scan supplier bill: take a photo of the bill. The items, quantities and rates are read for you and matched to your stock items (new ones can be added). Check them, enter any money paid, and Add to stock.",
+      "New purchase order fills in what is running low with enough for about a week at your recent use, and picks the supplier you last bought from.",
+      "Several outlets or a central kitchen: Stock → Outlet transfers → Send stock. It leaves your stock now and is added to the other outlet's stock when they press Received. A transfer not received yet can be cancelled.",
+    ],
+  },
+  {
+    title: "26. Customer screen at the counter",
+    points: [
+      "Put a second monitor or a tablet facing the guest and open /customer-display on it (signed in).",
+      "On the billing computer: open any order → More (⋯) → tick “Show orders on the customer screen (this device)”.",
+      "Guests see each dish as you add it and the total; once the bill is printed, a UPI QR for the exact amount. After payment it says Thank you.",
+    ],
+  },
+  {
+    title: "27. Profit & loss and menu engineering",
+    who: "Owner / manager",
+    points: [
+      "Reports → choose the dates → Profit & loss: income before tax (restaurant and banquets), food bought, staff salary and every other expense, and what is left.",
+      "It also shows what the dishes you sold should have used by their recipes. If you bought much more than that, check wastage, missing recipes or stock going missing.",
+      "Menu engineering sorts dishes by how much they sell and earn per plate: Stars (keep), Workhorses (raise the price a little or cook cheaper), Hidden gems (push them), Rethink (change or drop). Dishes need a recipe to be sorted.",
+    ],
+  },
 ];
 
 export default function HelpPage() {

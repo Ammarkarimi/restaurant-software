@@ -8,6 +8,7 @@ import { FoodMark } from "@/components/food-mark";
 import { api } from "@/lib/client";
 import { parseCsv, rowsFromSheet, type ImportRow } from "@/lib/menu-import";
 import { cn, formatCurrency } from "@/lib/utils";
+import { shrinkPhoto } from "@/lib/photo-client";
 import type { CategoryDTO } from "@/lib/types";
 
 type Mode = "excel" | "photo" | "paste";
@@ -36,18 +37,6 @@ function downloadSample() {
   a.download = "menu-sample.csv";
   a.click();
   URL.revokeObjectURL(url);
-}
-
-/** Shrinks a phone photo so a few pages fit in one upload and read faster. */
-async function shrinkPhoto(file: File): Promise<{ mediaType: "image/jpeg"; data: string; preview: string }> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const url = canvas.toDataURL("image/jpeg", 0.82);
-  return { mediaType: "image/jpeg", data: url.split(",")[1], preview: url };
 }
 
 export function ImportDialog({ categories, onClose, onSaved }: { categories: CategoryDTO[]; onClose: () => void; onSaved: () => void }) {

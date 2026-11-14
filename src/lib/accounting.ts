@@ -171,6 +171,7 @@ export const TALLY_LEDGERS = {
   card: "Card Collections",
   online: "Online Payments",
   account: "Customer Accounts",
+  gift_card: "Gift Cards Sold",
   other: "Other Receipts",
   zomato: "Zomato",
   swiggy: "Swiggy",
@@ -259,6 +260,8 @@ export function tallyLedgers(company: string, gst: boolean) {
     { name: TALLY_LEDGERS.card, parent: "Bank Accounts" },
     { name: TALLY_LEDGERS.online, parent: "Bank Accounts" },
     { name: TALLY_LEDGERS.account, parent: "Sundry Debtors" },
+    // Money taken when a card is sold is owed to the holder until they spend it.
+    { name: TALLY_LEDGERS.gift_card, parent: "Current Liabilities" },
     { name: TALLY_LEDGERS.zomato, parent: "Sundry Debtors" },
     { name: TALLY_LEDGERS.swiggy, parent: "Sundry Debtors" },
     { name: TALLY_LEDGERS.other, parent: "Suspense A/c" },

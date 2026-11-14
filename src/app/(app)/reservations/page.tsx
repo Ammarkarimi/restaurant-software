@@ -10,6 +10,8 @@ import { addDays } from "@/lib/dates";
 import { minutesOf, timeLabel } from "@/lib/reservations";
 import { cn, formatDate, label } from "@/lib/utils";
 import type { TableDTO } from "@/lib/types";
+import { Tabs } from "@/components/ui";
+import { WaitlistView } from "./waitlist";
 
 interface Reservation {
   id: string;
@@ -121,7 +123,7 @@ function BookingDialog({ initial, tables, onClose, onSaved }: { initial: Form; t
   );
 }
 
-export default function ReservationsPage() {
+function BookingsView() {
   const router = useRouter();
   const { toast, confirm, settings } = useApp();
   const [date, setDate] = useState(settings.today);
@@ -312,6 +314,35 @@ export default function ReservationsPage() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+type View = "bookings" | "waitlist";
+
+export default function ReservationsPage() {
+  const { settings } = useApp();
+  const [view, setView] = useState<View>("bookings");
+  const [waiting, setWaiting] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "waitlist") setView("waitlist");
+    api<{ entries: Array<{ status: string }> }>("/api/waitlist").then((r) => setWaiting(r.entries.filter((e) => e.status === "waiting").length || undefined), () => null);
+  }, [view]);
+  const change = (v: View) => {
+    setView(v);
+    window.history.replaceState(null, "", v === "waitlist" ? "/reservations?view=waitlist" : "/reservations");
+  };
+  return (
+    <div className="space-y-4">
+      <Tabs<View>
+        value={view}
+        onChange={change}
+        tabs={[
+          { value: "bookings", label: "Bookings" },
+          { value: "waitlist", label: "Walk-in waitlist", count: waiting },
+        ]}
+      />
+      {view === "bookings" ? <BookingsView /> : <WaitlistView restaurantName={settings.restaurantName} />}
     </div>
   );
 }

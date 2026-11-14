@@ -35,17 +35,18 @@ export async function GET(request: NextRequest) {
         used: round3(-sum(["used", "returned"])),
         wasted: round3(-sum(["wastage"])),
         adjusted: sum(["count"]),
+        transferred: sum(["transfer_in", "transfer_out"]),
         closing,
         purchaseCost: round2(mine.filter((e) => e.type === "purchase").reduce((s, e) => s + (e.cost ?? 0), 0)),
         usedValue: round2(-sum(["used", "returned"]) * i.costPerUnit),
       };
     });
-    const active = rows.filter((r) => r.purchased || r.used || r.wasted || r.adjusted || r.closing);
+    const active = rows.filter((r) => r.purchased || r.used || r.wasted || r.adjusted || r.transferred || r.closing);
 
     if (sp.get("format") === "csv") {
       return csvResponse(`stock_${from}_to_${to}.csv`, [
-        ["Item", "Unit", "Opening", "Bought", "Used in bills", "Wasted", "Count difference", "Closing", "Purchase cost", "Value used"],
-        ...active.map((r) => [r.name, r.unit, r.opening, r.purchased, r.used, r.wasted, r.adjusted, r.closing, r.purchaseCost, r.usedValue]),
+        ["Item", "Unit", "Opening", "Bought", "Used in bills", "Wasted", "Count difference", "Transfers", "Closing", "Purchase cost", "Value used"],
+        ...active.map((r) => [r.name, r.unit, r.opening, r.purchased, r.used, r.wasted, r.adjusted, r.transferred, r.closing, r.purchaseCost, r.usedValue]),
       ]);
     }
     return NextResponse.json({

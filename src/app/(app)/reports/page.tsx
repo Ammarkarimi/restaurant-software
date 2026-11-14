@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountingCard } from "./accounting-card";
+import { ProfitCards } from "./profit-card";
 import { Ban, Bike, Download, Gift, IndianRupee, Percent, ReceiptText, Star, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button, Card, CardContent, CardHeader, EmptyState, Input, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
@@ -428,6 +429,8 @@ export default function ReportsPage() {
                   </CardContent>
                 </Card>
               )}
+
+              <ProfitCards from={from} to={to} />
 
               <AccountingCard from={from} to={to} />
 

@@ -729,6 +729,34 @@ interface PayRow {
   reference: string;
 }
 
+/** The code of a gift card paying part of the bill, with its balance once typed in. */
+function GiftCardCode({ value, amount, onChange }: { value: string; amount: number; onChange: (v: string) => void }) {
+  const [info, setInfo] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    const code = value.replace(/[^0-9a-z]/gi, "");
+    if (code.length < 8) {
+      setInfo(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/gift-cards/check?code=${encodeURIComponent(value)}`)
+        .then((r) => r.json())
+        .then((d: { card?: { balance: number }; problem?: string | null; error?: string }) => {
+          if (!d.card) return setInfo({ ok: false, text: d.error ?? "Gift card not found" });
+          if (d.problem) return setInfo({ ok: false, text: d.problem });
+          setInfo(amount > d.card.balance + 0.001 ? { ok: false, text: `Only ${formatCurrency(d.card.balance)} on this card` } : { ok: true, text: `${formatCurrency(d.card.balance)} on this card` });
+        })
+        .catch(() => setInfo(null));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [value, amount]);
+  return (
+    <Field label="Gift card code" className="min-w-44 flex-1" hint={info ? <span className={info.ok ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>{info.text}</span> : "Printed on the card, like GC-7K3M-9Q2P"}>
+      <Input value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} placeholder="GC-XXXX-XXXX" autoCapitalize="characters" />
+    </Field>
+  );
+}
+
 const METHOD_ICONS: Record<string, typeof Banknote> = { cash: Banknote, upi: QrCode, card: CreditCard, account: BookUser };
 
 export function PaymentDialog({
@@ -773,7 +801,7 @@ export function PaymentDialog({
   const [qr, setQr] = useState<string | null>(null);
 
   const quick = [...(initialMethod === "online" ? ["online"] : []), "cash", "upi", "card", ...(account ? ["account"] : [])];
-  const methods = ["cash", "upi", "card", "online", ...(account ? ["account"] : []), "other"];
+  const methods = ["cash", "upi", "card", "online", ...(account ? ["account"] : []), "gift_card", "other"];
   const onAccount = round2(rows.filter((r) => r.method === "account").reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const afterBalance = account ? round2(account.balance - onAccount) : 0;
   const limit = account ? (account.creditLimit ?? (account.canGiveCredit ? Infinity : 0)) : 0;
@@ -854,7 +882,8 @@ export function PaymentDialog({
               <Field label="Amount" className="w-36">
                 <Input type="number" min={0} step="0.01" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} />
               </Field>
-              {r.method !== "cash" && r.method !== "account" && (
+              {r.method === "gift_card" && <GiftCardCode value={r.reference} amount={Number(r.amount) || 0} onChange={(v) => setRow(i, { reference: v })} />}
+              {r.method !== "cash" && r.method !== "account" && r.method !== "gift_card" && (
                 <Field label="Reference" optional className="min-w-36 flex-1">
                   <Input value={r.reference} onChange={(e) => setRow(i, { reference: e.target.value })} placeholder="UPI / card ref." />
                 </Field>

@@ -35,6 +35,9 @@ import {
   UtensilsCrossed,
   Wallet,
   Warehouse,
+  HandCoins,
+  Receipt,
+  TrendingUp,
 } from "lucide-react";
 import { TourVideo } from "./tour-video";
 import { EnquiryForm } from "./enquiry-form";
@@ -235,6 +238,10 @@ const MORE = [
   { icon: QrCode, title: "UPI that confirms itself", text: "A QR for the exact bill; it closes by itself when the guest pays. No screenshots to check." },
   { icon: FileSpreadsheet, title: "GSTR-1 & Tally files", text: "B2C, B2B, HSN and document tables, and a Tally import file — for your accountant in one click." },
   { icon: PartyPopper, title: "Banquets & parties", text: "Hall bookings, per-plate menus, advances, function sheets for the kitchen and the GST invoice." },
+  { icon: TrendingUp, title: "Profit & menu engineering", text: "See what is left after food, salaries and bills — and which dishes earn their place on the menu." },
+  { icon: HandCoins, title: "Staff salary & advances", text: "Monthly or daily pay from staff shifts, advances taken back by themselves, payslips to print." },
+  { icon: Gift, title: "Gift cards", text: "Sell gift cards for birthdays and festivals; guests pay all or part of a bill with the card number." },
+  { icon: Receipt, title: "Supplier bills from a photo", text: "Photograph a supplier's bill and it goes into stock — plus what to reorder, and how much." },
   { icon: Globe, title: "Your own online ordering", text: "Takeaway and delivery from your own link — no commission to any app." },
   { icon: CalendarClock, title: "Table reservations", text: "Bookings by phone or from your booking link. Seat guests with one tap." },
   { icon: Tag, title: "Offers & coupons", text: "“10% off above ₹1000”, WELCOME50, weekday lunch — used only when the rules match." },

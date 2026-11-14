@@ -12,9 +12,10 @@ import { parseVariants } from "@/lib/menu";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 import type { CategoryDTO } from "@/lib/types";
 import { CostingTab, PurchasesTab, SuppliersTab } from "./purchases-tab";
+import { TransfersTab } from "./transfers-tab";
 
-type Tab = "stock" | "purchases" | "suppliers" | "recipes" | "costing" | "history" | "usage";
-const TAB_LIST: Tab[] = ["stock", "purchases", "suppliers", "recipes", "costing", "history", "usage"];
+type Tab = "stock" | "purchases" | "suppliers" | "transfers" | "recipes" | "costing" | "history" | "usage";
+const TAB_LIST: Tab[] = ["stock", "purchases", "suppliers", "transfers", "recipes", "costing", "history", "usage"];
 
 interface StockItem {
   id: string;
@@ -49,6 +50,8 @@ const ENTRY_LABEL: Record<string, string> = {
   returned: "Bill cancelled",
   wastage: "Wastage",
   count: "Stock count",
+  transfer_out: "Sent to outlet",
+  transfer_in: "From outlet",
 };
 const qty = (n: number) => String(Math.round(n * 1000) / 1000);
 
@@ -563,6 +566,7 @@ interface UsageRow {
   used: number;
   wasted: number;
   adjusted: number;
+  transferred: number;
   closing: number;
   purchaseCost: number;
   usedValue: number;
@@ -622,6 +626,7 @@ function UsageTab() {
                     <th className="py-2 text-right font-semibold">Used</th>
                     <th className="py-2 text-right font-semibold">Wasted</th>
                     <th className="py-2 text-right font-semibold">Count diff.</th>
+                    <th className="py-2 text-right font-semibold">Transfers</th>
                     <th className="px-5 py-2 text-right font-semibold">Closing</th>
                   </tr>
                 </thead>
@@ -636,6 +641,7 @@ function UsageTab() {
                       <td className="py-2 text-right">{r.used ? qty(r.used) : "—"}</td>
                       <td className="py-2 text-right text-red-700">{r.wasted ? qty(r.wasted) : "—"}</td>
                       <td className="py-2 text-right">{r.adjusted ? `${r.adjusted > 0 ? "+" : ""}${qty(r.adjusted)}` : "—"}</td>
+                      <td className="py-2 text-right">{r.transferred ? `${r.transferred > 0 ? "+" : ""}${qty(r.transferred)}` : "—"}</td>
                       <td className="px-5 py-2 text-right font-bold">{qty(r.closing)}</td>
                     </tr>
                   ))}
@@ -670,6 +676,7 @@ function StockView() {
           { value: "stock", label: "Stock" },
           { value: "purchases", label: "Purchase orders" },
           { value: "suppliers", label: "Suppliers" },
+          { value: "transfers", label: "Outlet transfers" },
           { value: "recipes", label: "Recipes" },
           { value: "costing", label: "Dish costing" },
           { value: "history", label: "History" },
@@ -686,6 +693,7 @@ function StockView() {
       )}
       {tab === "purchases" && <PurchasesTab />}
       {tab === "suppliers" && <SuppliersTab />}
+      {tab === "transfers" && <TransfersTab />}
       {tab === "recipes" && <RecipesTab />}
       {tab === "costing" && <CostingTab />}
       {tab === "history" && <HistoryTab item={historyItem} setItem={setHistoryItem} />}

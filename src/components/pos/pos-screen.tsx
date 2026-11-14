@@ -129,6 +129,15 @@ function NewRiderDialog({ canSave, onClose, onAdd }: { canSave: boolean; onClose
   );
 }
 
+const CUSTOMER_SCREEN_KEY = "customer-display-counter";
+function readCustomerScreen() {
+  try {
+    return localStorage.getItem(CUSTOMER_SCREEN_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
 function readAutoPrint() {
   try {
     return localStorage.getItem(AUTO_KOT_KEY) !== "off";
@@ -166,7 +175,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const searchRef = useRef<HTMLInputElement>(null);
   const keySeq = useRef(1);
 
-  useEffect(() => setAutoKot(readAutoPrint()), []);
+  const [customerScreen, setCustomerScreen] = useState(false);
+  useEffect(() => {
+    setAutoKot(readAutoPrint());
+    setCustomerScreen(readCustomerScreen());
+  }, []);
   // Happy-hour prices start and stop by the clock.
   useEffect(() => {
     const t = setInterval(() => setClock(Date.now()), 60_000);
@@ -193,6 +206,34 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   }, [orderId, newOrder?.tableId]);
 
   const editable = !order || order.status === "open" || order.status === "billed";
+
+  // The screen facing the guest (/customer-display) follows the order open at this counter.
+  // A paid bill stays on it a little longer ("Thank you"); anything else clears when the counter leaves.
+  const statusRef = useRef<string | null>(null);
+  statusRef.current = order?.status ?? null;
+  const shownId = order?.id ?? null;
+  useEffect(() => {
+    if (!shownId || !customerScreen) return;
+    const send = (id: string | null) => fetch("/api/display/customer", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: id }), keepalive: true }).catch(() => undefined);
+    send(shownId);
+    // Still here: the screen drops an order the counter stopped sending (closed tab, lost power).
+    const beat = setInterval(() => send(shownId), 20_000);
+    const leave = () => {
+      if (statusRef.current !== "settled") send(null);
+    };
+    // Closing or reloading the page does not unmount React, so clear the screen then too.
+    // Browsers drop ordinary requests while a page unloads; a beacon still goes out.
+    const unload = () => {
+      if (statusRef.current === "settled") return;
+      if (!navigator.sendBeacon?.("/api/display/customer", new Blob([JSON.stringify({ orderId: null })], { type: "application/json" }))) send(null);
+    };
+    window.addEventListener("pagehide", unload);
+    return () => {
+      clearInterval(beat);
+      window.removeEventListener("pagehide", unload);
+      leave();
+    };
+  }, [shownId, customerScreen]);
 
   // A guest we know by phone: show their visits and loyalty points.
   const phone = normalizePhone(order ? order.customerPhone : draftCustomer.customerPhone);
@@ -1393,6 +1434,25 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                 className="h-4 w-4 accent-primary-600"
               />
               Print kitchen ticket when sending (this device)
+            </label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-2.5 text-[15px]">
+              <input
+                type="checkbox"
+                checked={customerScreen}
+                onChange={(e) => {
+                  setCustomerScreen(e.target.checked);
+                  try {
+                    localStorage.setItem(CUSTOMER_SCREEN_KEY, e.target.checked ? "on" : "off");
+                  } catch {
+                    // private mode: the choice lasts until the page closes
+                  }
+                }}
+                className="h-4 w-4 accent-primary-600"
+              />
+              <span>
+                Show orders on the customer screen (this device)
+                <a href="/customer-display" target="_blank" rel="noreferrer" className="ml-1 text-sm font-semibold text-primary-700 underline">open screen</a>
+              </span>
             </label>
             {(editable || (order?.status === "settled" && isAdmin)) && (
               <Button variant="outline" className="justify-start text-red-700" onClick={cancelOrder}>
