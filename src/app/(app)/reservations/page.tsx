@@ -202,13 +202,13 @@ function BookingsView() {
             <button
               key={d.date}
               onClick={() => setDate(d.date)}
-              className={cn("min-w-28 shrink-0 rounded-2xl border-2 px-3 py-2 text-left transition", date === d.date ? "border-primary-500 bg-primary-50" : "border-slate-200 bg-white hover:border-primary-300")}
+              className={cn("min-w-28 shrink-0 rounded-lg border-2 px-3 py-2 text-left transition", date === d.date ? "border-primary-500 bg-primary-50" : "border-slate-200 bg-white hover:border-primary-300")}
             >
-              <span className="block text-sm font-bold text-slate-900">{d.date === data.today ? "Today" : d.date === addDays(data.today, 1) ? "Tomorrow" : formatDate(d.date).replace(/ \d{4}$/, "")}</span>
+              <span className="block text-sm font-semibold text-slate-900">{d.date === data.today ? "Today" : d.date === addDays(data.today, 1) ? "Tomorrow" : formatDate(d.date).replace(/ \d{4}$/, "")}</span>
               <span className="block text-xs text-slate-500">{d.bookings ? `${d.bookings} booking${d.bookings === 1 ? "" : "s"} · ${d.guests} guests` : "No bookings"}</span>
             </button>
           ))}
-          <label className="flex shrink-0 items-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 px-3 text-sm text-slate-600">
+          <label className="flex shrink-0 items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-3 text-sm text-slate-600">
             Other day
             <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="min-h-9 w-40 py-1" />
           </label>
@@ -228,7 +228,7 @@ function BookingsView() {
               return (
                 <li key={r.id} className={cn("flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center", !active && r.status !== "seated" && "opacity-60")}>
                   <div className="w-24 shrink-0">
-                    <p className="text-xl font-bold text-slate-900">{timeLabel(r.time)}</p>
+                    <p className="text-xl font-semibold text-slate-900">{timeLabel(r.time)}</p>
                     {late && <p className="text-xs font-semibold text-red-600">Late</p>}
                   </div>
                   <div className="min-w-0 flex-1">

@@ -290,7 +290,7 @@ export default function HelpPage() {
         <Card key={s.title}>
           <CardHeader title={s.title} description={s.who} />
           <CardContent>
-            <ul className="list-disc space-y-1.5 pl-5 text-[15px] text-slate-700">
+            <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700">
               {s.points.map((p) => (
                 <li key={p}>{p}</li>
               ))}
@@ -300,7 +300,7 @@ export default function HelpPage() {
       ))}
       <Card>
         <CardHeader title="Printing tips" />
-        <CardContent className="space-y-2 text-[15px] text-slate-700">
+        <CardContent className="space-y-2 text-sm text-slate-700">
           <p>Bills and kitchen tickets open in a small window and the print dialog appears by itself. Choose your thermal printer and set margins to “None”.</p>
           <p>On Chrome you can skip the print dialog on a dedicated billing computer by starting Chrome with <code className="rounded bg-slate-100 px-1">--kiosk-printing</code>.</p>
           <p>If your kitchen has no printer, open ⋯ on the order screen and switch off “Print kitchen ticket when sending” on that device, and use the kitchen screen instead.</p>
@@ -308,7 +308,7 @@ export default function HelpPage() {
       </Card>
       <Card>
         <CardHeader title="Install it like an app" />
-        <CardContent className="space-y-2 text-[15px] text-slate-700">
+        <CardContent className="space-y-2 text-sm text-slate-700">
           <p>On a computer (Chrome or Edge): click the install icon at the right of the address bar. It opens in its own window, without browser tabs.</p>
           <p>On Android: open the menu (⋮) → “Add to home screen” / “Install app”. On iPhone or iPad: tap Share → “Add to Home Screen”.</p>
         </CardContent>

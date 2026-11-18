@@ -1,16 +1,20 @@
 @import "tailwindcss";
 
+/* One accent (deep cobalt), used for primary actions and the selected state only.
+   Everything else is neutral, like the back offices of established POS systems. */
 @theme {
-  --color-primary-50: #fff7ed;
-  --color-primary-100: #ffedd5;
-  --color-primary-200: #fed7aa;
-  --color-primary-300: #fdba74;
-  --color-primary-400: #fb923c;
-  --color-primary-500: #f97316;
-  --color-primary-600: #ea580c;
-  --color-primary-700: #c2410c;
-  --color-primary-800: #9a3412;
-  --color-primary-900: #7c2d12;
+  --color-primary-50: #eef3ff;
+  --color-primary-100: #dce6fe;
+  --color-primary-200: #b9cdfd;
+  --color-primary-300: #8eaefb;
+  --color-primary-400: #5f87f6;
+  --color-primary-500: #3b66ec;
+  --color-primary-600: #2a50d6;
+  --color-primary-700: #2341b0;
+  --color-primary-800: #22398d;
+  --color-primary-900: #213370;
+  --color-canvas: #f4f5f7;
+  --color-ink: #111827;
 }
 
 html {
@@ -18,12 +22,14 @@ html {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-canvas text-slate-900 antialiased;
+  /* Amounts, bill numbers and times line up in columns. */
+  font-variant-numeric: tabular-nums;
 }
 
 /* Bigger, clearer focus ring for keyboard users */
 :focus-visible {
-  outline: 3px solid var(--color-primary-300);
+  outline: 2px solid var(--color-primary-500);
   outline-offset: 2px;
 }
 

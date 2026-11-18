@@ -151,7 +151,7 @@ export function WaitlistView({ restaurantName }: { restaurantName: string }) {
               const fits = free.filter((t) => t.seats >= e.guests);
               return (
                 <li key={e.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700">{i + 1}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 font-semibold text-slate-700">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-slate-900">
                       {e.name} · {e.guests} {e.guests === 1 ? "guest" : "guests"}

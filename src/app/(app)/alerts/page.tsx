@@ -64,9 +64,9 @@ function DailyReportCard() {
           <Loading />
         ) : (
           <>
-            <pre className="whitespace-pre-wrap rounded-xl bg-emerald-50 p-4 font-sans text-sm leading-relaxed text-slate-800 ring-1 ring-emerald-100">{report.text}</pre>
+            <pre className="whitespace-pre-wrap rounded-md bg-emerald-50 p-4 font-sans text-sm leading-relaxed text-slate-800 ring-1 ring-emerald-100">{report.text}</pre>
             <div className="flex flex-wrap gap-2">
-              <a href={report.shareLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+              <a href={report.shareLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                 <MessageCircle className="h-4 w-4" /> Send on WhatsApp
               </a>
               <Button variant="outline" loading={sending} onClick={send}>
@@ -125,9 +125,9 @@ export default function AlertsPage() {
           {data.week.length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {data.week.map((w) => (
-                <div key={w.kind} className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
+                <div key={w.kind} className="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{ALERT_KINDS[w.kind]?.label ?? w.kind}</p>
-                  <p className="mt-1 text-xl font-bold text-slate-900">{w.count}</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">{w.count}</p>
                   <p className="text-xs text-slate-500">{w.amount ? `${formatCurrency(w.amount)} · ` : ""}last 7 days</p>
                 </div>
               ))}
@@ -150,7 +150,7 @@ export default function AlertsPage() {
                     <span className={cn("mt-0.5 h-2 w-2 shrink-0 rounded-full", a.readAt ? "bg-transparent" : "bg-primary-600")} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", TONE[a.kind] ?? "bg-slate-100 text-slate-700")}>{a.title}</span>
+                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", TONE[a.kind] ?? "bg-slate-100 text-slate-700")}>{a.title}</span>
                         {a.amount > 0 && <b className="text-sm text-slate-900">{formatCurrency(a.amount)}</b>}
                         <span className="text-xs text-slate-400">{formatDateTime(a.createdAt, tz)}</span>
                       </div>

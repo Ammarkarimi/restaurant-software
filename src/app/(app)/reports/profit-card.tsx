@@ -36,7 +36,7 @@ const CLASS_VARIANT: Record<MenuClass, string> = { star: "success", plowhorse: "
 
 function Line({ l, v, pct, strong, minus }: { l: string; v: number; pct?: number; strong?: boolean; minus?: boolean }) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-4 py-1.5", strong ? "border-t border-slate-200 pt-2 text-base font-bold text-slate-900" : "text-[15px] text-slate-700")}>
+    <div className={cn("flex items-baseline justify-between gap-4 py-1.5", strong ? "border-t border-slate-200 pt-2 text-base font-semibold text-slate-900" : "text-sm text-slate-700")}>
       <span>{l}</span>
       <span className="text-right">
         {minus ? "− " : ""}
@@ -78,7 +78,7 @@ export function ProfitCards({ from, to }: { from: string; to: string }) {
           {p.other.map((o) => (
             <Line key={o.category} l={o.category} v={o.amount} pct={p.revenue ? Math.round((o.amount / p.revenue) * 1000) / 10 : 0} minus />
           ))}
-          <div className={cn("mt-2 flex items-baseline justify-between rounded-xl px-3 py-2 text-lg font-bold", p.net >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>
+          <div className={cn("mt-2 flex items-baseline justify-between rounded-md px-3 py-2 text-lg font-semibold", p.net >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>
             <span>{p.net >= 0 ? "Profit" : "Loss"}</span>
             <span>
               {formatCurrency(Math.abs(p.net))} <span className="text-sm font-semibold">{p.netPercent}%</span>
@@ -88,7 +88,7 @@ export function ProfitCards({ from, to }: { from: string; to: string }) {
             Food bought counts stock received and food expenses (vegetables, groceries, meat, dairy). Supplier payments are not counted again. Rent, gas and other bills count when they are added as expenses.
           </p>
           {p.recipeCost !== null && (
-            <div className={cn("mt-3 rounded-xl border px-3 py-2 text-sm", leak !== null && leak > p.revenue * 0.05 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 text-slate-700")}>
+            <div className={cn("mt-3 rounded-md border px-3 py-2 text-sm", leak !== null && leak > p.revenue * 0.05 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 text-slate-700")}>
               By their recipes, the dishes you sold should have used <b>{formatCurrency(p.recipeCost)}</b> of ingredients ({p.recipePercent}% of income).
               {leak !== null && leak > p.revenue * 0.05 && (
                 <> You bought {formatCurrency(leak)} more than that: stock building up, wastage, missing recipes, or stock going missing. Check the Stock usage report.</>

@@ -201,7 +201,7 @@ function CardDialog({ card, today, restaurant, onClose, onChanged }: { card: Car
           {!txns ? (
             <Loading />
           ) : (
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
               {txns.map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                   <span>

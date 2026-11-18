@@ -206,10 +206,10 @@ function ItemDialog({
         <div className="flex items-center gap-4 sm:col-span-2">
           {(preview || (f.imageUrl && !removePhoto)) && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview ?? f.imageUrl!} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+            <img src={preview ?? f.imageUrl!} alt="" className="h-20 w-20 shrink-0 rounded-md object-cover ring-1 ring-slate-200" />
           )}
           <div className="space-y-1">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               <Camera className="h-4 w-4" /> {f.imageUrl || photo ? "Change photo" : "Add a photo"}
               <input
                 type="file"
@@ -441,7 +441,7 @@ export default function MenuPage() {
               <li>
                 <button
                   onClick={() => setSelected("all")}
-                  className={cn("flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[15px] font-semibold", selected === "all" ? "bg-primary-50 text-primary-700" : "hover:bg-slate-50")}
+                  className={cn("flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-semibold", selected === "all" ? "bg-primary-50 text-primary-700" : "hover:bg-slate-50")}
                 >
                   All dishes <span className="text-sm text-slate-400">{totalItems}</span>
                 </button>
@@ -451,7 +451,7 @@ export default function MenuPage() {
                   <button
                     onClick={() => setSelected(c.id)}
                     className={cn(
-                      "flex min-w-0 flex-1 items-center justify-between rounded-xl px-3 py-2 text-left text-[15px] font-semibold",
+                      "flex min-w-0 flex-1 items-center justify-between rounded-md px-3 py-2 text-left text-sm font-semibold",
                       selected === c.id ? "bg-primary-50 text-primary-700" : "hover:bg-slate-50",
                       !c.active && "text-slate-400"
                     )}

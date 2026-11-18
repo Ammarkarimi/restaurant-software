@@ -181,7 +181,7 @@ function PayDialog({ row, month, onClose, onSaved }: { row: SheetRow; month: str
     }
   }
   const Line = ({ l, v, strong }: { l: string; v: string; strong?: boolean }) => (
-    <div className={`flex justify-between py-1 ${strong ? "border-t border-slate-200 pt-2 text-lg font-bold" : "text-slate-700"}`}>
+    <div className={`flex justify-between py-1 ${strong ? "border-t border-slate-200 pt-2 text-lg font-semibold" : "text-slate-700"}`}>
       <span>{l}</span>
       <span>{v}</span>
     </div>
@@ -226,7 +226,7 @@ function PayDialog({ row, month, onClose, onSaved }: { row: SheetRow; month: str
             <Input value={note} onChange={(ev) => setNote(ev.target.value)} />
           </Field>
         </div>
-        <div className="rounded-xl bg-slate-50 px-4 py-3 text-[15px]">
+        <div className="rounded-md bg-slate-50 px-4 py-3 text-sm">
           <Line l={`Salary for ${pay.payDays} day(s)`} v={formatCurrency(pay.gross)} />
           {pay.bonus > 0 && <Line l="+ Bonus / overtime" v={formatCurrency(pay.bonus)} />}
           {pay.deductions > 0 && <Line l="− Deductions" v={formatCurrency(pay.deductions)} />}

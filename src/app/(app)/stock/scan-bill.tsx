@@ -164,14 +164,14 @@ export function ScanBillDialog({ stock, suppliers, onClose, onSaved }: { stock: 
             {photos.map((p, i) => (
               <div key={i} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.preview} alt={`Bill photo ${i + 1}`} className="h-40 w-32 rounded-xl border border-slate-200 object-cover" />
+                <img src={p.preview} alt={`Bill photo ${i + 1}`} className="h-40 w-32 rounded-md border border-slate-200 object-cover" />
                 <button className="absolute right-1 top-1 rounded-lg bg-white/90 p-1" onClick={() => setPhotos(photos.filter((_, j) => j !== i))} aria-label="Remove photo">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
             {photos.length < 3 && (
-              <button onClick={() => fileRef.current?.click()} className="flex h-40 w-32 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              <button onClick={() => fileRef.current?.click()} className="flex h-40 w-32 flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                 <Camera className="h-6 w-6" /> {photos.length ? "Next page" : "Take photo"}
               </button>
             )}
@@ -199,7 +199,7 @@ export function ScanBillDialog({ stock, suppliers, onClose, onSaved }: { stock: 
             {lines.map((l, i) => {
               const item = stock.find((s) => s.id === l.stockItemId);
               return (
-                <div key={i} className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 p-3">
+                <div key={i} className="flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-3">
                   <div className="w-full text-sm">
                     <b className="text-slate-900">{l.name}</b> <span className="text-slate-500">· {l.billText}</span>
                   </div>

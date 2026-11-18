@@ -27,7 +27,6 @@ import {
   Warehouse,
   X,
 } from "lucide-react";
-import { BRAND, OwlMark } from "@/components/brand";
 import { cn, formatTime, label } from "@/lib/utils";
 import { AppProvider, useApp, type ShellSettings } from "@/components/app-provider";
 import { Button } from "@/components/ui";
@@ -35,22 +34,50 @@ import { OfflineKeeper } from "@/components/offline-keeper";
 import type { SessionUser } from "@/lib/session";
 import { can, type Right } from "@/lib/permissions";
 
-const NAV: Array<{ href: string; label: string; icon: typeof LayoutGrid; hint: string; admin?: boolean; right?: Right }> = [
-  { href: "/", label: "Tables", icon: LayoutGrid, hint: "Take orders & bill" },
-  { href: "/bills", label: "Bills", icon: ReceiptText, hint: "All orders & reprints" },
-  { href: "/reservations", label: "Reservations", icon: CalendarClock, hint: "Table bookings" },
-  { href: "/banquets", label: "Banquets", icon: PartyPopper, hint: "Functions & parties", right: "banquets" },
-  { href: "/menu", label: "Menu", icon: BookOpen, hint: "Dishes & prices" },
-  { href: "/customers", label: "Customers", icon: Users, hint: "Regulars & loyalty", admin: true },
-  { href: "/cash", label: "Cash & expenses", icon: Wallet, hint: "Expenses, day close" },
-  { href: "/gift-cards", label: "Gift cards", icon: Gift, hint: "Sell & check balance" },
-  { href: "/kitchen", label: "Kitchen screen", icon: ChefHat, hint: "Tickets for the cooks" },
-  { href: "/stock", label: "Stock & recipes", icon: Warehouse, hint: "Ingredients, purchases", admin: true },
-  { href: "/salary", label: "Staff salary", icon: HandCoins, hint: "Pay, advances, payslips", admin: true },
-  { href: "/tables", label: "Table setup", icon: Armchair, hint: "Areas & tables", admin: true },
-  { href: "/reports", label: "Reports", icon: BarChart3, hint: "Sales summary", admin: true },
-  { href: "/alerts", label: "Alerts", icon: BellRing, hint: "Leaks & daily report", admin: true },
-  { href: "/settings", label: "Settings", icon: Settings, hint: "Bill design, tax, staff", admin: true },
+type NavItem = { href: string; label: string; icon: typeof LayoutGrid; admin?: boolean; right?: Right };
+
+// Grouped like the back office of other POS systems: the work of the shift first, settings last.
+const NAV: Array<{ group: string | null; items: NavItem[] }> = [
+  {
+    group: null,
+    items: [
+      { href: "/", label: "Tables", icon: LayoutGrid },
+      { href: "/bills", label: "Bills", icon: ReceiptText },
+      { href: "/kitchen", label: "Kitchen screen", icon: ChefHat },
+    ],
+  },
+  {
+    group: "Guests",
+    items: [
+      { href: "/reservations", label: "Reservations", icon: CalendarClock },
+      { href: "/banquets", label: "Banquets", icon: PartyPopper, right: "banquets" },
+      { href: "/customers", label: "Customers", icon: Users, admin: true },
+      { href: "/gift-cards", label: "Gift cards", icon: Gift },
+    ],
+  },
+  {
+    group: "Menu & stock",
+    items: [
+      { href: "/menu", label: "Menu", icon: BookOpen },
+      { href: "/stock", label: "Stock & recipes", icon: Warehouse, admin: true },
+      { href: "/tables", label: "Table setup", icon: Armchair, admin: true },
+    ],
+  },
+  {
+    group: "Money",
+    items: [
+      { href: "/cash", label: "Cash & expenses", icon: Wallet },
+      { href: "/salary", label: "Staff salary", icon: HandCoins, admin: true },
+      { href: "/reports", label: "Reports", icon: BarChart3, admin: true },
+    ],
+  },
+  {
+    group: "Admin",
+    items: [
+      { href: "/alerts", label: "Alerts", icon: BellRing, admin: true },
+      { href: "/settings", label: "Settings", icon: Settings, admin: true },
+    ],
+  },
 ];
 
 const FOOTER_NAV = [
@@ -84,8 +111,8 @@ function ShiftButton() {
     <button
       onClick={toggle}
       className={cn(
-        "mb-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
-        open ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition",
+        open ? "text-emerald-300 hover:bg-white/5" : "text-slate-300 hover:bg-white/5 hover:text-white"
       )}
     >
       <Clock className="h-4 w-4" />
@@ -129,23 +156,50 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     router.refresh();
   }
 
+  const initials = (settings.restaurantName || "R")
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const link = (item: { href: string; label: string; icon: typeof LayoutGrid }) => {
+    const Icon = item.icon;
+    const active = isActive(pathname, item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "group relative flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13.5px] font-medium transition-colors",
+          active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+        )}
+      >
+        {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary-400" aria-hidden />}
+        <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
+        <span className="truncate">{item.label}</span>
+        {item.href === "/alerts" && unread > 0 && (
+          <span className="ml-auto rounded bg-red-500 px-1.5 text-[11px] font-semibold text-white" aria-label={`${unread} new alerts`}>{unread > 99 ? "99+" : unread}</span>
+        )}
+      </Link>
+    );
+  };
+
   return (
-    <div className="flex h-full flex-col bg-white">
-      <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+    <div className="flex h-full flex-col bg-[#0f1218] text-slate-300">
+      <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
         {settings.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={settings.logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-xl object-contain" />
+          <img src={settings.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white object-contain" />
         ) : (
-          <OwlMark className="h-10 w-10 shrink-0" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-600 text-[13px] font-semibold text-white" aria-hidden>{initials}</span>
         )}
-        <div className="min-w-0">
-          <p className="truncate text-base font-bold text-slate-900">{settings.restaurantName}</p>
-          <p className="text-xs text-slate-500">on {BRAND.name}</p>
-        </div>
+        <p className="min-w-0 truncate text-sm font-semibold text-white">{settings.restaurantName}</p>
       </div>
       {settings.outlets && settings.outlets.length > 1 && (
-        <div className="border-b border-slate-100 px-5 py-3">
-          <label htmlFor="outlet" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="px-3 pb-2">
+          <label htmlFor="outlet" className="sr-only">
             Outlet
           </label>
           <select
@@ -155,78 +209,58 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               const res = await fetch("/api/auth/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId: e.target.value }) });
               if (res.ok) window.location.href = "/";
             }}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-primary-500"
+            className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-[13px] font-medium text-slate-200 outline-none focus:border-primary-400"
           >
             {settings.outlets.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
+              <option key={o.id} value={o.id} className="text-slate-900">{o.name}</option>
             ))}
           </select>
         </div>
       )}
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV.filter((n) => (!n.admin || isAdmin) && (!n.right || can(user, n.right))).map((item) => {
-          const Icon = item.icon;
-          const active = isActive(pathname, item.href);
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-3" aria-label="Main">
+        {NAV.map((g) => {
+          const items = g.items.filter((n) => (!n.admin || isAdmin) && (!n.right || can(user, n.right)));
+          if (!items.length) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
-                active ? "bg-primary-50 text-primary-700" : "text-slate-700 hover:bg-slate-50"
-              )}
-            >
-              <Icon className={cn("h-5 w-5 shrink-0", active ? "text-primary-600" : "text-slate-400 group-hover:text-slate-600")} />
-              <span className="min-w-0">
-                <span className="block text-[15px] font-semibold leading-tight">{item.label}</span>
-                <span className="block text-xs text-slate-400">{item.hint}</span>
-              </span>
-              {item.href === "/alerts" && unread > 0 && (
-                <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white" aria-label={`${unread} new alerts`}>{unread > 99 ? "99+" : unread}</span>
-              )}
-            </Link>
+            <div key={g.group ?? "main"} className="mt-3 space-y-0.5 first:mt-1">
+              {g.group && <p className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{g.group}</p>}
+              {items.map(link)}
+            </div>
           );
         })}
-
-        <div className="my-3 border-t border-slate-100" />
-        {FOOTER_NAV.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(pathname, item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
-                active ? "bg-primary-50 text-primary-700" : "text-slate-700 hover:bg-slate-50"
-              )}
-            >
-              <Icon className={cn("h-5 w-5", active ? "text-primary-600" : "text-slate-400")} />
-              <span className="text-[15px] font-semibold">{item.label}</span>
-            </Link>
-          );
-        })}
+        <div className="mt-3 space-y-0.5 border-t border-white/10 pt-3">{FOOTER_NAV.map(link)}</div>
       </nav>
 
-      <div className="border-t border-slate-100 p-4">
-        <div className="mb-3 px-1">
-          <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
-          <p className="text-xs text-slate-500">{label(user.role)}</p>
+      <div className="border-t border-white/10 p-2.5">
+        <div className="flex items-center gap-2.5 px-2 py-1.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white" aria-hidden>
+            {user.name
+              .split(/\s+/)
+              .map((w) => w[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium text-white">{user.name}</p>
+            <p className="truncate text-[11px] text-slate-400">{label(user.role)}</p>
+          </div>
+          <button onClick={handleLogout} className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white" aria-label="Sign out" title="Sign out">
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
         <ShiftButton />
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600"
-        >
-          <LogOut className="h-5 w-5" />
-          Sign out
-        </button>
       </div>
     </div>
   );
+}
+
+/** The current screen's name for the top bar. */
+function pageTitle(pathname: string) {
+  if (pathname.startsWith("/orders")) return "Order";
+  for (const g of NAV) for (const i of g.items) if (isActive(pathname, i.href)) return i.label;
+  return FOOTER_NAV.find((i) => isActive(pathname, i.href))?.label ?? "";
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -236,20 +270,21 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => setMenuOpen(false), [pathname]);
   // The order screen uses the whole width for the menu and the cart.
   const wide = pathname.startsWith("/orders/");
+  const today = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: settings.timezone }).format(new Date());
 
   return (
     <div className="min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-200 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 lg:block">
         <Sidebar />
       </aside>
 
       {menuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMenuOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-80 max-w-[85vw] shadow-2xl">
+          <div className="absolute inset-0 bg-slate-950/50" onClick={() => setMenuOpen(false)} />
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] shadow-2xl">
             <button
               onClick={() => setMenuOpen(false)}
-              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+              className="absolute right-2 top-3.5 z-10 rounded-md p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />
@@ -259,34 +294,39 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div className="lg:pl-64">
-        <header className="no-print sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+      <div className="lg:pl-60">
+        <header className="no-print sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
           <button
             onClick={() => setMenuOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
+            className="-ml-1 rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
-            <span className="hidden sm:inline">Menu</span>
           </button>
-          <p className="truncate text-base font-bold text-slate-900 lg:hidden">{settings.restaurantName}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">
+              <span className="lg:hidden">{settings.restaurantName}</span>
+              <span className="hidden lg:inline">{pageTitle(pathname)}</span>
+            </p>
+          </div>
+          <span className="hidden text-[13px] text-slate-500 md:inline">· {today}</span>
           <div className="ml-auto flex shrink-0 gap-2">
             <Link href="/orders/new?type=takeaway">
-              <Button variant="outline" className="whitespace-nowrap">
-                <ShoppingBag className="h-5 w-5" />
-                <span className="hidden sm:inline">Takeaway</span>
+              <Button variant="outline" size="sm" className="whitespace-nowrap">
+                <ShoppingBag />
+                <span className="hidden sm:inline">New takeaway</span>
               </Button>
             </Link>
             <Link href="/">
-              <Button className="whitespace-nowrap">
-                <LayoutGrid className="h-5 w-5" />
+              <Button size="sm" className="whitespace-nowrap">
+                <LayoutGrid />
                 <span className="hidden sm:inline">Tables</span>
               </Button>
             </Link>
           </div>
         </header>
         {settings.subscriptionNotice && (
-          <div role="status" className="no-print border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 sm:px-6">
+          <div role="status" className="no-print border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] font-medium text-amber-900 sm:px-6">
             {settings.subscriptionNotice}
           </div>
         )}

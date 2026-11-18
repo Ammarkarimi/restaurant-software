@@ -21,11 +21,11 @@ export function OwlMark({ className = "h-10 w-10", title }: { className?: string
   );
 }
 
-/** "RestoOwl" with "Owl" in orange. On dark backgrounds pass dark. */
+/** The product name as a plain wordmark. On dark backgrounds pass dark. */
 export function BrandName({ dark = false, className = "" }: { dark?: boolean; className?: string }) {
   return (
-    <span className={`font-extrabold tracking-tight ${dark ? "text-white" : "text-slate-900"} ${className}`}>
-      Resto<span className={dark ? "text-primary-400" : "text-primary-600"}>Owl</span>
+    <span className={`font-semibold tracking-tight ${dark ? "text-white" : "text-slate-900"} ${className}`}>
+      {BRAND.name}
     </span>
   );
 }

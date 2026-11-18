@@ -143,7 +143,7 @@ export function FeedbackTab() {
                       {f.food ? `Food ${f.food}/5` : ""} {f.service ? `· Service ${f.service}/5` : ""} {f.ambience ? `· Ambience ${f.ambience}/5` : ""}
                     </p>
                   )}
-                  {f.comment && <p className="mt-1 whitespace-pre-line rounded-xl bg-slate-50 px-3 py-2 text-[15px] text-slate-800">“{f.comment}”</p>}
+                  {f.comment && <p className="mt-1 whitespace-pre-line rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800">“{f.comment}”</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   {f.phone && (

@@ -186,7 +186,7 @@ export function ImportDialog({ categories, onClose, onSaved }: { categories: Cat
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                className="flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-8 text-slate-600 transition hover:border-primary-400 hover:bg-primary-50/40"
+                className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 px-4 py-8 text-slate-600 transition hover:border-primary-400 hover:bg-primary-50/40"
               >
                 <Upload className="h-7 w-7 text-primary-600" />
                 <span className="font-semibold">{reading ? "Reading…" : fileName ? `Choose another file (now: ${fileName})` : "Choose your Excel or CSV file"}</span>
@@ -254,14 +254,14 @@ export function ImportDialog({ categories, onClose, onSaved }: { categories: Cat
             Check before adding {preview && <span className="font-normal text-slate-500">· {fresh.length} new{skipped ? `, ${skipped} already on the menu` : ""}</span>}
           </p>
           {!preview ? (
-            <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">The dishes appear here. You can fix a name or price before adding.</p>
+            <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">The dishes appear here. You can fix a name or price before adding.</p>
           ) : (
             <div className="space-y-2">
               {preview.note && <Tip tone="warning">Could not read: {preview.note}</Tip>}
               {preview.errors.map((e) => (
                 <p key={e} className="text-sm text-red-700">{e}</p>
               ))}
-              <ul className="max-h-[26rem] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
+              <ul className="max-h-[26rem] divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
                 {preview.rows.map((r, i) => (
                   <li key={i} className={cn("flex items-center gap-2 px-3 py-1.5 text-sm", r.duplicate && "bg-slate-50 text-slate-400")}>
                     <button

@@ -115,7 +115,7 @@ export default function TableSetupPage() {
             </datalist>
           </form>
           {clashes.length > 0 ? (
-            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <p>
                 <b>
                   {clashes.length === wanted.length ? "All of these names are" : `${clashes.join(", ")} ${clashes.length === 1 ? "is" : "are"}`} already used
@@ -150,9 +150,9 @@ export default function TableSetupPage() {
             <CardHeader title={area} description={`${list.filter((t) => t.active).length} tables · ${list.filter((t) => t.active).reduce((s, t) => s + t.seats, 0)} seats`} />
             <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
               {list.map((t) => (
-                <div key={t.id} className={`flex items-center justify-between gap-1 rounded-xl border px-3 py-2 ${t.active ? "border-slate-200" : "border-dashed border-slate-200 opacity-60"}`}>
+                <div key={t.id} className={`flex items-center justify-between gap-1 rounded-md border px-3 py-2 ${t.active ? "border-slate-200" : "border-dashed border-slate-200 opacity-60"}`}>
                   <span className="min-w-0">
-                    <span className="block font-bold text-slate-900">{t.name}</span>
+                    <span className="block font-semibold text-slate-900">{t.name}</span>
                     <span className="block text-xs text-slate-500">{t.seats} seats {!t.active && <Badge>Hidden</Badge>}</span>
                   </span>
                   <span className="flex shrink-0">

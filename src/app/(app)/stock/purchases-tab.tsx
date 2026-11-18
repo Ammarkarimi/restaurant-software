@@ -248,7 +248,7 @@ function ReceiveDialog({ purchase, onClose, onSaved }: { purchase: Purchase; onC
                 <td className="py-2 text-right">{formatCurrency((Number(l.q) || 0) * (Number(l.r) || 0))}</td>
               </tr>
             ))}
-            <tr className="border-t border-slate-200 font-bold">
+            <tr className="border-t border-slate-200 font-semibold">
               <td className="py-2" colSpan={3}>
                 Bill total
               </td>
@@ -358,7 +358,7 @@ export function PurchasesTab() {
                     </p>
                     <p className="truncate text-sm text-slate-600">{lines.map((l) => `${l.name} ${qty(l.quantity)} ${l.unit}`).join(", ")}</p>
                   </div>
-                  <p className="shrink-0 font-bold text-slate-900">{formatCurrency(p.total)}</p>
+                  <p className="shrink-0 font-semibold text-slate-900">{formatCurrency(p.total)}</p>
                   {p.status === "ordered" && (
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <a href={whatsappLink(phone, purchaseMessage({ number: p.number, lines, notes: p.notes }, restaurantName))} target="_blank" rel="noopener noreferrer">
@@ -497,7 +497,7 @@ function SupplierDialog({ supplier, onClose, onSaved }: { supplier: Supplier | n
           </Field>
         </div>
         {supplier && (
-          <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <div className="space-y-3 rounded-md border border-slate-200 p-4">
             <p className="flex items-center justify-between font-semibold">
               Account
               <span className={cn("text-lg", owed > 0 ? "text-red-700" : "text-emerald-700")}>{owed > 0 ? `You owe ${formatCurrency(owed)}` : owed < 0 ? `Paid ${formatCurrency(-owed)} in advance` : "Nothing owed"}</span>
@@ -521,7 +521,7 @@ function SupplierDialog({ supplier, onClose, onSaved }: { supplier: Supplier | n
               </Button>
             </div>
             {detail && (detail.purchases.length > 0 || detail.payments.length > 0) && (
-              <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 text-sm">
+              <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200 text-sm">
                 {[
                   ...detail.purchases.filter((p) => p.status === "received").map((p) => ({ key: p.id, at: p.receivedOn ?? p.orderedOn, text: `Purchase #${p.number}${p.invoiceNo ? ` · bill ${p.invoiceNo}` : ""}`, amount: p.total, sign: "+" })),
                   ...detail.payments.map((x) => ({ key: x.id, at: x.createdAt, text: `Paid by ${label(x.method)}${x.notes ? ` · ${x.notes}` : ""}`, amount: x.amount, sign: "−" })),
