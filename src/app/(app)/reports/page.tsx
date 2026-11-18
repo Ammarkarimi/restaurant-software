@@ -28,7 +28,7 @@ interface OutletRow {
   expenses: number;
 }
 
-const SERIES = "#2a50d6";
+const SERIES = "#19734b";
 const GRID = "#e2e8f0";
 const AXIS = "#64748b";
 

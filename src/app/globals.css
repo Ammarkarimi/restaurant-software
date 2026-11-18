@@ -1,20 +1,29 @@
 @import "tailwindcss";
 
-/* One accent (deep cobalt), used for primary actions and the selected state only.
-   Everything else is neutral, like the back offices of established POS systems. */
+/* Billspoon: one accent (deep green), used for primary actions and the selected state only;
+   lime is the highlight on dark green. Everything else is neutral. */
 @theme {
-  --color-primary-50: #eef3ff;
-  --color-primary-100: #dce6fe;
-  --color-primary-200: #b9cdfd;
-  --color-primary-300: #8eaefb;
-  --color-primary-400: #5f87f6;
-  --color-primary-500: #3b66ec;
-  --color-primary-600: #2a50d6;
-  --color-primary-700: #2341b0;
-  --color-primary-800: #22398d;
-  --color-primary-900: #213370;
+  --color-primary-50: #edf8f1;
+  --color-primary-100: #d3efdf;
+  --color-primary-200: #a8dec1;
+  --color-primary-300: #72c69c;
+  --color-primary-400: #42aa77;
+  --color-primary-500: #248e5d;
+  --color-primary-600: #19734b;
+  --color-primary-700: #155c3d;
+  --color-primary-800: #134a33;
+  --color-primary-900: #0e3b2a;
+  --color-lime-brand: #c5f06b;
+  --color-forest: #0e3b2a;
+  --color-forest-deep: #0a2a1e;
   --color-canvas: #f4f5f7;
   --color-ink: #111827;
+}
+
+/* Headlines on the public pages. "inline" so the utility reads the font variable that the
+   landing page sets on its own wrapper, not one resolved on :root. */
+@theme inline {
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 html {

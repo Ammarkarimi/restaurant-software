@@ -347,7 +347,7 @@ export default function TablesPage() {
                       key={t.id}
                       href={o ? `/orders/${o.id}` : `/orders/new?type=dine_in&table=${t.id}`}
                       className={cn(
-                        "relative flex aspect-[5/4] flex-col items-center justify-center overflow-hidden rounded-lg border p-2 text-center transition before:absolute before:inset-x-0 before:top-0 before:h-1",
+                        "relative flex min-h-[104px] flex-col items-center justify-center overflow-hidden rounded-lg border px-2 pb-6 pt-4 text-center transition before:absolute before:inset-x-0 before:top-0 before:h-1",
                         STATUS_STYLE[o?.status ?? "free"],
                         booking && "border-violet-300 bg-violet-50/70 before:bg-violet-400"
                       )}

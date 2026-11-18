@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { BrandName } from "@/components/brand";
+import { BrandLockup } from "@/components/brand";
 import { Button, Card, CardContent, Field, Input } from "@/components/ui";
 
 const SHOW_DEMO = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -42,7 +42,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-canvas p-4">
-      <BrandName className="mb-6 text-xl" />
+      <BrandLockup className="mb-6" />
       <Card className="w-full max-w-sm shadow-xs">
         <CardContent className="px-6 py-7 sm:px-7">
           <div className="mb-6">

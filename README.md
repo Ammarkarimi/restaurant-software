@@ -1,4 +1,4 @@
-# RestoOwl — always watching over your restaurant
+# Billspoon — every bill, every table, every rupee
 
 Simple restaurant billing, tables, menu & KOT software.
 
@@ -120,8 +120,9 @@ The owner panel is at <http://localhost:3000/platform> (sign in with the
 ## Landing page and demo enquiries
 
 Visitors who are not signed in see the landing page at `/` (also at `/welcome`): the
-product tour video, every feature, questions and an **Ask for a free demo** form. Staff
-who are signed in go straight to their Tables screen.
+screens of the app (`public/landing/*.webp`, taken from the demo data), every feature,
+questions and a **Book a free demo** form. Staff who are signed in go straight to their
+Tables screen.
 
 Each enquiry appears in the owner panel under **Enquiries** (call, WhatsApp, notes,
 status, **Add as restaurant**). To also get each one by email:
@@ -132,7 +133,7 @@ status, **Add as restaurant**). To also get each one by email:
 3. In the owner panel open **Enquiries → Send a test email**.
 
 Without your own domain, Resend only delivers to the email you signed up with. To send to
-any address, verify a domain in Resend and set `EMAIL_FROM`, e.g. `RestoOwl <hello@yourdomain.com>`.
+any address, verify a domain in Resend and set `EMAIL_FROM`, e.g. `Billspoon <hello@yourdomain.com>`.
 
 ## Owner alerts, AI menu reading and other services
 

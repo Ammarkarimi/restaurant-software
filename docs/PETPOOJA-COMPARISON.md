@@ -1,7 +1,7 @@
-# RestoOwl compared with Petpooja
+# Billspoon compared with Petpooja
 
 Petpooja is one of the most widely used restaurant POS systems in India. This page compares it
-with RestoOwl feature by feature. It shows what we already had, what we added after
+with Billspoon feature by feature. It shows what we already had, what we added after
 the comparison (October 2026), and what we don't do yet, with the reason.
 
 The Petpooja column comes from Petpooja's public product pages and from third-party reviews.
@@ -13,7 +13,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Billing and orders
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Table view with free / running / billed tables | Yes | ✅ |
 | Fast order screen, search, short codes | Yes | ✅ |
@@ -38,7 +38,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Kitchen
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | KOT printing, only new dishes, cancelled items | Yes | ✅ |
 | Station-wise KOT (tandoor, bar, Chinese…) | Yes | 🆕 Each category goes to a station; one ticket per station |
@@ -48,7 +48,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Online orders and guests
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Zomato / Swiggy orders arrive in the POS by themselves | Yes (paid integration) | 🆕 (see below) |
 | App prices, app commission and payout report | Yes (reconciliation) | 🆕 App price list; commission % per app; payout in reports |
@@ -61,7 +61,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Customers and marketing
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Customer database from bills | Yes | ✅ |
 | Loyalty points | Yes | ✅ |
@@ -71,7 +71,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Stock and purchasing
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Raw materials, recipes, automatic stock use | Yes | ✅ |
 | Wastage, stock counts, low-stock alerts | Yes | ✅ |
@@ -83,7 +83,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Staff, reports and business
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Staff roles | Yes | ✅ Owner / manager, cashier / captain, kitchen |
 | Rights per staff member | Yes | 🆕 Discount limit, remove dishes, cancel, reprint, complimentary, pay later, change payment, see sales, expenses |
@@ -110,7 +110,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Added in November 2026
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Zomato / Swiggy orders arriving by themselves | Yes (direct) | 🆕 Through UrbanPiper: orders arrive with a sound, Accept / Food ready / Handed to rider go back to the app, app cancellations sync |
 | Offline billing | Yes (desktop app) | 🆕 In the browser: saved menu, KOT and bill printing, own bill series per counter, automatic sync with the real day and time |
@@ -124,7 +124,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Added later in November 2026
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Payroll | Yes (Petpooja Payroll, add-on) | 🆕 Monthly salary or daily wage, days from shifts, advances taken back, bonus / deductions, payslips, saved as expenses |
 | Central kitchen and stock transfers between outlets | Yes | 🆕 Send stock to another outlet of the same owner; it is added there when received; cancel before it arrives |

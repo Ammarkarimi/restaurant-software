@@ -176,7 +176,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
         )}
       >
-        {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary-400" aria-hidden />}
+        {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-lime-brand" aria-hidden />}
         <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
         <span className="truncate">{item.label}</span>
         {item.href === "/alerts" && unread > 0 && (
@@ -187,13 +187,13 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#0f1218] text-slate-300">
+    <div className="flex h-full flex-col bg-[#0b1d16] text-slate-300">
       <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
         {settings.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={settings.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white object-contain" />
         ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-600 text-[13px] font-semibold text-white" aria-hidden>{initials}</span>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-lime-brand text-[13px] font-semibold text-forest" aria-hidden>{initials}</span>
         )}
         <p className="min-w-0 truncate text-sm font-semibold text-white">{settings.restaurantName}</p>
       </div>

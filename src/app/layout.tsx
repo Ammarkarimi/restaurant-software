@@ -5,16 +5,16 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "RestoOwl", template: "%s · RestoOwl" },
-  description: "RestoOwl — always watching over your restaurant. Simple restaurant billing, tables, menu and KOT software",
-  appleWebApp: { capable: true, title: "RestoOwl", statusBarStyle: "default" },
+  title: { default: "Billspoon", template: "%s · Billspoon" },
+  description: "Billspoon — restaurant billing, KOT, kitchen screen, GST and stock software for India",
+  appleWebApp: { capable: true, title: "Billspoon", statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#111827",
+  themeColor: "#0E3B2A",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
