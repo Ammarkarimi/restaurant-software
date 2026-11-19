@@ -1,7 +1,7 @@
-# RestoOwl compared with Petpooja
+# Billspoon compared with Petpooja
 
 Petpooja is one of the most widely used restaurant POS systems in India. This page compares it
-with RestoOwl feature by feature. It shows what we already had, what we added after
+with Billspoon feature by feature. It shows what we already had, what we added after
 the comparison (October 2026), and what we don't do yet, with the reason.
 
 The Petpooja column comes from Petpooja's public product pages and from third-party reviews.
@@ -13,7 +13,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Billing and orders
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Table view with free / running / billed tables | Yes | ✅ |
 | Fast order screen, search, short codes | Yes | ✅ |
@@ -34,11 +34,11 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 | E-bill on WhatsApp / SMS | Yes | ✅ WhatsApp bill link with UPI QR |
 | Bill design with logo | Yes | ✅ Styles, show / hide every line, live preview, 58 / 80 mm and A4 |
 | Captain / waiter on a phone | Yes (Captain app) | ✅ Same app in the phone's browser |
-| Offline billing when the internet is down | Yes (Windows app) | ❌ |
+| Offline billing when the internet is down | Yes (Windows app) | 🆕 (see below) |
 
 ## Kitchen
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | KOT printing, only new dishes, cancelled items | Yes | ✅ |
 | Station-wise KOT (tandoor, bar, Chinese…) | Yes | 🆕 Each category goes to a station; one ticket per station |
@@ -48,9 +48,9 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Online orders and guests
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
-| Zomato / Swiggy orders arrive in the POS by themselves | Yes (paid integration) | ❌ Entered by hand with the app's order ID |
+| Zomato / Swiggy orders arrive in the POS by themselves | Yes (paid integration) | 🆕 (see below) |
 | App prices, app commission and payout report | Yes (reconciliation) | 🆕 App price list; commission % per app; payout in reports |
 | The restaurant's own online ordering (no commission) | Yes (own website / app, add-on) | 🆕 Ordering link for takeaway and delivery, minimum order, pickup / delivery time, tracking page |
 | QR menu and order from the table (Scan & Order) | Yes | ✅ With waiter call and bill request — 🆕 dish photos, staff-only dishes |
@@ -61,7 +61,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Customers and marketing
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Customer database from bills | Yes | ✅ |
 | Loyalty points | Yes | ✅ |
@@ -71,24 +71,24 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Stock and purchasing
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Raw materials, recipes, automatic stock use | Yes | ✅ |
 | Wastage, stock counts, low-stock alerts | Yes | ✅ |
 | Suppliers (vendors) and what you owe them | Yes | 🆕 |
 | Purchase orders | Yes | 🆕 Send on WhatsApp, receive into stock, part payment |
 | Dish costing / food cost % | Yes | 🆕 Cost and profit per plate from the recipe |
-| Central kitchen and stock transfers between outlets | Yes | ❌ |
-| Purchase invoice scanning | Yes (Petpooja Invoice) | ❌ |
+| Central kitchen and stock transfers between outlets | Yes | 🆕 (see below) |
+| Purchase invoice scanning | Yes (Petpooja Invoice) | 🆕 (see below) |
 
 ## Staff, reports and business
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Staff roles | Yes | ✅ Owner / manager, cashier / captain, kitchen |
 | Rights per staff member | Yes | 🆕 Discount limit, remove dishes, cancel, reprint, complimentary, pay later, change payment, see sales, expenses |
 | Attendance | Yes (Petpooja Payroll) | 🆕 Start / end shift, monthly days and hours |
-| Salary / payroll | Yes (Payroll) | ❌ Salary advances can be recorded as expenses |
+| Salary / payroll | Yes (Payroll) | 🆕 (see below) |
 | Expenses and day-end cash closing | Yes | ✅ — 🆕 day summary on WhatsApp, customer receipts in the drawer count |
 | Reports | 80+ reports | ✅ Sales, hours, weekdays, items, categories, staff, payment modes, sources, GST, expenses, cancellations — 🆕 discounts by staff and offer, complimentary, removed dishes, riders, ratings, customer dues, app payout |
 | Owner dashboard on the phone | Yes (app) | ✅ The same app on the phone |
@@ -110,7 +110,7 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 
 ## Added in November 2026
 
-| Feature | Petpooja | RestoOwl |
+| Feature | Petpooja | Billspoon |
 |---|---|---|
 | Zomato / Swiggy orders arriving by themselves | Yes (direct) | 🆕 Through UrbanPiper: orders arrive with a sound, Accept / Food ready / Handed to rider go back to the app, app cancellations sync |
 | Offline billing | Yes (desktop app) | 🆕 In the browser: saved menu, KOT and bill printing, own bill series per counter, automatic sync with the real day and time |
@@ -122,12 +122,25 @@ Key: ✅ we have it · 🆕 added after this comparison · ➖ partly · ❌ not
 | Daily owner report on WhatsApp | Yes (SMS / app) | 🆕 Sent at day close or 7 am next day |
 | Banquet management | Yes (add-on) | 🆕 Halls, per-plate packages, enquiry → hold → confirmed → invoice, calendar with double-booking check, advances, function sheet, GST invoice |
 
+## Added later in November 2026
+
+| Feature | Petpooja | Billspoon |
+|---|---|---|
+| Payroll | Yes (Petpooja Payroll, add-on) | 🆕 Monthly salary or daily wage, days from shifts, advances taken back, bonus / deductions, payslips, saved as expenses |
+| Central kitchen and stock transfers between outlets | Yes | 🆕 Send stock to another outlet of the same owner; it is added there when received; cancel before it arrives |
+| Purchase invoice scanning | Yes (Petpooja Invoice) | 🆕 Photo of the supplier's bill read by AI, matched to stock items, received into stock |
+| Reorder suggestions | Yes | 🆕 A week's need at recent use plus the warning level, with the usual supplier |
+| Gift cards / vouchers | Through partners | 🆕 Sell, print / WhatsApp, pay all or part of a bill, balance and history, refunds on cancelled bills |
+| Waitlist for walk-ins | Through partners | 🆕 Time waited vs quoted, tables that fit, WhatsApp “table ready”, seat with one tap |
+| Customer-facing display | Yes (hardware) | 🆕 Any second screen or tablet: dishes, total, UPI QR for the exact bill, thank you |
+| Profit & loss | Yes | 🆕 Income before tax, food bought, staff, expenses, profit; recipe food cost against food bought |
+| Menu engineering | Some reports | 🆕 Stars, workhorses, hidden gems and dishes to rethink, by plates sold and margin per plate |
+
 ## Not built yet, and why
 
 | Feature | Why not (yet) |
 |---|---|
 | Automatic printer routing and cash drawer | Browsers can't pick a printer or open a cash drawer by themselves. Needs a small print helper installed on the billing PC |
 | E-invoicing (IRN) and e-way bills | E-invoicing applies only to bills to other businesses (B2B) above ₹5 crore turnover, and e-way bills to moving goods; both need registration with a GST suvidha provider |
-| Central kitchen and transfers between outlets | Useful for chains; each outlet keeps its own stock today |
 | Hindi and regional languages | The screens are written in simple English; translations can be added screen by screen |
-| Payroll | Attendance is there; salary rules vary a lot by restaurant |
+| Statutory payroll (PF, ESI, TDS) | Salaries, advances and payslips are there; PF / ESI / TDS rules depend on the size of the business and are left to the accountant |

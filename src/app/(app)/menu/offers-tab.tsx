@@ -224,7 +224,7 @@ export function OffersTab({ offers, onChanged }: { offers: OfferDTO[]; onChanged
             <Card key={o.id} className={cn("p-4", !o.active && "opacity-60")}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">
+                  <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-900">
                     {o.name}
                     {o.code && <Badge variant="purple">Code {o.code}</Badge>}
                     {!o.active && <Badge>Off</Badge>}

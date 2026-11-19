@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountingCard } from "./accounting-card";
+import { ProfitCards } from "./profit-card";
 import { Ban, Bike, Download, Gift, IndianRupee, Percent, ReceiptText, Star, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button, Card, CardContent, CardHeader, EmptyState, Input, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
@@ -27,7 +28,7 @@ interface OutletRow {
   expenses: number;
 }
 
-const SERIES = "#ea580c";
+const SERIES = "#19734b";
 const GRID = "#e2e8f0";
 const AXIS = "#64748b";
 
@@ -70,7 +71,7 @@ function ColumnChart({ data, xKey, xFormat, height = 240 }: { data: Array<Record
 function ShareRow({ name, value, share, sub }: { name: React.ReactNode; value: string; share: number; sub?: string }) {
   return (
     <li className="py-2">
-      <div className="flex items-center justify-between gap-3 text-[15px]">
+      <div className="flex items-center justify-between gap-3 text-sm">
         <span className="min-w-0 truncate text-slate-800">{name}</span>
         <span className="shrink-0 text-right">
           <b className="text-slate-900">{value}</b>
@@ -139,7 +140,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader title="All your outlets" description={`Paid bills from ${formatDate(from)} to ${formatDate(to)}. The rest of this page is for the outlet you are in.`} />
           <CardContent className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-[15px]">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
                   <th className="py-2 font-semibold">Outlet</th>
@@ -161,7 +162,7 @@ export default function ReportsPage() {
                     <td className="py-2 text-right">{formatCurrency(o.expenses)}</td>
                   </tr>
                 ))}
-                <tr className="font-bold">
+                <tr className="font-semibold">
                   <td className="py-2">All outlets</td>
                   <td className="py-2 text-right">{formatCurrency(outlets.reduce((s, o) => s + o.sales, 0))}</td>
                   <td className="py-2 text-right">{outlets.reduce((s, o) => s + o.bills, 0)}</td>
@@ -322,7 +323,7 @@ export default function ReportsPage() {
                       </>
                     )}
                     {data.complimentary.count > 0 && (
-                      <p className="mt-3 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
+                      <p className="mt-3 flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2 text-sm text-violet-900">
                         <Gift className="h-4 w-4" /> {data.complimentary.count} complimentary bill{data.complimentary.count === 1 ? "" : "s"} worth {formatCurrency(data.complimentary.value)} at menu price
                       </p>
                     )}
@@ -368,7 +369,7 @@ export default function ReportsPage() {
                   <Card>
                     <CardHeader title="Delivery riders" description="Orders, average time on the road and cash collected" />
                     <CardContent>
-                      <ul className="divide-y divide-slate-100 text-[15px]">
+                      <ul className="divide-y divide-slate-100 text-sm">
                         {data.riders.map((r) => (
                           <li key={r.name} className="flex items-center justify-between gap-3 py-2">
                             <span className="flex items-center gap-2 font-semibold">
@@ -386,7 +387,7 @@ export default function ReportsPage() {
                 )}
                 <Card>
                   <CardHeader title="Guests & accounts" />
-                  <CardContent className="space-y-3 text-[15px]">
+                  <CardContent className="space-y-3 text-sm">
                     <p className="flex items-center justify-between">
                       <span className="flex items-center gap-2 text-slate-600">
                         <Star className="h-4 w-4 text-amber-500" /> Guest rating
@@ -429,6 +430,8 @@ export default function ReportsPage() {
                 </Card>
               )}
 
+              <ProfitCards from={from} to={to} />
+
               <AccountingCard from={from} to={to} />
 
               <div className="grid gap-6 lg:grid-cols-2">
@@ -438,7 +441,7 @@ export default function ReportsPage() {
                     {data.taxes.length === 0 ? (
                       <p className="text-slate-500">No tax was charged in this period.</p>
                     ) : (
-                      <table className="w-full text-[15px]">
+                      <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
                             <th className="py-2 font-semibold">Rate</th>
@@ -454,7 +457,7 @@ export default function ReportsPage() {
                               <td className="py-2 text-right">{formatCurrency(t.tax)}</td>
                             </tr>
                           ))}
-                          <tr className="font-bold">
+                          <tr className="font-semibold">
                             <td className="py-2">Total</td>
                             <td className="py-2 text-right">{formatCurrency(data.taxes.reduce((s, t) => s + t.taxable, 0))}</td>
                             <td className="py-2 text-right">{formatCurrency(data.totals.tax)}</td>

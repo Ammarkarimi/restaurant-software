@@ -1,31 +1,39 @@
-// The product's own brand: the RestoOwl owl, name and slogan. A restaurant's own name and logo
+// The product's own brand: Billspoon's name, slogan and mark. A restaurant's own name and logo
 // (from Settings) are separate and shown to its staff and guests.
 
 export const BRAND = {
-  name: "RestoOwl",
-  slogan: "Always watching over your restaurant.",
+  name: "Billspoon",
+  slogan: "Every bill, every table, every rupee.",
+  /** Deep green of the mark and the dark sections; lime is the highlight on it. */
+  ink: "#0E3B2A",
+  lime: "#C5F06B",
 };
 
-/** The owl on an orange tile. Size it with className (h-/w-). */
-export function OwlMark({ className = "h-10 w-10", title }: { className?: string; title?: string }) {
+/**
+ * The mark: a lowercase “b” drawn as a spoon (the handle is the stem, the bowl is the round)
+ * on a deep green tile. Size it with className (h-/w-).
+ */
+export function BrandMark({ className = "h-10 w-10", title, flat = false }: { className?: string; title?: string; flat?: boolean }) {
   return (
     <svg viewBox="0 0 64 64" className={className} role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
-      <rect width="64" height="64" rx="16" fill="#EA580C" />
-      <path d="M14 23 L17 9 L26 17 Q32 15 38 17 L47 9 L50 23 Q55 31 52.5 41 Q48.5 55 32 56.5 Q15.5 55 11.5 41 Q9 31 14 23 Z" fill="#fff" />
-      <circle cx="24" cy="33" r="7.5" fill="#0F172A" />
-      <circle cx="40" cy="33" r="7.5" fill="#0F172A" />
-      <circle cx="26.2" cy="30.8" r="2.4" fill="#fff" />
-      <circle cx="42.2" cy="30.8" r="2.4" fill="#fff" />
-      <path d="M28.5 40.5 H35.5 L32 46 Z" fill="#F59E0B" />
+      {!flat && <rect width="64" height="64" rx="15" fill={BRAND.ink} />}
+      <rect x="18" y="10" width="8.5" height="38" rx="4.25" fill={BRAND.lime} />
+      <ellipse cx="35.5" cy="40" rx="12.25" ry="11.25" fill="none" stroke={BRAND.lime} strokeWidth="7.5" />
     </svg>
   );
 }
 
-/** "RestoOwl" with "Owl" in orange. On dark backgrounds pass dark. */
+/** The product name as a wordmark. On dark backgrounds pass dark. */
 export function BrandName({ dark = false, className = "" }: { dark?: boolean; className?: string }) {
+  return <span className={`font-semibold tracking-tight ${dark ? "text-white" : "text-slate-900"} ${className}`}>{BRAND.name}</span>;
+}
+
+/** Mark and name together, as used in headers. */
+export function BrandLockup({ dark = false, className = "", markClassName = "h-8 w-8" }: { dark?: boolean; className?: string; markClassName?: string }) {
   return (
-    <span className={`font-extrabold tracking-tight ${dark ? "text-white" : "text-slate-900"} ${className}`}>
-      Resto<span className={dark ? "text-primary-400" : "text-primary-600"}>Owl</span>
+    <span className={`inline-flex items-center gap-2 ${className}`}>
+      <BrandMark className={`${markClassName} shrink-0`} />
+      <BrandName dark={dark} className="text-lg" />
     </span>
   );
 }

@@ -42,6 +42,8 @@ interface Summary {
   received: Array<{ method: string; amount: number; count: number }>;
   cashBanquet: number;
   banquet: Array<{ method: string; amount: number; count: number }>;
+  cashGiftCards: number;
+  giftCards: Array<{ method: string; amount: number; count: number }>;
   openingCash: number;
   expectedCash: number;
   runningOrders: number;
@@ -83,6 +85,7 @@ function daySummaryText(s: Summary, restaurantName: string, date: string, expect
     s.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount)}`).join(" · "),
     s.cashReceived > 0 ? `Received on customer accounts (cash) ${formatCurrency(s.cashReceived)}` : "",
     s.banquet.length ? `Banquet payments ${s.banquet.map((b) => `${label(b.method)} ${formatCurrency(b.amount)}`).join(" · ")}` : "",
+    s.giftCards.length ? `Gift cards sold ${s.giftCards.map((b) => `${label(b.method)} ${formatCurrency(b.amount)}`).join(" · ")}` : "",
     `Expenses ${formatCurrency(s.expensesTotal)}${s.cashExpenses ? ` (${formatCurrency(s.cashExpenses)} cash)` : ""}`,
     `Discounts ${formatCurrency(s.discount)}${s.complimentary.count ? ` · ${s.complimentary.count} complimentary (${formatCurrency(s.complimentary.value)})` : ""}${s.cancelled ? ` · ${s.cancelled} cancelled` : ""}`,
     s.close
@@ -225,7 +228,7 @@ function ExpensesTab() {
           </div>
           {byDay.map(([day, list]) => (
             <div key={day}>
-              <p className="bg-slate-50 px-5 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <p className="bg-slate-50 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {formatDate(day)} · {formatCurrency(list.reduce((s, e) => s + e.amount, 0))}
               </p>
               <ul className="divide-y divide-slate-100">
@@ -292,7 +295,7 @@ function NoteCounter({ onUse, onClose }: { onUse: (total: number) => void; onClo
           </Field>
         ))}
       </div>
-      <p className="mt-4 text-lg font-bold">Total: {formatCurrency(total)}</p>
+      <p className="mt-4 text-lg font-semibold">Total: {formatCurrency(total)}</p>
     </Modal>
   );
 }
@@ -321,7 +324,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
   }, [date, fill, toast]);
 
   if (!s) return <Loading />;
-  const expected = Math.round(((Number(opening) || 0) + s.cashSales + s.cashReceived + s.cashBanquet - s.cashExpenses) * 100) / 100;
+  const expected = Math.round(((Number(opening) || 0) + s.cashSales + s.cashReceived + s.cashBanquet + s.cashGiftCards - s.cashExpenses) * 100) / 100;
   const diff = counted === "" ? null : Math.round(((Number(counted) || 0) - expected) * 100) / 100;
 
   async function close() {
@@ -391,10 +394,11 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
             <Field label="Cash in the drawer when the day started" hint={s.previousClose && !s.close ? `Left in the drawer on ${formatDate(s.previousClose.date)}` : undefined}>
               <Input type="number" min={0} step="0.01" value={opening} onChange={(e) => setOpening(e.target.value)} />
             </Field>
-            <div className="rounded-xl bg-slate-50 px-4 py-2">
+            <div className="rounded-md bg-slate-50 px-4 py-2">
               <Row label="+ Cash sales">{formatCurrency(s.cashSales)}</Row>
               {s.cashReceived > 0 && <Row label="+ Cash received on customer accounts">{formatCurrency(s.cashReceived)}</Row>}
               {s.cashBanquet !== 0 && <Row label="+ Banquet cash (advances, payments)">{formatCurrency(s.cashBanquet)}</Row>}
+              {s.cashGiftCards !== 0 && <Row label="+ Gift cards sold for cash">{formatCurrency(s.cashGiftCards)}</Row>}
               <Row label="− Cash expenses">{formatCurrency(s.cashExpenses)}</Row>
               <Row label="Should be in the drawer" strong>
                 {formatCurrency(expected)}
@@ -409,7 +413,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
               </Button>
             </div>
             {diff !== null && (
-              <div className={cn("rounded-xl px-4 py-3 text-lg font-bold", diff === 0 ? "bg-emerald-50 text-emerald-800" : diff < 0 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-900")}>
+              <div className={cn("rounded-md px-4 py-3 text-lg font-semibold", diff === 0 ? "bg-emerald-50 text-emerald-800" : diff < 0 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-900")}>
                 {diff === 0 ? "Cash matches." : diff < 0 ? `${formatCurrency(-diff)} short` : `${formatCurrency(diff)} extra`}
               </div>
             )}
@@ -461,6 +465,16 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
                   ))}
                 </div>
               )}
+              {s.giftCards.length > 0 && (
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-sm font-semibold text-slate-600">Gift cards sold (not sales until spent)</p>
+                  {s.giftCards.map((r) => (
+                    <Row key={r.method} label={`${label(r.method)} (${r.count})`}>
+                      {formatCurrency(r.amount)}
+                    </Row>
+                  ))}
+                </div>
+              )}
               <p className="mt-2 text-sm text-slate-500">
                 Discounts {formatCurrency(s.discount)}
                 {s.complimentary.count > 0 && ` · ${s.complimentary.count} complimentary (${formatCurrency(s.complimentary.value)})`} · Tax {formatCurrency(s.tax)}
@@ -476,7 +490,7 @@ function DayCloseTab({ date, setDate }: { date: string; setDate: (d: string) => 
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {s.expenses.map((e) => (
-                    <li key={e.id} className="flex justify-between gap-3 py-1.5 text-[15px]">
+                    <li key={e.id} className="flex justify-between gap-3 py-1.5 text-sm">
                       <span>
                         {e.category}
                         {e.paidTo && <span className="text-slate-500"> · {e.paidTo}</span>}
@@ -526,7 +540,7 @@ function HistoryTab({ onOpen }: { onOpen: (date: string) => void }) {
   if (rows.length === 0) return <EmptyState icon={<Lock className="h-6 w-6" />} title="No days closed yet" description="Close the day on the Day close tab at the end of each day." />;
   return (
     <Card className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-[15px]">
+      <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
             <th className="px-5 py-2 font-semibold">Day</th>

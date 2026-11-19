@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { BRAND, BrandName, OwlMark } from "@/components/brand";
+import { BrandLockup } from "@/components/brand";
 import { Button, Card, CardContent, Field, Input } from "@/components/ui";
 
 const SHOW_DEMO = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -41,15 +41,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 p-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardContent className="px-6 py-8 sm:px-8">
-          <div className="mb-8 text-center">
-            <OwlMark className="mx-auto mb-3 h-16 w-16" />
-            <BrandName className="text-2xl" />
-            <p className="mt-0.5 text-sm text-slate-500">{BRAND.slogan}</p>
-            <h1 className="mt-6 text-xl font-bold text-slate-900">Welcome back</h1>
-            <p className="mt-1 text-[15px] text-slate-500">Sign in to your restaurant</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas p-4">
+      <BrandLockup className="mb-6" />
+      <Card className="w-full max-w-sm shadow-xs">
+        <CardContent className="px-6 py-7 sm:px-7">
+          <div className="mb-6">
+            <h1 className="text-lg font-semibold text-slate-900">Sign in</h1>
+            <p className="mt-1 text-sm text-slate-500">to your restaurant&apos;s billing and back office</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,26 +68,26 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-700"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 hover:text-slate-700"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </Field>
 
-            {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>}
+            {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{error}</div>}
 
-            <Button type="submit" size="lg" className="w-full" loading={loading}>
+            <Button type="submit" className="w-full" loading={loading}>
               Sign in
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">Forgot your password? Ask the restaurant owner to reset it in Settings → Staff. Owners can ask their software provider.</p>
+          <p className="mt-5 text-[13px] text-slate-500">Forgot your password? Ask the restaurant owner to reset it in Settings → Staff. Owners can ask their software provider.</p>
 
           {SHOW_DEMO && (
-            <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-              <p className="mb-1 font-semibold text-slate-800">Demo accounts</p>
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-600">
+              <p className="mb-1 font-medium text-slate-800">Demo accounts</p>
               <button type="button" className="block hover:underline" onClick={() => { setEmail("owner@spicegarden.test"); setPassword("owner123"); }}>
                 Owner: owner@spicegarden.test / owner123
               </button>

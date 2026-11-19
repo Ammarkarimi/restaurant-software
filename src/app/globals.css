@@ -1,16 +1,29 @@
 @import "tailwindcss";
 
+/* Billspoon: one accent (deep green), used for primary actions and the selected state only;
+   lime is the highlight on dark green. Everything else is neutral. */
 @theme {
-  --color-primary-50: #fff7ed;
-  --color-primary-100: #ffedd5;
-  --color-primary-200: #fed7aa;
-  --color-primary-300: #fdba74;
-  --color-primary-400: #fb923c;
-  --color-primary-500: #f97316;
-  --color-primary-600: #ea580c;
-  --color-primary-700: #c2410c;
-  --color-primary-800: #9a3412;
-  --color-primary-900: #7c2d12;
+  --color-primary-50: #edf8f1;
+  --color-primary-100: #d3efdf;
+  --color-primary-200: #a8dec1;
+  --color-primary-300: #72c69c;
+  --color-primary-400: #42aa77;
+  --color-primary-500: #248e5d;
+  --color-primary-600: #19734b;
+  --color-primary-700: #155c3d;
+  --color-primary-800: #134a33;
+  --color-primary-900: #0e3b2a;
+  --color-lime-brand: #c5f06b;
+  --color-forest: #0e3b2a;
+  --color-forest-deep: #0a2a1e;
+  --color-canvas: #f4f5f7;
+  --color-ink: #111827;
+}
+
+/* Headlines on the public pages. "inline" so the utility reads the font variable that the
+   landing page sets on its own wrapper, not one resolved on :root. */
+@theme inline {
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 html {
@@ -18,12 +31,14 @@ html {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-canvas text-slate-900 antialiased;
+  /* Amounts, bill numbers and times line up in columns. */
+  font-variant-numeric: tabular-nums;
 }
 
 /* Bigger, clearer focus ring for keyboard users */
 :focus-visible {
-  outline: 3px solid var(--color-primary-300);
+  outline: 2px solid var(--color-primary-500);
   outline-offset: 2px;
 }
 

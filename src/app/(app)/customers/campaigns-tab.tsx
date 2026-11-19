@@ -99,7 +99,7 @@ function NewCampaignDialog({ onClose, onCreated }: { onClose: () => void; onCrea
           <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={1000} />
         </Field>
         {message.trim() && (
-          <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
+          <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
             <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Preview</p>
             <p className="whitespace-pre-line">{personalise(message, { name: "Priya Sharma", points: 120, balance: 0 }, settings.currency)}</p>
           </div>
@@ -141,7 +141,7 @@ function SendView({ id, onClose }: { id: string; onClose: () => void }) {
               </Button>
             </a>
           </div>
-          <ul className="max-h-[55vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
+          <ul className="max-h-[55vh] divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
             {c.recipients.map((r) => (
               <li key={r.customerId} className="flex items-center gap-3 px-3 py-2">
                 <span className="min-w-0 flex-1">

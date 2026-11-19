@@ -327,10 +327,10 @@ export default function BanquetEventPage({ params }: { params: Promise<{ id: str
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Link href="/banquets" className="flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-primary-700"><ArrowLeft className="h-4 w-4" /> Banquets</Link>
-        <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold text-slate-900">
+        <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold text-slate-900">
           {isNew ? "New booking" : `${event?.title || event?.eventType} · #${event?.number}`}
           {event && <StatusChip status={event.status} />}
-          {event?.invoiceNumber && <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-bold text-sky-800">Invoice {event.invoiceNumber}</span>}
+          {event?.invoiceNumber && <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-800">Invoice {event.invoiceNumber}</span>}
         </h1>
       </div>
       {event?.status === "cancelled" && <Tip tone="danger">Cancelled{event.cancelReason ? `: ${event.cancelReason}` : ""}.{event.paid > 0 ? ` ${formatCurrency(event.paid)} was paid — record a refund if you return it.` : ""}</Tip>}
@@ -438,11 +438,11 @@ export default function BanquetEventPage({ params }: { params: Promise<{ id: str
                 <p key={l.rate} className="flex justify-between text-slate-600"><span>GST {l.rate}% on {formatCurrency(l.taxable)}</span><span>{formatCurrency(l.tax)}</span></p>
               ))}
               {totals.roundOff !== 0 && <p className="flex justify-between text-slate-500"><span>Round off</span><span>{formatCurrency(totals.roundOff)}</span></p>}
-              <p className="flex justify-between border-t border-slate-100 pt-2 text-lg font-bold"><span>Total</span><span>{formatCurrency(totals.total)}</span></p>
+              <p className="flex justify-between border-t border-slate-100 pt-2 text-lg font-semibold"><span>Total</span><span>{formatCurrency(totals.total)}</span></p>
               {event && (
                 <>
                   <p className="flex justify-between text-emerald-700"><span>Paid</span><span>{formatCurrency(event.paid)}</span></p>
-                  <p className={cn("flex justify-between font-bold", event.balance > 0 ? "text-amber-700" : "text-emerald-700")}><span>{event.balance < 0 ? "To refund" : "Balance"}</span><span>{formatCurrency(Math.abs(event.balance))}</span></p>
+                  <p className={cn("flex justify-between font-semibold", event.balance > 0 ? "text-amber-700" : "text-emerald-700")}><span>{event.balance < 0 ? "To refund" : "Balance"}</span><span>{formatCurrency(Math.abs(event.balance))}</span></p>
                   {dirty && <p className="text-xs text-amber-700">Balance is for the saved booking. Save to update it.</p>}
                 </>
               )}

@@ -129,6 +129,15 @@ function NewRiderDialog({ canSave, onClose, onAdd }: { canSave: boolean; onClose
   );
 }
 
+const CUSTOMER_SCREEN_KEY = "customer-display-counter";
+function readCustomerScreen() {
+  try {
+    return localStorage.getItem(CUSTOMER_SCREEN_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
 function readAutoPrint() {
   try {
     return localStorage.getItem(AUTO_KOT_KEY) !== "off";
@@ -166,7 +175,11 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   const searchRef = useRef<HTMLInputElement>(null);
   const keySeq = useRef(1);
 
-  useEffect(() => setAutoKot(readAutoPrint()), []);
+  const [customerScreen, setCustomerScreen] = useState(false);
+  useEffect(() => {
+    setAutoKot(readAutoPrint());
+    setCustomerScreen(readCustomerScreen());
+  }, []);
   // Happy-hour prices start and stop by the clock.
   useEffect(() => {
     const t = setInterval(() => setClock(Date.now()), 60_000);
@@ -193,6 +206,34 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
   }, [orderId, newOrder?.tableId]);
 
   const editable = !order || order.status === "open" || order.status === "billed";
+
+  // The screen facing the guest (/customer-display) follows the order open at this counter.
+  // A paid bill stays on it a little longer ("Thank you"); anything else clears when the counter leaves.
+  const statusRef = useRef<string | null>(null);
+  statusRef.current = order?.status ?? null;
+  const shownId = order?.id ?? null;
+  useEffect(() => {
+    if (!shownId || !customerScreen) return;
+    const send = (id: string | null) => fetch("/api/display/customer", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: id }), keepalive: true }).catch(() => undefined);
+    send(shownId);
+    // Still here: the screen drops an order the counter stopped sending (closed tab, lost power).
+    const beat = setInterval(() => send(shownId), 20_000);
+    const leave = () => {
+      if (statusRef.current !== "settled") send(null);
+    };
+    // Closing or reloading the page does not unmount React, so clear the screen then too.
+    // Browsers drop ordinary requests while a page unloads; a beacon still goes out.
+    const unload = () => {
+      if (statusRef.current === "settled") return;
+      if (!navigator.sendBeacon?.("/api/display/customer", new Blob([JSON.stringify({ orderId: null })], { type: "application/json" }))) send(null);
+    };
+    window.addEventListener("pagehide", unload);
+    return () => {
+      clearInterval(beat);
+      window.removeEventListener("pagehide", unload);
+      leave();
+    };
+  }, [shownId, customerScreen]);
 
   // A guest we know by phone: show their visits and loyalty points.
   const phone = normalizePhone(order ? order.customerPhone : draftCustomer.customerPhone);
@@ -675,7 +716,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             if (e.key === "Escape") setQuery("");
           }}
           placeholder="Search dish or short code  ( / )"
-          className="min-h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-[15px] outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100"
+          className="min-h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm shadow-xs outline-none focus:border-primary-500 focus:ring-3 focus:ring-primary-500/15"
           aria-label="Search the menu"
         />
       </div>
@@ -686,8 +727,8 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
               key={c.id}
               onClick={() => setCategory(c.id)}
               className={cn(
-                "shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
-                category === c.id ? "bg-primary-600 text-white shadow-sm" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                "shrink-0 rounded-md px-3 py-1.5 text-[13px] font-medium transition",
+                category === c.id ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
               )}
             >
               {c.name}
@@ -713,15 +754,16 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                 onClick={() => pickItem(item)}
                 disabled={!editable}
                 className={cn(
-                  "relative flex min-h-20 flex-col justify-between rounded-xl border bg-white p-2.5 text-left shadow-sm transition active:scale-[0.98]",
+                  "relative flex min-h-20 flex-col justify-between rounded-md border bg-white p-2.5 text-left transition hover:border-slate-300 active:scale-[0.98]",
                   item.available ? "border-slate-200 hover:border-primary-300" : "border-dashed border-slate-200 opacity-50",
+                  inCart > 0 && "border-primary-300 bg-primary-50/50",
                   !editable && "cursor-not-allowed"
                 )}
               >
-                {inCart > 0 && <span className="absolute right-1.5 top-1.5 rounded-full bg-primary-600 px-1.5 text-xs font-bold text-white">{inCart}</span>}
+                {inCart > 0 && <span className="absolute right-1.5 top-1.5 rounded bg-primary-600 px-1.5 text-[11px] font-semibold text-white">{inCart}</span>}
                 <span className="flex items-start gap-1.5 pr-5">
                   <FoodMark type={item.foodType} className="mt-1" />
-                  <span className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900">{item.name}</span>
+                  <span className="line-clamp-2 text-[13.5px] font-medium leading-snug text-slate-900">{item.name}</span>
                 </span>
                 <span className="mt-1 flex items-center justify-between text-sm">
                   <span className="font-semibold text-slate-700">
@@ -754,7 +796,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
     <li key={key} className={cn("flex items-start gap-2 py-1.5", opts.muted && "opacity-50")}>
       <FoodMark type={l.foodType} className="mt-1" />
       <div className="min-w-0 flex-1">
-        <p className={cn("text-[15px] font-semibold leading-snug text-slate-900", opts.muted && "line-through")}>
+        <p className={cn("text-sm font-semibold leading-snug text-slate-900", opts.muted && "line-through")}>
           {l.name}
           {l.variant && <span className="font-normal text-slate-500"> ({l.variant})</span>}
         </p>
@@ -775,7 +817,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
             <button onClick={opts.onMinus} disabled={busy === opts.busyKey} className="rounded-lg border border-slate-200 p-1 hover:bg-slate-50" aria-label="One less">
               {l.quantity === 1 ? <Trash2 className="h-4 w-4 text-red-600" /> : <Minus className="h-4 w-4" />}
             </button>
-            <span className="w-7 text-center font-bold">{l.quantity}</span>
+            <span className="w-7 text-center font-semibold">{l.quantity}</span>
             {opts.onPlus ? (
               <button onClick={opts.onPlus} disabled={busy === opts.busyKey} className="rounded-lg border border-slate-200 p-1 hover:bg-slate-50" aria-label="One more">
                 <Plus className="h-4 w-4" />
@@ -787,16 +829,16 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         ) : (
           <span className="text-sm text-slate-500">× {l.quantity}</span>
         )}
-        <span className="min-w-[4.25rem] text-right text-[15px] font-semibold">{formatCurrency(l.price * l.quantity)}</span>
+        <span className="min-w-[4.25rem] text-right text-sm font-semibold">{formatCurrency(l.price * l.quantity)}</span>
       </div>
     </li>
   );
 
   const orderPanel = (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+    <div className="flex flex-col rounded-lg border border-slate-200 bg-white lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
       <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">
+          <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
             {title}
             {order && <span className="text-sm font-medium text-slate-500">#{order.number}</span>}
             {order && <StatusBadge status={order.status} />}
@@ -930,7 +972,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         )}
         {(unsentItems.length > 0 || cart.length > 0) && (
           <>
-            <p className="pt-3 text-xs font-bold uppercase tracking-wide text-red-600">New — not sent to kitchen</p>
+            <p className="pt-3 text-xs font-semibold uppercase tracking-wide text-red-600">New — not sent to kitchen</p>
             <ul className="divide-y divide-slate-100">
               {unsentItems.map((i) =>
                 lineRow(i.id, i, {
@@ -952,7 +994,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           </>
         )}
         {readyItems.length > 0 && (editable || (order?.status === "settled" && orderType !== "dine_in")) && (
-          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
             <span>
               {readyItems.length} dish{readyItems.length === 1 ? " is" : "es are"} ready in the kitchen
             </span>
@@ -963,7 +1005,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         )}
         {sentItems.length > 0 && (
           <>
-            <p className="pt-3 text-xs font-bold uppercase tracking-wide text-slate-400">Sent to kitchen</p>
+            <p className="pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Sent to kitchen</p>
             <ul className="divide-y divide-slate-100">
               {sentItems.map((i) =>
                 lineRow(i.id, i, {
@@ -1032,18 +1074,18 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           }
         />
         {order?.complimentary && (
-          <div className="mt-2 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-900">
+          <div className="mt-2 flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-900">
             <Gift className="h-4 w-4 shrink-0" /> On the house — {order.discountReason?.replace(/^Complimentary: /, "")}
           </div>
         )}
         {order?.status === "settled" && (
-          <div className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          <div className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             Paid {order.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount)}`).join(" + ") || "(nothing to pay)"}
             {order.billNumber && <> · Bill <b>{order.billNumber}</b></>}
           </div>
         )}
         {order?.status === "cancelled" && (
-          <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">Cancelled: {order.cancelReason}</div>
+          <div className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">Cancelled: {order.cancelReason}</div>
         )}
       </div>
 
@@ -1106,7 +1148,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         <Link href="/" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-slate-800">
           <ArrowLeft className="h-4 w-4" /> Tables
         </Link>
-        <h1 className="text-xl font-bold text-slate-900 lg:hidden">{title}</h1>
+        <h1 className="text-xl font-semibold text-slate-900 lg:hidden">{title}</h1>
         {order?.status === "billed" && <Badge variant="info" className="ml-auto">Bill printed — waiting for payment</Badge>}
       </div>
 
@@ -1378,7 +1420,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                 <Wallet className="h-4 w-4" /> Change payment mode
               </Button>
             )}
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-2.5 text-[15px]">
+            <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-4 py-2.5 text-sm">
               <input
                 type="checkbox"
                 checked={autoKot}
@@ -1393,6 +1435,25 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
                 className="h-4 w-4 accent-primary-600"
               />
               Print kitchen ticket when sending (this device)
+            </label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-4 py-2.5 text-sm">
+              <input
+                type="checkbox"
+                checked={customerScreen}
+                onChange={(e) => {
+                  setCustomerScreen(e.target.checked);
+                  try {
+                    localStorage.setItem(CUSTOMER_SCREEN_KEY, e.target.checked ? "on" : "off");
+                  } catch {
+                    // private mode: the choice lasts until the page closes
+                  }
+                }}
+                className="h-4 w-4 accent-primary-600"
+              />
+              <span>
+                Show orders on the customer screen (this device)
+                <a href="/customer-display" target="_blank" rel="noreferrer" className="ml-1 text-sm font-semibold text-primary-700 underline">open screen</a>
+              </span>
             </label>
             {(editable || (order?.status === "settled" && isAdmin)) && (
               <Button variant="outline" className="justify-start text-red-700" onClick={cancelOrder}>

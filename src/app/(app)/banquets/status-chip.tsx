@@ -10,6 +10,6 @@ export const STATUS_TONE: Record<BanquetStatus, string> = {
 };
 
 export function StatusChip({ status }: { status: BanquetStatus }) {
-  return <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold", STATUS_TONE[status])}>{STATUS_LABEL[status]}</span>;
+  return <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_TONE[status])}>{STATUS_LABEL[status]}</span>;
 }
 

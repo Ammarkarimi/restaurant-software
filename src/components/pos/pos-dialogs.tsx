@@ -71,7 +71,7 @@ export function ItemOptionsDialog({
             <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="One less">
               <Minus className="h-4 w-4" />
             </button>
-            <span className="w-8 text-center text-lg font-bold">{quantity}</span>
+            <span className="w-8 text-center text-lg font-semibold">{quantity}</span>
             <button type="button" onClick={() => setQuantity((q) => Math.min(99, q + 1))} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="One more">
               <Plus className="h-4 w-4" />
             </button>
@@ -96,7 +96,7 @@ export function ItemOptionsDialog({
                     key={v.name}
                     type="button"
                     onClick={() => setVariant(v.name)}
-                    className={cn("flex items-center justify-between rounded-xl border-2 px-3 py-2.5 text-left text-[15px] font-semibold transition", variant === v.name ? "border-primary-500 bg-primary-50" : "border-slate-200 hover:border-primary-300")}
+                    className={cn("flex items-center justify-between rounded-md border-2 px-3 py-2.5 text-left text-sm font-semibold transition", variant === v.name ? "border-primary-500 bg-primary-50" : "border-slate-200 hover:border-primary-300")}
                   >
                     <span>{v.name}</span>
                     <span>
@@ -125,7 +125,7 @@ export function ItemOptionsDialog({
                       key={o.name}
                       type="button"
                       onClick={() => toggle(g, o.name)}
-                      className={cn("flex items-center justify-between gap-2 rounded-xl border-2 px-3 py-2 text-left text-[15px] transition", on ? "border-primary-500 bg-primary-50 font-semibold" : "border-slate-200 hover:border-primary-300")}
+                      className={cn("flex items-center justify-between gap-2 rounded-md border-2 px-3 py-2 text-left text-sm transition", on ? "border-primary-500 bg-primary-50 font-semibold" : "border-slate-200 hover:border-primary-300")}
                     >
                       <span className="flex items-center gap-2">
                         <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center border-2", g.maxSelect === 1 ? "rounded-full" : "rounded", on ? "border-primary-600 bg-primary-600" : "border-slate-300")}>
@@ -335,7 +335,7 @@ export function CustomerDialog({
         {matches.length > 0 && (
           <div className="sm:col-span-2">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Known customers — tap to fill in</p>
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
               {matches.map((c) => (
                 <li key={c.id}>
                   <button type="button" onClick={() => pick(c)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-primary-50">
@@ -450,7 +450,7 @@ export function DiscountDialog({
               const problem = offerProblem(o, { ...offerContext, itemsTotal });
               const applied = currentOfferId === o.id;
               return (
-                <div key={o.id} className={cn("flex items-center gap-3 rounded-xl border px-3 py-2", applied ? "border-emerald-400 bg-emerald-50" : "border-slate-200")}>
+                <div key={o.id} className={cn("flex items-center gap-3 rounded-md border px-3 py-2", applied ? "border-emerald-400 bg-emerald-50" : "border-slate-200")}>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-slate-900">
                       {o.name} <span className="font-normal text-primary-700">· {offerValue(o)}</span>
@@ -458,7 +458,7 @@ export function DiscountDialog({
                     <p className={cn("text-xs", problem ? "text-amber-700" : "text-slate-500")}>{problem ?? (offerRules(o) || "Any bill")}</p>
                   </div>
                   {applied ? (
-                    <span className="text-sm font-bold text-emerald-700">Applied</span>
+                    <span className="text-sm font-semibold text-emerald-700">Applied</span>
                   ) : (
                     <Button size="sm" variant="outline" disabled={!!problem} loading={saving === o.id} onClick={() => run(o.id, () => onApplyOffer({ offerId: o.id }))}>
                       Apply
@@ -729,6 +729,34 @@ interface PayRow {
   reference: string;
 }
 
+/** The code of a gift card paying part of the bill, with its balance once typed in. */
+function GiftCardCode({ value, amount, onChange }: { value: string; amount: number; onChange: (v: string) => void }) {
+  const [info, setInfo] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    const code = value.replace(/[^0-9a-z]/gi, "");
+    if (code.length < 8) {
+      setInfo(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/gift-cards/check?code=${encodeURIComponent(value)}`)
+        .then((r) => r.json())
+        .then((d: { card?: { balance: number }; problem?: string | null; error?: string }) => {
+          if (!d.card) return setInfo({ ok: false, text: d.error ?? "Gift card not found" });
+          if (d.problem) return setInfo({ ok: false, text: d.problem });
+          setInfo(amount > d.card.balance + 0.001 ? { ok: false, text: `Only ${formatCurrency(d.card.balance)} on this card` } : { ok: true, text: `${formatCurrency(d.card.balance)} on this card` });
+        })
+        .catch(() => setInfo(null));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [value, amount]);
+  return (
+    <Field label="Gift card code" className="min-w-44 flex-1" hint={info ? <span className={info.ok ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>{info.text}</span> : "Printed on the card, like GC-7K3M-9Q2P"}>
+      <Input value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} placeholder="GC-XXXX-XXXX" autoCapitalize="characters" />
+    </Field>
+  );
+}
+
 const METHOD_ICONS: Record<string, typeof Banknote> = { cash: Banknote, upi: QrCode, card: CreditCard, account: BookUser };
 
 export function PaymentDialog({
@@ -773,7 +801,7 @@ export function PaymentDialog({
   const [qr, setQr] = useState<string | null>(null);
 
   const quick = [...(initialMethod === "online" ? ["online"] : []), "cash", "upi", "card", ...(account ? ["account"] : [])];
-  const methods = ["cash", "upi", "card", "online", ...(account ? ["account"] : []), "other"];
+  const methods = ["cash", "upi", "card", "online", ...(account ? ["account"] : []), "gift_card", "other"];
   const onAccount = round2(rows.filter((r) => r.method === "account").reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const afterBalance = account ? round2(account.balance - onAccount) : 0;
   const limit = account ? (account.creditLimit ?? (account.canGiveCredit ? Infinity : 0)) : 0;
@@ -843,7 +871,7 @@ export function PaymentDialog({
 
         <div className="space-y-2">
           {rows.map((r, i) => (
-            <div key={i} className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 p-3">
+            <div key={i} className="flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-3">
               <Field label="Paid by" className="w-44">
                 <Select value={r.method} onChange={(e) => setRow(i, { method: e.target.value })}>
                   {[...new Set([...methods, r.method])].map((m) => (
@@ -854,7 +882,8 @@ export function PaymentDialog({
               <Field label="Amount" className="w-36">
                 <Input type="number" min={0} step="0.01" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} />
               </Field>
-              {r.method !== "cash" && r.method !== "account" && (
+              {r.method === "gift_card" && <GiftCardCode value={r.reference} amount={Number(r.amount) || 0} onChange={(v) => setRow(i, { reference: v })} />}
+              {r.method !== "cash" && r.method !== "account" && r.method !== "gift_card" && (
                 <Field label="Reference" optional className="min-w-36 flex-1">
                   <Input value={r.reference} onChange={(e) => setRow(i, { reference: e.target.value })} placeholder="UPI / card ref." />
                 </Field>
@@ -875,12 +904,12 @@ export function PaymentDialog({
           </Button>
         </div>
 
-        <div className={cn("rounded-xl px-4 py-3 text-[15px] font-semibold", Math.abs(left) <= 0.009 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
+        <div className={cn("rounded-md px-4 py-3 text-sm font-semibold", Math.abs(left) <= 0.009 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
           {Math.abs(left) <= 0.009 ? "Payments match the bill." : left > 0 ? `${formatCurrency(left)} still to be paid` : `${formatCurrency(-left)} more than the bill. Reduce an amount.`}
         </div>
 
         {account && onAccount > 0 && (
-          <div className={cn("rounded-xl border px-4 py-3 text-sm", overLimit ? "border-red-200 bg-red-50 text-red-800" : "border-violet-200 bg-violet-50 text-violet-900")}>
+          <div className={cn("rounded-md border px-4 py-3 text-sm", overLimit ? "border-red-200 bg-red-50 text-red-800" : "border-violet-200 bg-violet-50 text-violet-900")}>
             <p className="font-semibold">
               {formatCurrency(onAccount)} goes on {account.name}&apos;s account.
             </p>
@@ -899,7 +928,7 @@ export function PaymentDialog({
         )}
 
         {cashRow && cashDue > 0 && (
-          <div className="rounded-xl border border-slate-200 p-3">
+          <div className="rounded-md border border-slate-200 p-3">
             <p className="mb-2 text-sm font-semibold text-slate-700">Cash received from customer (to work out change)</p>
             <div className="flex flex-wrap items-center gap-2">
               <Input type="number" min={0} step="1" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} className="w-36" placeholder={String(cashDue)} />
@@ -910,7 +939,7 @@ export function PaymentDialog({
               ))}
             </div>
             {change !== null && (
-              <p className={cn("mt-2 text-lg font-bold", change < 0 ? "text-red-700" : "text-emerald-700")}>
+              <p className={cn("mt-2 text-lg font-semibold", change < 0 ? "text-red-700" : "text-emerald-700")}>
                 {change < 0 ? `${formatCurrency(-change)} short` : `Give back ${formatCurrency(change)}`}
               </p>
             )}
@@ -920,7 +949,7 @@ export function PaymentDialog({
         {autoUpi && rows.length === 1 && rows[0].method === "upi" && Math.abs(upiAmount - total) < 0.01 ? (
           <AutoUpiPanel orderId={autoUpi.orderId} amount={total} onPaid={autoUpi.onPaid} />
         ) : qr && (
-          <div className="flex items-center gap-4 rounded-xl border border-slate-200 p-3">
+          <div className="flex items-center gap-4 rounded-md border border-slate-200 p-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qr} alt="UPI QR code" className="h-32 w-32" />
             <div className="text-sm text-slate-600">
@@ -1001,13 +1030,13 @@ export function TransferDialog({
               {all ? "Clear" : "Select all"}
             </Button>
           </div>
-          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+          <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
             {items.map((i) => {
               const n = picked[i.id] ?? 0;
               return (
                 <li key={i.id} className="flex items-center gap-2 px-3 py-2">
                   <FoodMark type={i.foodType} />
-                  <span className="min-w-0 flex-1 text-[15px]">
+                  <span className="min-w-0 flex-1 text-sm">
                     <span className="font-semibold">{i.name}</span>
                     {i.variant && <span className="text-slate-500"> ({i.variant})</span>}
                     <span className="block text-xs text-slate-500">
@@ -1017,7 +1046,7 @@ export function TransferDialog({
                   <button onClick={() => set(i.id, Math.max(0, n - 1))} disabled={n === 0} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40" aria-label={`One less ${i.name}`}>
                     <Minus className="h-4 w-4" />
                   </button>
-                  <span className={cn("w-8 text-center font-bold", n > 0 ? "text-primary-700" : "text-slate-400")}>{n}</span>
+                  <span className={cn("w-8 text-center font-semibold", n > 0 ? "text-primary-700" : "text-slate-400")}>{n}</span>
                   <button onClick={() => set(i.id, Math.min(i.quantity, n + 1))} disabled={n === i.quantity} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40" aria-label={`One more ${i.name}`}>
                     <Plus className="h-4 w-4" />
                   </button>
@@ -1043,11 +1072,11 @@ export function TransferDialog({
                   key={t.id}
                   onClick={() => setTo(t.id)}
                   className={cn(
-                    "rounded-xl border-2 px-2 py-2 text-center transition",
+                    "rounded-md border-2 px-2 py-2 text-center transition",
                     to === t.id ? "border-primary-500 bg-primary-50" : t.order ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white hover:border-primary-300"
                   )}
                 >
-                  <span className="block font-bold text-slate-900">{t.name}</span>
+                  <span className="block font-semibold text-slate-900">{t.name}</span>
                   <span className="block text-xs text-slate-500">{t.order ? `Running · ${formatCurrency(t.order.total)}` : "Free"}</span>
                 </button>
               ))}
@@ -1098,7 +1127,7 @@ function AutoUpiPanel({ orderId, amount, onPaid }: { orderId: string; amount: nu
   }, [qr, orderId, onPaid]);
 
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
       {!qr ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-slate-700">
@@ -1114,11 +1143,11 @@ function AutoUpiPanel({ orderId, amount, onPaid }: { orderId: string; amount: nu
           <div className="text-sm text-slate-700">
             {qr.status === "pending" && (
               <>
-                <p className="text-base font-bold text-slate-900">Scan to pay {formatCurrency(amount)}</p>
+                <p className="text-base font-semibold text-slate-900">Scan to pay {formatCurrency(amount)}</p>
                 <p className="mt-1 flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-600" /> Waiting for payment… the bill closes by itself.</p>
               </>
             )}
-            {qr.status === "paid" && <p className="text-base font-bold text-emerald-700">Paid ✓ Bill closed.</p>}
+            {qr.status === "paid" && <p className="text-base font-semibold text-emerald-700">Paid ✓ Bill closed.</p>}
             {qr.status === "received" && <p className="font-semibold text-amber-700">Payment received, but the bill changed after the QR was made. Take the payment as UPI by hand.</p>}
             {qr.status === "closed" && <p>This QR was closed. Show a new one.</p>}
           </div>

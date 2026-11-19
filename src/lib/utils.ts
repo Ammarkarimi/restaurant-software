@@ -81,7 +81,8 @@ export const ORDER_TYPES = ["dine_in", "takeaway", "delivery"] as const;
 export const ORDER_STATUSES = ["open", "billed", "settled", "cancelled"] as const;
 export const FOOD_TYPES = ["veg", "non_veg", "egg"] as const;
 // "account" = put on the customer's account: they pay later, or it comes out of money they paid in advance.
-export const PAYMENT_METHODS = ["cash", "upi", "card", "online", "account", "other"] as const;
+// "gift_card" = paid with a gift card the guest bought earlier; the reference is the card's code.
+export const PAYMENT_METHODS = ["cash", "upi", "card", "online", "account", "gift_card", "other"] as const;
 // Where a takeaway or delivery order came from. "qr" = a guest ordered from the table QR code.
 // "website" = the restaurant's own online ordering link (or its self-order kiosk).
 export const ORDER_SOURCES = ["counter", "phone", "zomato", "swiggy", "app", "qr", "website"] as const;
@@ -117,6 +118,7 @@ export const LABELS: Record<string, string> = {
   card: "Card",
   online: "Paid online / app",
   account: "Customer account",
+  gift_card: "Gift card",
   bank: "Bank transfer",
   other: "Other",
   // order sources

@@ -245,10 +245,10 @@ function KitchenTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s:
           {stations.length === 0 ? (
             <p className="text-sm text-slate-500">No stations: every dish goes on one kitchen ticket. That is right for most small kitchens.</p>
           ) : (
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-              <li className="flex items-center justify-between px-3 py-2 text-[15px] text-slate-500">Main kitchen <span className="text-xs">for categories without a station</span></li>
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+              <li className="flex items-center justify-between px-3 py-2 text-sm text-slate-500">Main kitchen <span className="text-xs">for categories without a station</span></li>
               {stations.map((st, i) => (
-                <li key={st} className="flex items-center justify-between gap-2 px-3 py-2 text-[15px] font-semibold">
+                <li key={st} className="flex items-center justify-between gap-2 px-3 py-2 text-sm font-semibold">
                   {st}
                   <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setStations(stations.filter((_, j) => j !== i))} aria-label={`Remove ${st}`}>
                     <Trash2 className="h-4 w-4" />
@@ -286,7 +286,7 @@ function KitchenTab({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s:
 function LinkBox({ url, label: text }: { url: string; label: string }) {
   const { toast } = useApp();
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-3 py-2">
       <span className="text-sm font-semibold text-slate-700">{text}</span>
       <code className="min-w-0 flex-1 truncate text-sm text-slate-600">{url}</code>
       <Button
@@ -416,9 +416,9 @@ function RidersCard({ settings, onSaved }: { settings: SettingsDTO; onSaved: (s:
       <CardHeader title="Delivery riders" description="Choose the rider on a delivery order, mark it out for delivery and delivered. Reports show each rider's deliveries and the cash they collected." />
       <CardContent className="space-y-3">
         {riders.length > 0 && (
-          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+          <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
             {riders.map((r, i) => (
-              <li key={r.name} className="flex items-center justify-between gap-2 px-3 py-2 text-[15px]">
+              <li key={r.name} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                 <span>
                   <b>{r.name}</b> {r.phone && <span className="text-slate-500">· {r.phone}</span>}
                 </span>
@@ -537,7 +537,7 @@ function RightsDialog({ staff, onClose, onSave }: { staff: StaffRow; onClose: ()
             <option value="100">Any discount</option>
           </Select>
         </Field>
-        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+        <div className="divide-y divide-slate-100 rounded-md border border-slate-200">
           {RIGHTS.map((r) => (
             <label key={r.key} className="flex cursor-pointer items-start gap-3 px-4 py-3">
               <input type="checkbox" checked={p[r.key]} onChange={(e) => setP({ ...p, [r.key]: e.target.checked })} className="mt-1 h-4 w-4 accent-primary-600" />
@@ -739,7 +739,7 @@ function AttendanceCard() {
           <p className="text-sm text-slate-500">No shifts in this month yet.</p>
         ) : (
           <>
-            <table className="w-full text-[15px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
                   <th className="py-2 font-semibold">Staff</th>

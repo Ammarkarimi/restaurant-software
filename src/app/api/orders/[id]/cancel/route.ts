@@ -9,6 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { todayKey } from "@/lib/dates";
 import { reverseVisit } from "@/lib/customers";
 import { returnStockForOrder } from "@/lib/stock";
+import { refundGiftCards } from "@/lib/gift-cards";
 import { loadOrder, saveTotals, serializeOrder } from "@/lib/orders";
 import { formatCurrency } from "@/lib/utils";
 import { can } from "@/lib/permissions";
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (order.status === "settled") {
         await reverseVisit(tx, order, todayKey(settings.timezone), user.name);
         await returnStockForOrder(tx, order, todayKey(settings.timezone), user.name);
+        await refundGiftCards(tx, order.payments, { orderId: order.id, billNumber: order.billNumber, date: todayKey(settings.timezone), by: user.name });
       }
       return saveTotals(tx, order, {
         status: "cancelled",

@@ -138,9 +138,9 @@ export default function OfflineBillingPage() {
     return (
       <main className="mx-auto max-w-lg p-6 text-center">
         <CloudOff className="mx-auto h-10 w-10 text-slate-400" />
-        <h1 className="mt-3 text-xl font-bold">Offline billing is not ready on this device yet</h1>
+        <h1 className="mt-3 text-xl font-semibold">Offline billing is not ready on this device yet</h1>
         <p className="mt-2 text-slate-600">Open the app once while the internet works and sign in. The menu is then saved on this device, and you can bill here even when the internet goes.</p>
-        <Link href="/" className="mt-4 inline-block rounded-xl bg-orange-600 px-4 py-2 font-semibold text-white">Open the app</Link>
+        <Link href="/" className="mt-4 inline-block rounded-md bg-primary-600 px-4 py-2 font-semibold text-white">Open the app</Link>
       </main>
     );
   }
@@ -211,20 +211,20 @@ export default function OfflineBillingPage() {
         </span>
       </header>
       {message && (
-        <p className="mx-4 mt-3 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm" role="status">
+        <p className="mx-4 mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm" role="status">
           {message}
         </p>
       )}
 
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_400px]">
         <section className="space-y-3">
-          <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
+          <div className="flex items-center gap-2 rounded-md bg-white px-3 py-2 ring-1 ring-slate-200">
             <Search className="h-4 w-4 text-slate-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search dishes or type a short code" className="w-full bg-transparent outline-none" aria-label="Search dishes" />
           </div>
           <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
             {["all", ...categories].map((c) => (
-              <button key={c} onClick={() => setCat(c)} className={cn("shrink-0 rounded-xl px-3 py-1.5 text-sm font-semibold", cat === c ? "bg-orange-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200")}>
+              <button key={c} onClick={() => setCat(c)} className={cn("shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold", cat === c ? "bg-primary-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200")}>
                 {c === "all" ? "All" : c}
               </button>
             ))}
@@ -235,7 +235,7 @@ export default function OfflineBillingPage() {
                 key={item.id}
                 disabled={!item.available}
                 onClick={() => (item.variants.length ? setPick(item) : add(item, null))}
-                className="rounded-xl bg-white p-3 text-left ring-1 ring-slate-200 hover:ring-orange-400 disabled:opacity-40"
+                className="rounded-md bg-white p-3 text-left ring-1 ring-slate-200 hover:ring-primary-400 disabled:opacity-40"
               >
                 <span className="flex items-start gap-1.5">
                   <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-sm border-2", item.foodType === "veg" ? "border-emerald-600" : item.foodType === "egg" ? "border-amber-500" : "border-red-600")} />
@@ -250,7 +250,7 @@ export default function OfflineBillingPage() {
 
         <aside className="space-y-3 lg:sticky lg:top-14 lg:self-start">
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
+            <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-100 p-1 text-sm font-semibold">
               {(["dine_in", "takeaway", "delivery"] as const).map((t) => (
                 <button key={t} onClick={() => setType(t)} className={cn("rounded-lg py-1.5", type === t ? "bg-white shadow-sm" : "text-slate-500")}>
                   {t === "dine_in" ? "Dine-in" : t === "takeaway" ? "Takeaway" : "Delivery"}
@@ -297,16 +297,16 @@ export default function OfflineBillingPage() {
                 {totals.chargesTotal > 0 && (
                   <p className="flex justify-between text-slate-600"><span>Charges</span><span>{m(totals.chargesTotal)}</span></p>
                 )}
-                <p className="flex justify-between text-lg font-bold"><span>Total</span><span>{m(totals.total)}</span></p>
+                <p className="flex justify-between text-lg font-semibold"><span>Total</span><span>{m(totals.total)}</span></p>
               </div>
             )}
             <div className="mt-3 grid gap-2">
-              <button disabled={!lines.length} onClick={() => printHtml(kotHtml(boot, lines, label))} className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold ring-1 ring-slate-300 disabled:opacity-40">
+              <button disabled={!lines.length} onClick={() => printHtml(kotHtml(boot, lines, label))} className="flex items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold ring-1 ring-slate-300 disabled:opacity-40">
                 <Printer className="h-4 w-4" /> Print KOT
               </button>
               <div className="grid grid-cols-3 gap-2">
                 {(["cash", "upi", "card"] as const).map((method) => (
-                  <button key={method} disabled={!lines.length} onClick={() => pay(method)} className="rounded-xl bg-orange-600 px-2 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-40">
+                  <button key={method} disabled={!lines.length} onClick={() => pay(method)} className="rounded-md bg-primary-600 px-2 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-40">
                     Paid by {method.toUpperCase()}
                   </button>
                 ))}
@@ -329,7 +329,7 @@ export default function OfflineBillingPage() {
                           {waiting ? (waiting.error ? `not saved: ${waiting.error}` : "waiting to sync") : `synced · order #${b.orderNumber}`}
                         </span>
                       </span>
-                      <button onClick={() => printHtml(billHtml(boot, b))} className="text-xs font-semibold text-orange-700">Reprint</button>
+                      <button onClick={() => printHtml(billHtml(boot, b))} className="text-xs font-semibold text-primary-700">Reprint</button>
                     </li>
                   );
                 })}
@@ -342,10 +342,10 @@ export default function OfflineBillingPage() {
       {pick && (
         <div className="fixed inset-0 z-20 flex items-end justify-center bg-slate-900/50 sm:items-center" onClick={() => setPick(null)}>
           <div className="w-full max-w-sm rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Choose portion of ${pick.name}`}>
-            <p className="mb-3 font-bold">{pick.name}</p>
+            <p className="mb-3 font-semibold">{pick.name}</p>
             <div className="grid gap-2">
               {pick.variants.map((v) => (
-                <button key={v.name} onClick={() => add(pick, v)} className="flex justify-between rounded-xl px-4 py-2 ring-1 ring-slate-200 hover:ring-orange-400">
+                <button key={v.name} onClick={() => add(pick, v)} className="flex justify-between rounded-md px-4 py-2 ring-1 ring-slate-200 hover:ring-primary-400">
                   <span>{v.name}</span>
                   <b>{m(v.price)}</b>
                 </button>

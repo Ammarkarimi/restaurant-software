@@ -3,7 +3,8 @@ import { round2 } from "./billing";
 import type { FullOrder } from "./orders";
 
 export const STOCK_UNITS = ["kg", "g", "L", "ml", "pcs", "dozen", "pack", "box", "bottle"] as const;
-export const STOCK_ENTRY_TYPES = ["purchase", "used", "returned", "wastage", "count"] as const;
+// transfer_out / transfer_in: sent to or received from another outlet of the same owner.
+export const STOCK_ENTRY_TYPES = ["purchase", "used", "returned", "wastage", "count", "transfer_out", "transfer_in"] as const;
 
 /** Stock amounts keep three decimals (e.g. 0.125 kg). */
 export const round3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
@@ -89,4 +90,15 @@ export function isLow(item: { quantity: number; lowAt: number | null }) {
 
 export function stockValue(items: Array<{ quantity: number; costPerUnit: number; active: boolean }>) {
   return round2(items.filter((i) => i.active).reduce((s, i) => s + Math.max(0, i.quantity) * i.costPerUnit, 0));
+}
+
+/**
+ * How much to order so the item lasts `days` more days and stays above its warning level:
+ * daily use × days + warning level − in stock now. Rounded up to a sensible step for the unit.
+ */
+export function reorderQuantity(item: { quantity: number; lowAt: number | null; unit: string }, dailyUse: number, days = 7): number {
+  const need = Math.max(0, dailyUse) * days + (item.lowAt ?? 0) - Math.max(0, item.quantity);
+  if (need <= 0) return 0;
+  const step = ["g", "ml"].includes(item.unit) ? 100 : ["kg", "L"].includes(item.unit) && need >= 5 ? 1 : ["kg", "L"].includes(item.unit) ? 0.5 : 1;
+  return round3(Math.ceil(need / step - 1e-9) * step);
 }

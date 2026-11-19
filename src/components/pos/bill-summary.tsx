@@ -66,7 +66,7 @@ export function BillSummary({
   const row = "flex items-center justify-between gap-3 py-0.5";
   const manualDiscount = Math.round((totals.discount - totals.pointsDiscount) * 100) / 100;
   return (
-    <div className={cn("text-[15px]", className)}>
+    <div className={cn("text-sm", className)}>
       {folded ? (
         <button type="button" onClick={toggle} className={cn(row, "w-full text-left text-sm text-slate-500 hover:text-slate-800")}>
           <span>
@@ -178,7 +178,7 @@ export function BillSummary({
           <span>{totals.roundOff > 0 ? "+" : "−"} {formatCurrency(Math.abs(totals.roundOff))}</span>
         </div>
       )}
-      <div className={cn(row, "mt-1 border-t border-slate-200 pt-2 text-lg font-bold text-slate-900")}>
+      <div className={cn(row, "mt-1 border-t border-slate-200 pt-2 text-lg font-semibold text-slate-900")}>
         <span>Total</span>
         <span>{formatCurrency(totals.total)}</span>
       </div>

@@ -9,6 +9,8 @@ import { getSettings } from "@/lib/settings";
 import { round2 } from "@/lib/billing";
 import { loadOrder, serializeOrder } from "@/lib/orders";
 import { PAYMENT_METHODS, formatCurrency, label } from "@/lib/utils";
+import { todayKey } from "@/lib/dates";
+import { redeemGiftCards, refundGiftCards } from "@/lib/gift-cards";
 
 const schema = z.object({
   payments: z
@@ -43,6 +45,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (Math.abs(paying - order.total) > 0.01) fail(`The payments must add up to the bill, ${formatCurrency(order.total, settings.currency)}`);
     const before = order.payments.map((p) => `${label(p.method)} ${formatCurrency(p.amount, settings.currency)}`).join(" + ");
     const updated = await prisma.$transaction(async (tx) => {
+      // Gift card money goes back on the old cards first, then the new payments take theirs.
+      const ctx = { orderId: id, billNumber: order.billNumber, date: todayKey(settings.timezone), by: user.name };
+      await refundGiftCards(tx, order.payments, ctx);
+      await redeemGiftCards(tx, body.payments, ctx);
       await tx.payment.deleteMany({ where: { orderId: id } });
       await tx.payment.createMany({
         data: body.payments.map((p) => ({ restaurantId: order.restaurantId, orderId: id, method: p.method, amount: round2(p.amount), reference: p.reference || null, receivedBy: order.payments[0]?.receivedBy ?? user.name, paidAt: order.settledAt ?? new Date() })),

@@ -57,7 +57,7 @@ export async function buildDailyReport(date: string) {
   // One line per value for the WhatsApp template "Daily report for {{1}}, {{2}}: {{3}}".
   const summary = lines.slice(2).join(" · ");
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#0f172a;max-width:560px">
-<h2 style="margin:0 0 4px;color:#ea580c">${escapeHtml(settings.restaurantName)}</h2>
+<h2 style="margin:0 0 4px;color:#19734b">${escapeHtml(settings.restaurantName)}</h2>
 <p style="margin:0 0 14px;color:#475569">Daily report · ${escapeHtml(formatDateKey(date, { weekday: "long" }))}</p>
 <p style="font-size:26px;font-weight:700;margin:0 0 4px">${escapeHtml(c(t.sales))}</p>
 <p style="margin:0 0 14px;color:#475569">${t.bills} bills${t.bills ? ` · average ${escapeHtml(c(t.averageBill))}` : ""}</p>

@@ -128,7 +128,7 @@ function GroupDialog({ initial, categories, onClose, onSaved }: { initial: Group
             </div>
             {f.limit === "n" && <Input className="mt-2 w-32" type="number" min={1} max={50} value={f.max} onChange={(e) => set({ max: e.target.value })} aria-label="Most that can be picked" />}
           </div>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 p-3">
             <input type="checkbox" checked={f.required} onChange={(e) => set({ required: e.target.checked })} className="mt-1 h-4 w-4 accent-primary-600" />
             <span>
               <span className="block font-semibold text-slate-800">The guest must choose</span>
@@ -167,11 +167,11 @@ function GroupDialog({ initial, categories, onClose, onSaved }: { initial: Group
           <p className="mb-1.5 text-sm font-semibold text-slate-700">
             Offer it with these dishes <span className="font-normal text-slate-500">({f.itemIds.length} chosen)</span>
           </p>
-          <div className="max-h-[26rem] space-y-3 overflow-y-auto rounded-xl border border-slate-200 p-3">
+          <div className="max-h-[26rem] space-y-3 overflow-y-auto rounded-md border border-slate-200 p-3">
             {categories.map((c) =>
               c.items.length === 0 ? null : (
                 <div key={c.id}>
-                  <label className="mb-1 flex cursor-pointer items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <label className="mb-1 flex cursor-pointer items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <input type="checkbox" checked={c.items.every((i) => picked.has(i.id))} onChange={() => toggleCategory(c)} className="h-4 w-4 accent-primary-600" />
                     {c.name}
                   </label>
@@ -237,7 +237,7 @@ export function AddonsTab({ groups, categories, onChanged }: { groups: AddonGrou
               <Card key={g.id} className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">
+                    <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-900">
                       {g.name}
                       <Badge variant={g.minSelect > 0 ? "warning" : "default"}>{choiceHint(g)}</Badge>
                     </p>

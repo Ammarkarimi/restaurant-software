@@ -13,6 +13,7 @@ import { activeItems, assertEditable, loadOrder, nextNumber, saveTotals, sendUns
 import { PAYMENT_METHODS, formatCurrency, label } from "./utils";
 import { can } from "./permissions";
 import { changesAfterPrint, raiseAlert } from "./alerts";
+import { redeemGiftCards } from "./gift-cards";
 import type { SessionUser } from "./session";
 
 export const paymentsSchema = z
@@ -59,6 +60,7 @@ export async function settleOrder(user: Who, id: string, payments: z.infer<typeo
   const result = await prisma.$transaction(async (tx) => {
     const kotNumber = await sendUnsentToKitchen(tx, id);
     const billNumber = order.billNumber ?? `${settings.billPrefix}${await nextNumber(tx, "billSeq")}`;
+    await redeemGiftCards(tx, body.payments, { orderId: id, billNumber, date: day, by: user.name });
     if (body.payments.length) {
       await tx.payment.createMany({
         data: body.payments.map((p) => ({ restaurantId: settings.restaurantId, orderId: id, method: p.method, amount: round2(p.amount), reference: p.reference || null, receivedBy: user.name, ...(opts.paidAt && { paidAt: opts.paidAt }) })),

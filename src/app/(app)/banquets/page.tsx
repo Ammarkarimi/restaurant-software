@@ -57,7 +57,7 @@ function EventList({ events }: { events: EventRow[] }) {
             <Link href={`/banquets/${e.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-slate-50">
               <div className="w-24 shrink-0 text-center">
                 <p className="text-xs font-semibold uppercase text-slate-500">{new Date(`${e.date}T00:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", timeZone: "UTC" })}</p>
-                <p className="font-bold text-slate-900">{formatDate(e.date).replace(/ \d{4}$/, "")}</p>
+                <p className="font-semibold text-slate-900">{formatDate(e.date).replace(/ \d{4}$/, "")}</p>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
@@ -69,7 +69,7 @@ function EventList({ events }: { events: EventRow[] }) {
                 </p>
               </div>
               <div className="text-right text-sm">
-                <p className="font-bold text-slate-900">{formatCurrency(e.total)}</p>
+                <p className="font-semibold text-slate-900">{formatCurrency(e.total)}</p>
                 <p className={due > 0 && e.status !== "cancelled" ? "text-amber-700" : "text-emerald-700"}>
                   {e.status === "cancelled" ? (e.paid > 0 ? `${formatCurrency(e.paid)} paid` : "—") : due > 0 ? `${formatCurrency(due)} due` : "Fully paid"}
                 </p>
@@ -108,7 +108,7 @@ function Calendar({ today }: { today: string }) {
     <Card>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <Button size="sm" variant="outline" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Previous month"><ChevronLeft className="h-4 w-4" /></Button>
-        <p className="font-bold text-slate-900">{first.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}</p>
+        <p className="font-semibold text-slate-900">{first.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}</p>
         <Button size="sm" variant="outline" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Next month"><ChevronRight className="h-4 w-4" /></Button>
       </div>
       {!events ? (

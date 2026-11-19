@@ -27,6 +27,7 @@ model Restaurant {
   purchaseSeq          Int                   @default(0) // last purchase order number handed out
   banquetSeq           Int                   @default(0) // last banquet booking number handed out
   banquetInvoiceSeq    Int                   @default(0) // last banquet invoice number handed out (BQ-1, BQ-2…)
+  transferSeq          Int                   @default(0) // last stock transfer number handed out
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   staff                Staff[]
@@ -62,6 +63,13 @@ model Restaurant {
   banquetPackages      BanquetPackage[]
   banquetEvents        BanquetEvent[]
   banquetPayments      BanquetPayment[]
+  employees            Employee[]
+  salaryAdvances       SalaryAdvance[]
+  payslips             Payslip[]
+  giftCards            GiftCard[]
+  giftCardTxns         GiftCardTxn[]
+  waitlist             WaitlistEntry[]
+  stockTransfers       StockTransfer[]
 }
 
 // Money a restaurant paid the software provider for its monthly subscription.
@@ -169,6 +177,9 @@ model RestaurantSettings {
   aggregatorAutoAccept  Boolean    @default(false) // accept and send to the kitchen without a tap at the counter
   urbanpiperUser        String?
   urbanpiperApiKey      String?
+  // Customer display: the order the counter has open, shown on a screen facing the guest
+  displayOrderId        String?
+  displayAt             DateTime?
   updatedAt             DateTime   @updatedAt
   restaurant            Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
@@ -857,4 +868,169 @@ model BanquetPayment {
 
   @@index([restaurantId, date])
   @@index([restaurantId, eventId])
+}
+
+// Someone the restaurant pays a salary to. Not everyone signs in: cooks and helpers often don't,
+// so a sign-in (staffId) is optional; with one, their shifts count their days.
+model Employee {
+  id           String          @id @default(cuid())
+  restaurantId String
+  name         String
+  phone        String?
+  job          String? // Cook, Waiter, Helper, Cashier…
+  staffId      String? // their sign-in, if they have one
+  payType      String          @default("monthly") // monthly (salary for the month), daily (wage per day)
+  salary       Float           @default(0) // per month, or per day for daily wages
+  paidLeaves   Float           @default(0) // days off a month that are still paid
+  joinedOn     String? // "YYYY-MM-DD"
+  active       Boolean         @default(true)
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  advances     SalaryAdvance[]
+  payslips     Payslip[]
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// Money given to an employee before payday. Taken back from their next salary.
+model SalaryAdvance {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  employeeId    String
+  date          String // "YYYY-MM-DD"
+  amount        Float
+  method        String     @default("cash") // cash, upi, bank
+  note          String?
+  payslipId     String? // the salary it was taken back from; null = still to recover
+  expenseId     String? // the expense saved when it was paid out (none for an advance carried over)
+  createdByName String
+  createdAt     DateTime   @default(now())
+  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, employeeId])
+}
+
+// One month's salary paid to one employee.
+model Payslip {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  employeeId    String
+  employeeName  String
+  month         String // "YYYY-MM"
+  payType       String
+  rate          Float // salary per month or wage per day at the time
+  daysWorked    Float
+  paidLeaves    Float
+  payDays       Float
+  gross         Float
+  bonus         Float      @default(0)
+  deductions    Float      @default(0)
+  advances      Float      @default(0) // advances taken back
+  net           Float // paid out
+  method        String     @default("cash")
+  paidOn        String // "YYYY-MM-DD"
+  note          String?
+  expenseId     String? // the expense saved for the money paid
+  createdByName String
+  createdAt     DateTime   @default(now())
+  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month])
+  @@index([restaurantId, month])
+}
+
+// A prepaid card a guest buys (often as a present) and spends on bills later.
+model GiftCard {
+  id             String        @id @default(cuid())
+  restaurantId   String
+  code           String // printed on the card, e.g. GC-7K3M-9Q2P
+  amount         Float // value when sold
+  balance        Float
+  buyerName      String?
+  buyerPhone     String?
+  recipientName  String?
+  message        String?
+  expiresOn      String? // "YYYY-MM-DD"; null = never
+  status         String        @default("active") // active, cancelled
+  soldMethod     String        @default("cash") // how the buyer paid: cash, upi, card
+  soldOn         String // "YYYY-MM-DD"
+  soldByName     String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  txns           GiftCardTxn[]
+  restaurant     Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId, soldOn])
+}
+
+model GiftCardTxn {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  giftCardId    String
+  type          String // sold, redeemed, refund (a paid bill was cancelled or its payment changed), cancelled
+  amount        Float // + adds to the card, − takes from it
+  balance       Float
+  orderId       String?
+  billNumber    String?
+  date          String // "YYYY-MM-DD"
+  createdByName String
+  createdAt     DateTime   @default(now())
+  giftCard      GiftCard   @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, giftCardId])
+  @@index([restaurantId, date])
+}
+
+// Walk-in guests waiting for a table.
+model WaitlistEntry {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  name          String
+  phone         String?
+  guests        Int        @default(2)
+  quotedMins    Int? // wait told to the guest
+  notes         String?
+  status        String     @default("waiting") // waiting, seated, left
+  date          String // business day
+  tableId       String?
+  orderId       String?
+  notifiedAt    DateTime? // told on WhatsApp that their table is ready
+  seatedAt      DateTime?
+  createdByName String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+}
+
+// Stock sent from one outlet (or a central kitchen) to another outlet of the same owner.
+// restaurantId is the sender; the receiver reads it by toRestaurantId.
+model StockTransfer {
+  id             String     @id @default(cuid())
+  restaurantId   String
+  number         Int
+  fromName       String
+  toRestaurantId String
+  toName         String
+  status         String     @default("sent") // sent, received, cancelled
+  lines          String     @default("[]") // JSON [{ "stockItemId", "name", "unit", "quantity", "rate" }]
+  total          Float      @default(0)
+  notes          String?
+  sentOn         String
+  sentByName     String
+  receivedOn     String?
+  receivedByName String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, number])
+  @@index([toRestaurantId, status])
 }

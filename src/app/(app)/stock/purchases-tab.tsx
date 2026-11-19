@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageCircle, PackageCheck, Pencil, Plus, Trash2, Truck, X } from "lucide-react";
+import { Camera, MessageCircle, PackageCheck, Pencil, Plus, Trash2, Truck, X } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, Select, StatCard, Tabs, Textarea, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { FoodMark } from "@/components/food-mark";
@@ -10,6 +10,7 @@ import { parseVariants } from "@/lib/menu";
 import { linesTotal, parsePurchaseLines, purchaseMessage } from "@/lib/purchases";
 import { cn, formatCurrency, formatDate, formatDateTime, label } from "@/lib/utils";
 import type { CategoryDTO, SettingsDTO } from "@/lib/types";
+import { ScanBillDialog } from "./scan-bill";
 
 interface StockOption {
   id: string;
@@ -68,6 +69,22 @@ function NewPurchaseDialog({ stock, suppliers, onClose, onSaved }: { stock: Stoc
   const [lines, setLines] = useState<Array<{ stockItemId: string; quantity: string; rate: string }>>(
     low.length ? low.map((s) => ({ stockItemId: s.id, quantity: "", rate: s.costPerUnit ? String(s.costPerUnit) : "" })) : [{ stockItemId: "", quantity: "", rate: "" }]
   );
+  const [suggested, setSuggested] = useState<Array<{ id: string; name: string; unit: string; quantity: number; rate: number; dailyUse: number; daysLeft: number | null; lastSupplier: string | null }>>([]);
+  // How much to order: a week at the last two weeks' pace, plus the warning level, less what is in stock.
+  useEffect(() => {
+    api<{ suggestions: typeof suggested }>("/api/stock/reorder").then((r) => {
+      setSuggested(r.suggestions);
+      if (!r.suggestions.length) return;
+      setLines((ls) => {
+        const empty = ls.every((l) => !l.quantity);
+        if (!empty) return ls;
+        return r.suggestions.map((x) => ({ stockItemId: x.id, quantity: String(x.quantity), rate: x.rate ? String(x.rate) : "" }));
+      });
+      const usual = r.suggestions.map((x) => x.lastSupplier).find(Boolean);
+      const match = usual && suppliers.find((x) => x.active && x.name === usual);
+      if (match) setSupplierId(match.id);
+    }, () => null);
+  }, [suppliers]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const total = linesTotal(lines.map((l) => ({ quantity: Number(l.quantity) || 0, rate: Number(l.rate) || 0 })));
@@ -95,7 +112,13 @@ function NewPurchaseDialog({ stock, suppliers, onClose, onSaved }: { stock: Stoc
       open
       onClose={onClose}
       title="New purchase order"
-      description={low.length ? `${low.length} item(s) running low are filled in.` : "What to buy, and roughly at what price."}
+      description={
+        suggested.length
+          ? `${suggested.length} item(s) running low are filled in, with enough for about a week at your recent use.`
+          : low.length
+            ? `${low.length} item(s) running low are filled in.`
+            : "What to buy, and roughly at what price."
+      }
       size="xl"
       footer={
         <>
@@ -225,7 +248,7 @@ function ReceiveDialog({ purchase, onClose, onSaved }: { purchase: Purchase; onC
                 <td className="py-2 text-right">{formatCurrency((Number(l.q) || 0) * (Number(l.r) || 0))}</td>
               </tr>
             ))}
-            <tr className="border-t border-slate-200 font-bold">
+            <tr className="border-t border-slate-200 font-semibold">
               <td className="py-2" colSpan={3}>
                 Bill total
               </td>
@@ -262,6 +285,7 @@ export function PurchasesTab() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [creating, setCreating] = useState(false);
   const [receiving, setReceiving] = useState<Purchase | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([api<{ purchases: Purchase[] }>("/api/purchases"), api<{ items: StockOption[] }>("/api/stock"), api<{ suppliers: Supplier[] }>("/api/suppliers")]).then(
@@ -303,9 +327,14 @@ export function PurchasesTab() {
             { value: "all", label: "All" },
           ]}
         />
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="h-5 w-5" /> New purchase order
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setScanning(true)}>
+            <Camera className="h-5 w-5" /> Scan supplier bill
+          </Button>
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="h-5 w-5" /> New purchase order
+          </Button>
+        </div>
       </div>
       {shown.length === 0 ? (
         <EmptyState icon={<Truck className="h-6 w-6" />} title={filter === "ordered" ? "Nothing on order" : "No purchases yet"} description="Make a purchase order, send it to the supplier on WhatsApp, and add it to stock when it arrives." />
@@ -329,7 +358,7 @@ export function PurchasesTab() {
                     </p>
                     <p className="truncate text-sm text-slate-600">{lines.map((l) => `${l.name} ${qty(l.quantity)} ${l.unit}`).join(", ")}</p>
                   </div>
-                  <p className="shrink-0 font-bold text-slate-900">{formatCurrency(p.total)}</p>
+                  <p className="shrink-0 font-semibold text-slate-900">{formatCurrency(p.total)}</p>
                   {p.status === "ordered" && (
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <a href={whatsappLink(phone, purchaseMessage({ number: p.number, lines, notes: p.notes }, restaurantName))} target="_blank" rel="noopener noreferrer">
@@ -350,6 +379,18 @@ export function PurchasesTab() {
             })}
           </ul>
         </Card>
+      )}
+      {scanning && (
+        <ScanBillDialog
+          stock={stock.filter((x) => x.active)}
+          suppliers={suppliers}
+          onClose={() => setScanning(false)}
+          onSaved={() => {
+            setScanning(false);
+            setFilter("received");
+            load();
+          }}
+        />
       )}
       {creating && (
         <NewPurchaseDialog
@@ -456,7 +497,7 @@ function SupplierDialog({ supplier, onClose, onSaved }: { supplier: Supplier | n
           </Field>
         </div>
         {supplier && (
-          <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <div className="space-y-3 rounded-md border border-slate-200 p-4">
             <p className="flex items-center justify-between font-semibold">
               Account
               <span className={cn("text-lg", owed > 0 ? "text-red-700" : "text-emerald-700")}>{owed > 0 ? `You owe ${formatCurrency(owed)}` : owed < 0 ? `Paid ${formatCurrency(-owed)} in advance` : "Nothing owed"}</span>
@@ -480,7 +521,7 @@ function SupplierDialog({ supplier, onClose, onSaved }: { supplier: Supplier | n
               </Button>
             </div>
             {detail && (detail.purchases.length > 0 || detail.payments.length > 0) && (
-              <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 text-sm">
+              <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200 text-sm">
                 {[
                   ...detail.purchases.filter((p) => p.status === "received").map((p) => ({ key: p.id, at: p.receivedOn ?? p.orderedOn, text: `Purchase #${p.number}${p.invoiceNo ? ` · bill ${p.invoiceNo}` : ""}`, amount: p.total, sign: "+" })),
                   ...detail.payments.map((x) => ({ key: x.id, at: x.createdAt, text: `Paid by ${label(x.method)}${x.notes ? ` · ${x.notes}` : ""}`, amount: x.amount, sign: "−" })),

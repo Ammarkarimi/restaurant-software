@@ -12,9 +12,10 @@ import { parseVariants } from "@/lib/menu";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 import type { CategoryDTO } from "@/lib/types";
 import { CostingTab, PurchasesTab, SuppliersTab } from "./purchases-tab";
+import { TransfersTab } from "./transfers-tab";
 
-type Tab = "stock" | "purchases" | "suppliers" | "recipes" | "costing" | "history" | "usage";
-const TAB_LIST: Tab[] = ["stock", "purchases", "suppliers", "recipes", "costing", "history", "usage"];
+type Tab = "stock" | "purchases" | "suppliers" | "transfers" | "recipes" | "costing" | "history" | "usage";
+const TAB_LIST: Tab[] = ["stock", "purchases", "suppliers", "transfers", "recipes", "costing", "history", "usage"];
 
 interface StockItem {
   id: string;
@@ -49,6 +50,8 @@ const ENTRY_LABEL: Record<string, string> = {
   returned: "Bill cancelled",
   wastage: "Wastage",
   count: "Stock count",
+  transfer_out: "Sent to outlet",
+  transfer_in: "From outlet",
 };
 const qty = (n: number) => String(Math.round(n * 1000) / 1000);
 
@@ -286,7 +289,7 @@ function StockTab({ onHistory }: { onHistory: (id: string) => void }) {
                     {i.usedIn ? `In ${i.usedIn} recipe line(s)` : "Not in any recipe"}
                   </p>
                 </div>
-                <p className={cn("text-xl font-bold lg:w-36 lg:text-right", i.quantity <= 0 ? "text-red-700" : i.low ? "text-amber-700" : "text-slate-900")}>
+                <p className={cn("text-xl font-semibold lg:w-36 lg:text-right", i.quantity <= 0 ? "text-red-700" : i.low ? "text-amber-700" : "text-slate-900")}>
                   {qty(i.quantity)} <span className="text-sm font-medium text-slate-500">{i.unit}</span>
                 </p>
                 <div className="flex flex-wrap gap-1.5 lg:justify-end">
@@ -369,7 +372,7 @@ function RecipeEditor({ dish, stock, lines, onSaved, onClose }: { dish: Category
       ) : (
         <div className="space-y-2">
           {rows.map((r, i) => (
-            <div key={i} className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 p-3">
+            <div key={i} className="flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-3">
               <Field label="Stock item" className="min-w-44 flex-1">
                 <Select value={r.stockItemId} onChange={(e) => set(i, { stockItemId: e.target.value })}>
                   <option value="">Choose…</option>
@@ -524,7 +527,7 @@ function HistoryTab({ item, setItem }: { item: string; setItem: (id: string) => 
         <Card>
           <ul className="divide-y divide-slate-100">
             {entries.map((e) => (
-              <li key={e.id} className="flex items-center gap-3 px-5 py-2.5 text-[15px]">
+              <li key={e.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold text-slate-900">
                     {e.stockItem.name} <span className="font-normal text-slate-500">· {ENTRY_LABEL[e.type] ?? e.type}</span>
@@ -563,6 +566,7 @@ interface UsageRow {
   used: number;
   wasted: number;
   adjusted: number;
+  transferred: number;
   closing: number;
   purchaseCost: number;
   usedValue: number;
@@ -613,7 +617,7 @@ function UsageTab() {
           </div>
           <Card className="overflow-x-auto">
             <CardContent className="p-0">
-              <table className="w-full min-w-[720px] text-[15px]">
+              <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
                     <th className="px-5 py-2 font-semibold">Item</th>
@@ -622,6 +626,7 @@ function UsageTab() {
                     <th className="py-2 text-right font-semibold">Used</th>
                     <th className="py-2 text-right font-semibold">Wasted</th>
                     <th className="py-2 text-right font-semibold">Count diff.</th>
+                    <th className="py-2 text-right font-semibold">Transfers</th>
                     <th className="px-5 py-2 text-right font-semibold">Closing</th>
                   </tr>
                 </thead>
@@ -636,7 +641,8 @@ function UsageTab() {
                       <td className="py-2 text-right">{r.used ? qty(r.used) : "—"}</td>
                       <td className="py-2 text-right text-red-700">{r.wasted ? qty(r.wasted) : "—"}</td>
                       <td className="py-2 text-right">{r.adjusted ? `${r.adjusted > 0 ? "+" : ""}${qty(r.adjusted)}` : "—"}</td>
-                      <td className="px-5 py-2 text-right font-bold">{qty(r.closing)}</td>
+                      <td className="py-2 text-right">{r.transferred ? `${r.transferred > 0 ? "+" : ""}${qty(r.transferred)}` : "—"}</td>
+                      <td className="px-5 py-2 text-right font-semibold">{qty(r.closing)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -670,6 +676,7 @@ function StockView() {
           { value: "stock", label: "Stock" },
           { value: "purchases", label: "Purchase orders" },
           { value: "suppliers", label: "Suppliers" },
+          { value: "transfers", label: "Outlet transfers" },
           { value: "recipes", label: "Recipes" },
           { value: "costing", label: "Dish costing" },
           { value: "history", label: "History" },
@@ -686,6 +693,7 @@ function StockView() {
       )}
       {tab === "purchases" && <PurchasesTab />}
       {tab === "suppliers" && <SuppliersTab />}
+      {tab === "transfers" && <TransfersTab />}
       {tab === "recipes" && <RecipesTab />}
       {tab === "costing" && <CostingTab />}
       {tab === "history" && <HistoryTab item={historyItem} setItem={setHistoryItem} />}

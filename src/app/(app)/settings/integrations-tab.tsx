@@ -80,7 +80,7 @@ export function IntegrationsTab({ settings, onSaved }: { settings: SettingsDTO; 
               <Input type="password" autoComplete="off" value={rzp.secret} onChange={(e) => setRzp({ ...rzp, secret: e.target.value.trim() })} placeholder={settings.razorpayConnected ? "••••••••" : ""} />
             </Field>
           </div>
-          <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+          <div className="space-y-2 rounded-md bg-slate-50 p-3">
             <p className="text-sm font-semibold text-slate-700">Webhook (recommended, so payments show in a second)</p>
             <p className="text-sm text-slate-600">
               In Razorpay → <b>Webhooks</b> → Add new: paste this address, choose the event <b>qr_code.credited</b>, and type any secret. Put the same secret here.

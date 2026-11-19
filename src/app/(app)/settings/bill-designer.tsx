@@ -15,7 +15,7 @@ import { sampleBill } from "@/lib/sample-bill";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3 border-t border-slate-100 pt-4 first:border-0 first:pt-0">
-      <p className="text-sm font-bold uppercase tracking-wide text-slate-500">{title}</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</p>
       {children}
     </div>
   );
@@ -25,7 +25,7 @@ function Checks({ t, set, items }: { t: BillTemplate; set: (p: Partial<BillTempl
   return (
     <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
       {items.map(([key, text]) => (
-        <label key={key} className="flex cursor-pointer items-center gap-2.5 text-[15px] text-slate-700">
+        <label key={key} className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700">
           <input type="checkbox" checked={Boolean(t[key])} onChange={(e) => set({ [key]: e.target.checked } as Partial<BillTemplate>)} className="h-4 w-4 accent-primary-600" />
           {text}
         </label>
@@ -122,7 +122,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
                 key={p.id}
                 type="button"
                 onClick={() => setT({ ...DEFAULT_BILL_TEMPLATE, ...p.template, headerText: t.headerText, footerText: p.template.footerText ?? t.footerText })}
-                className="rounded-xl border border-slate-200 p-3 text-left transition hover:border-primary-300 hover:bg-primary-50/50"
+                className="rounded-md border border-slate-200 p-3 text-left transition hover:border-primary-300 hover:bg-primary-50/50"
               >
                 <p className="font-semibold text-slate-900">{p.name}</p>
                 <p className="text-sm text-slate-500">{p.description}</p>
@@ -136,7 +136,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
           <CardContent className="space-y-5">
             <Section title="Logo">
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex h-20 w-32 items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50">
+                <div className="flex h-20 w-32 items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50">
                   {settings.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={settings.logoUrl} alt="Your logo" className="max-h-16 max-w-28 object-contain" />
@@ -262,12 +262,12 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               <Field label="Thank-you message" optional hint="Several lines are fine: offers, Instagram handle, Wi-Fi password…">
                 <Textarea rows={3} value={t.footerText} onChange={(e) => set({ footerText: e.target.value })} maxLength={300} />
               </Field>
-              <Checks t={t} set={set} items={[["showPoweredBy", "“Powered by RestoOwl” line"]]} />
+              <Checks t={t} set={set} items={[["showPoweredBy", "“Powered by Billspoon” line"]]} />
             </Section>
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border">
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
           <Button size="lg" loading={saving} disabled={!changed} onClick={save}>
             Save bill design
           </Button>
@@ -295,7 +295,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
             <div className="flex gap-2">
               <Choice value={previewPaid ? "paid" : "unpaid"} onChange={(v) => setPreviewPaid(v === "paid")} options={[["unpaid", "Before payment"], ["paid", "After payment"]]} />
             </div>
-            <div className="max-h-[75vh] overflow-auto rounded-xl bg-slate-100 p-4">
+            <div className="max-h-[75vh] overflow-auto rounded-md bg-slate-100 p-4">
               <div className="bill-preview mx-auto w-fit bg-white p-2 shadow-md" style={t.paperSize === "a4" ? { zoom: 0.5 } : undefined}>
                 <BillView template={t} profile={settings} bill={bill} logoUrl={settings.logoUrl} qrDataUrl={qr} upiId={upiId || null} timezone={settings.timezone} />
               </div>

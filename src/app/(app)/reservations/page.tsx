@@ -10,6 +10,8 @@ import { addDays } from "@/lib/dates";
 import { minutesOf, timeLabel } from "@/lib/reservations";
 import { cn, formatDate, label } from "@/lib/utils";
 import type { TableDTO } from "@/lib/types";
+import { Tabs } from "@/components/ui";
+import { WaitlistView } from "./waitlist";
 
 interface Reservation {
   id: string;
@@ -121,7 +123,7 @@ function BookingDialog({ initial, tables, onClose, onSaved }: { initial: Form; t
   );
 }
 
-export default function ReservationsPage() {
+function BookingsView() {
   const router = useRouter();
   const { toast, confirm, settings } = useApp();
   const [date, setDate] = useState(settings.today);
@@ -200,13 +202,13 @@ export default function ReservationsPage() {
             <button
               key={d.date}
               onClick={() => setDate(d.date)}
-              className={cn("min-w-28 shrink-0 rounded-2xl border-2 px-3 py-2 text-left transition", date === d.date ? "border-primary-500 bg-primary-50" : "border-slate-200 bg-white hover:border-primary-300")}
+              className={cn("min-w-28 shrink-0 rounded-lg border-2 px-3 py-2 text-left transition", date === d.date ? "border-primary-500 bg-primary-50" : "border-slate-200 bg-white hover:border-primary-300")}
             >
-              <span className="block text-sm font-bold text-slate-900">{d.date === data.today ? "Today" : d.date === addDays(data.today, 1) ? "Tomorrow" : formatDate(d.date).replace(/ \d{4}$/, "")}</span>
+              <span className="block text-sm font-semibold text-slate-900">{d.date === data.today ? "Today" : d.date === addDays(data.today, 1) ? "Tomorrow" : formatDate(d.date).replace(/ \d{4}$/, "")}</span>
               <span className="block text-xs text-slate-500">{d.bookings ? `${d.bookings} booking${d.bookings === 1 ? "" : "s"} · ${d.guests} guests` : "No bookings"}</span>
             </button>
           ))}
-          <label className="flex shrink-0 items-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 px-3 text-sm text-slate-600">
+          <label className="flex shrink-0 items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-3 text-sm text-slate-600">
             Other day
             <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="min-h-9 w-40 py-1" />
           </label>
@@ -226,7 +228,7 @@ export default function ReservationsPage() {
               return (
                 <li key={r.id} className={cn("flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center", !active && r.status !== "seated" && "opacity-60")}>
                   <div className="w-24 shrink-0">
-                    <p className="text-xl font-bold text-slate-900">{timeLabel(r.time)}</p>
+                    <p className="text-xl font-semibold text-slate-900">{timeLabel(r.time)}</p>
                     {late && <p className="text-xs font-semibold text-red-600">Late</p>}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -312,6 +314,35 @@ export default function ReservationsPage() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+type View = "bookings" | "waitlist";
+
+export default function ReservationsPage() {
+  const { settings } = useApp();
+  const [view, setView] = useState<View>("bookings");
+  const [waiting, setWaiting] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "waitlist") setView("waitlist");
+    api<{ entries: Array<{ status: string }> }>("/api/waitlist").then((r) => setWaiting(r.entries.filter((e) => e.status === "waiting").length || undefined), () => null);
+  }, [view]);
+  const change = (v: View) => {
+    setView(v);
+    window.history.replaceState(null, "", v === "waitlist" ? "/reservations?view=waitlist" : "/reservations");
+  };
+  return (
+    <div className="space-y-4">
+      <Tabs<View>
+        value={view}
+        onChange={change}
+        tabs={[
+          { value: "bookings", label: "Bookings" },
+          { value: "waitlist", label: "Walk-in waitlist", count: waiting },
+        ]}
+      />
+      {view === "bookings" ? <BookingsView /> : <WaitlistView restaurantName={settings.restaurantName} />}
     </div>
   );
 }

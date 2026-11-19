@@ -119,12 +119,12 @@ function AccountPanel({ customer, upiId, onChanged }: { customer: Customer; upiI
   const reminder = `Hello${customer.name ? ` ${customer.name}` : ""}, this is ${settings.restaurantName}. ${formatCurrency(owes)} is due on your account.${upiId ? ` You can pay by UPI to ${upiId}.` : ""} Thank you!`;
 
   return (
-    <div className="space-y-4 rounded-xl border border-slate-200 p-4">
+    <div className="space-y-4 rounded-md border border-slate-200 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-semibold text-slate-900">
           <BookUser className="h-4 w-4 text-violet-600" /> Account (pay later & wallet)
         </p>
-        <p className={cn("text-lg font-bold", customer.balance < 0 ? "text-red-700" : customer.balance > 0 ? "text-violet-700" : "text-slate-600")}>
+        <p className={cn("text-lg font-semibold", customer.balance < 0 ? "text-red-700" : customer.balance > 0 ? "text-violet-700" : "text-slate-600")}>
           {customer.balance < 0 ? `Owes ${formatCurrency(owes)}` : customer.balance > 0 ? `Wallet ${formatCurrency(customer.balance)}` : "Nothing owed"}
         </p>
       </div>
@@ -162,7 +162,7 @@ function AccountPanel({ customer, upiId, onChanged }: { customer: Customer; upiI
       {txns && txns.length > 0 && (
         <details>
           <summary className="cursor-pointer text-sm font-semibold text-slate-600">Account history ({txns.length})</summary>
-          <ul className="mt-2 max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 text-sm">
+          <ul className="mt-2 max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200 text-sm">
             {txns.map((t) => (
               <li key={t.id} className="flex items-start justify-between gap-3 px-3 py-2">
                 <span className="min-w-0">
@@ -302,7 +302,7 @@ function CustomerDetail({ id, upiId, onClose, onChanged }: { id: string; upiId: 
               onChanged();
             }}
           />
-          <div className="rounded-xl border border-slate-200 p-4">
+          <div className="rounded-md border border-slate-200 p-4">
             <p className="flex items-center gap-2 font-semibold text-slate-900">
               <Gift className="h-4 w-4 text-emerald-600" /> Loyalty points: {c.points}
             </p>
@@ -323,7 +323,7 @@ function CustomerDetail({ id, upiId, onClose, onChanged }: { id: string; upiId: 
             {data.orders.length === 0 ? (
               <p className="text-sm text-slate-500">No paid bills yet.</p>
             ) : (
-              <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
                 {data.orders.map((o) => (
                   <li key={o.id}>
                     <Link href={`/orders/${o.id}`} className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">

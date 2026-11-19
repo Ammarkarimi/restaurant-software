@@ -27,6 +27,8 @@ export interface DaySummaryJson {
   received?: Array<{ method: string; amount: number; count: number }>;
   /** Banquet advances and payments (refunds negative), by method. */
   banquet?: Array<{ method: string; amount: number; count: number }>;
+  /** Gift cards sold, by how the buyer paid. Not sales: the sale is when a card pays a bill. */
+  giftCards?: Array<{ method: string; amount: number; count: number }>;
   expenses: Array<{ category: string; amount: number }>;
   discount: number;
   tax: number;
@@ -35,7 +37,7 @@ export interface DaySummaryJson {
 
 /** What happened on one business day: sales by payment mode, expenses, and the cash that should be in the drawer. */
 export async function daySummary(date: string) {
-  const [orders, cancelled, expenses, running, close, previous, receipts, banquetPayments] = await Promise.all([
+  const [orders, cancelled, expenses, running, close, previous, receipts, banquetPayments, giftSold] = await Promise.all([
     prisma.order.findMany({ where: { status: "settled", businessDate: date }, select: { total: true, guests: true, discountAmount: true, subtotal: true, taxAmount: true, complimentary: true, payments: true } }),
     prisma.order.count({ where: { status: "cancelled", businessDate: date } }),
     prisma.expense.findMany({ where: { date }, orderBy: { createdAt: "asc" } }),
@@ -44,7 +46,16 @@ export async function daySummary(date: string) {
     prisma.dayClose.findFirst({ where: { date: { lt: date } }, orderBy: { date: "desc" } }),
     prisma.customerTxn.findMany({ where: { date, type: "received" }, select: { method: true, amount: true } }),
     prisma.banquetPayment.findMany({ where: { date }, select: { method: true, amount: true } }),
+    prisma.giftCard.findMany({ where: { soldOn: date }, select: { soldMethod: true, amount: true } }),
   ]);
+  const giftCards = new Map<string, { method: string; amount: number; count: number }>();
+  for (const g of giftSold) {
+    const m = giftCards.get(g.soldMethod) ?? { method: g.soldMethod, amount: 0, count: 0 };
+    m.amount += g.amount;
+    m.count += 1;
+    giftCards.set(g.soldMethod, m);
+  }
+  const cashGiftCards = round2(giftCards.get("cash")?.amount ?? 0);
   const banquet = new Map<string, { method: string; amount: number; count: number }>();
   for (const p of banquetPayments) {
     const m = banquet.get(p.method) ?? { method: p.method, amount: 0, count: 0 };
@@ -97,10 +108,12 @@ export async function daySummary(date: string) {
     cashReceived,
     banquet: [...banquet.values()].map((m) => ({ ...m, amount: round2(m.amount) })).sort((a, b) => b.amount - a.amount),
     cashBanquet,
+    giftCards: [...giftCards.values()].map((m) => ({ ...m, amount: round2(m.amount) })).sort((a, b) => b.amount - a.amount),
+    cashGiftCards,
     cashSales,
     cashExpenses,
     openingCash,
-    expectedCash: round2(openingCash + cashSales + cashReceived + cashBanquet - cashExpenses),
+    expectedCash: round2(openingCash + cashSales + cashReceived + cashBanquet + cashGiftCards - cashExpenses),
     runningOrders: running,
     close,
     previousClose: previous ? { date: previous.date, cashLeft: previous.cashLeft } : null,

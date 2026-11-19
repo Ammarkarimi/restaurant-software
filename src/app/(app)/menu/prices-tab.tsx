@@ -197,7 +197,7 @@ function ListDialog({ initial, categories, areas, onClose, onSaved }: { initial:
           <Field label="Name" hint="Only staff see it">
             <Input value={f.name} onChange={(e) => set({ name: e.target.value })} maxLength={60} autoFocus />
           </Field>
-          <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <div className="space-y-3 rounded-md border border-slate-200 p-4">
             <p className="font-semibold text-slate-800">When it applies</p>
             <p className="-mt-2 text-sm text-slate-500">Leave a row empty for “any”. Every row you fill must match.</p>
             <div>
@@ -231,7 +231,7 @@ function ListDialog({ initial, categories, areas, onClose, onSaved }: { initial:
           </div>
         </div>
         <div className="space-y-5">
-          <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <div className="space-y-3 rounded-md border border-slate-200 p-4">
             <p className="font-semibold text-slate-800">Change prices by</p>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={f.direction} onChange={(e) => set({ direction: e.target.value as "up" | "down" })} className="w-40" aria-label="Dearer or cheaper">
@@ -260,11 +260,11 @@ function ListDialog({ initial, categories, areas, onClose, onSaved }: { initial:
               </div>
             </div>
           </div>
-          <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <div className="space-y-3 rounded-md border border-slate-200 p-4">
             <p className="font-semibold text-slate-800">Own price for a dish <span className="font-normal text-slate-500">(optional)</span></p>
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search a dish to give it its own price" aria-label="Search a dish" />
             {matches.length > 0 && (
-              <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
                 {matches.map((i) => (
                   <li key={i.id}>
                     <button
@@ -287,7 +287,7 @@ function ListDialog({ initial, categories, areas, onClose, onSaved }: { initial:
               const variants = parseVariants(item.variants);
               const o = f.overrides[id];
               return (
-                <div key={id} className="rounded-xl bg-slate-50 p-2">
+                <div key={id} className="rounded-md bg-slate-50 p-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold">{item.name}</p>
                     <button
@@ -326,7 +326,7 @@ function ListDialog({ initial, categories, areas, onClose, onSaved }: { initial:
           {preview.length > 0 && (
             <div>
               <p className="mb-1.5 text-sm font-semibold text-slate-700">Examples</p>
-              <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
+              <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 text-sm">
                 {preview.map((i) => {
                   const v = parseVariants(i.variants)[0]?.name ?? null;
                   return (
@@ -391,7 +391,7 @@ export function PricesTab({ lists, categories, areas, onChanged }: { lists: Pric
           {lists.map((l, i) => (
             <Card key={l.id} className={cn("flex flex-col gap-3 p-4 sm:flex-row sm:items-center", !l.active && "opacity-60")}>
               <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">
+                <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-900">
                   {l.name}
                   {!l.active && <Badge>Off</Badge>}
                 </p>
