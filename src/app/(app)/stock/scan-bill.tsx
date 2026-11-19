@@ -26,6 +26,8 @@ interface ScanResult {
   invoiceNo: string;
   lines: Array<{ name: string; billQuantity: number; billUnit: string; stockItemId: string | null; quantity: number; rate: number; amount: number }>;
   tax: number;
+  /** GST from the bill spread into the item rates (it is part of what the stock cost). */
+  taxIncluded: number;
   total: number;
   note: string;
 }
@@ -181,6 +183,7 @@ export function ScanBillDialog({ stock, suppliers, onClose, onSaved }: { stock: 
       ) : (
         <div className="space-y-4">
           {result.note && <Tip tone="warning">Could not read everything: {result.note}</Tip>}
+          {result.taxIncluded > 0 && <Tip>The bill&apos;s GST ({formatCurrency(result.taxIncluded)}) is included in the item rates: restaurants on 5% GST can&apos;t claim it back, so it is part of what the stock cost.</Tip>}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Supplier">
               <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>

@@ -61,27 +61,35 @@ const words = (s: string) =>
 /**
  * The stock item a line on a supplier's bill most likely is ("Amul Paneer 1kg" → Paneer), or null
  * when nothing is close enough. Exact names win, then a name inside the other, then shared words.
+ * When two names both appear ("Full Cream Milk" holds Cream and Milk), the later one wins: in
+ * English the thing itself comes last. Then the longer, more specific name.
  */
 export function matchStockItem<T extends { id: string; name: string }>(billName: string, items: T[]): T | null {
   const b = words(billName);
   if (!b.length) return null;
   const joined = b.join(" ");
-  let best: { item: T; score: number } | null = null;
+  let best: { item: T; score: number; end: number } | null = null;
   for (const item of items) {
     const w = words(item.name);
     if (!w.length) continue;
     const name = w.join(" ");
     let score = 0;
+    let end = 0;
+    const at = ` ${joined} `.indexOf(` ${name} `);
     if (name === joined) score = 1;
-    else if (` ${joined} `.includes(` ${name} `)) score = 0.9;
-    else if (` ${name} `.includes(` ${joined} `)) score = 0.8;
+    else if (at >= 0) {
+      score = 0.9;
+      end = at + name.length;
+    } else if (` ${name} `.includes(` ${joined} `)) score = 0.8;
     else {
       const shared = w.filter((x) => b.includes(x) || b.some((y) => (y.length > 3 && x.startsWith(y)) || (x.length > 3 && y.startsWith(x)))).length;
       score = shared / Math.max(w.length, Math.min(b.length, 3));
       if (score < 0.5) score = 0;
       else score *= 0.7;
     }
-    if (score > 0 && (!best || score > best.score || (score === best.score && item.name.length > best.item.name.length))) best = { item, score };
+    if (score <= 0) continue;
+    const better = !best || score > best.score || (score === best.score && (end > best.end || (end === best.end && item.name.length > best.item.name.length)));
+    if (better) best = { item, score, end };
   }
   return best?.item ?? null;
 }

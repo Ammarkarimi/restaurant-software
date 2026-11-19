@@ -69,6 +69,10 @@ test("supplier bill lines find the stock item they are", () => {
   assert.equal(matchStockItem("Chicken boneless", items)?.id, "cb");
   assert.equal(matchStockItem("Fortune Sunflower Refined Oil", items)?.id, "oil");
   assert.equal(matchStockItem("Tomato", items), null);
+  const dairy = [{ id: "cream", name: "Cream" }, { id: "milk", name: "Milk" }, { id: "butter", name: "Butter" }];
+  assert.equal(matchStockItem("Full Cream Milk", dairy)?.id, "milk");
+  assert.equal(matchStockItem("Fresh Cream", dairy)?.id, "cream");
+  assert.equal(matchStockItem("Amul Butter", dairy)?.id, "butter");
   assert.deepEqual(convertQuantity(500, "gm", "kg"), { quantity: 0.5, converted: true });
   assert.deepEqual(convertQuantity(2, "dozen", "pcs"), { quantity: 24, converted: true });
   assert.deepEqual(convertQuantity(3, "Kgs", "kg"), { quantity: 3, converted: false });

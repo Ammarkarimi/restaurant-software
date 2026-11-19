@@ -48,13 +48,18 @@ export async function POST(request: NextRequest) {
       (digits.length === 10 && suppliers.find((s) => s.phone?.replace(/\D/g, "").endsWith(digits))) ||
       (bill.supplier_name && matchStockItem(bill.supplier_name, suppliers)) ||
       null;
-    const lines = bill.lines
-      .filter((l) => l.name.trim() && (l.quantity > 0 || l.amount > 0))
+    const read = bill.lines.filter((l) => l.name.trim() && (l.quantity > 0 || l.amount > 0));
+    const subtotal = read.reduce((sum, l) => sum + (l.amount > 0 ? l.amount : l.rate * (l.quantity > 0 ? l.quantity : 1)), 0);
+    // GST on the bill is part of what the stock cost: a restaurant on 5% GST can't claim it back.
+    // It is shared over the lines in proportion, when the bill's own total confirms it.
+    const tax = bill.tax_total > 0 && subtotal > 0 && (!bill.grand_total || Math.abs(subtotal + bill.tax_total - bill.grand_total) <= Math.max(2, bill.grand_total * 0.01)) ? bill.tax_total : 0;
+    const withTax = subtotal > 0 ? (subtotal + tax) / subtotal : 1;
+    const lines = read
       .map((l) => {
         const item = matchStockItem(l.name, stock);
         const qty = l.quantity > 0 ? l.quantity : 1;
         const conv = item ? convertQuantity(qty, l.unit, item.unit) : { quantity: qty, converted: false };
-        const amount = l.amount > 0 ? l.amount : l.rate * qty;
+        const amount = (l.amount > 0 ? l.amount : l.rate * qty) * withTax;
         return {
           name: l.name.trim().slice(0, 80),
           billQuantity: qty,
@@ -62,7 +67,7 @@ export async function POST(request: NextRequest) {
           stockItemId: item?.id ?? null,
           quantity: conv.quantity,
           // Rate in the stock item's unit, so stock value and dish costs stay right.
-          rate: conv.quantity > 0 ? Math.round((amount / conv.quantity) * 100) / 100 : l.rate,
+          rate: conv.quantity > 0 ? Math.round((amount / conv.quantity) * 10000) / 10000 : l.rate,
           amount: Math.round(amount * 100) / 100,
         };
       });
@@ -72,6 +77,7 @@ export async function POST(request: NextRequest) {
       invoiceDate: /^\d{4}-\d{2}-\d{2}$/.test(bill.invoice_date) ? bill.invoice_date : "",
       lines,
       tax: bill.tax_total,
+      taxIncluded: Math.round(tax * 100) / 100,
       total: bill.grand_total,
       note: bill.unreadable.trim(),
     });
