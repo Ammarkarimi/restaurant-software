@@ -49,3 +49,22 @@ test("bill templates fill in missing or invalid options with defaults", () => {
   assert.equal(t.footerText, DEFAULT_BILL_TEMPLATE.footerText);
   assert.equal("extra" in t, false);
 });
+
+test("two portions with the same name can still be told apart", async () => {
+  const { distinctPortions } = await import("../menu");
+  const perPic = [{ name: "Per Pic", price: 65 }, { name: "Per Pic", price: 70 }];
+  // Imported dishes take the names from the brackets, in menu order.
+  assert.deepEqual(distinctPortions("Naan (Plain/Butter)", perPic), [{ name: "Plain", price: 65 }, { name: "Butter", price: 70 }]);
+  assert.deepEqual(distinctPortions("Fresh Lime (Sweet / Salted)", perPic).map((v) => v.name), ["Sweet", "Salted"]);
+  assert.deepEqual(distinctPortions("Naan", perPic).map((v) => v.name), ["Per Pic", "Per Pic 2"]);
+  assert.deepEqual(distinctPortions("Lassi (Sweet/Salt/Mango)", perPic).map((v) => v.name), ["Per Pic", "Per Pic 2"], "bracket count must match");
+  const halfFull = [{ name: "full", price: 539 }, { name: "half", price: 290 }];
+  assert.equal(distinctPortions("Butter Chicken (Full/Half)", halfFull), halfFull, "distinct names are left alone");
+
+  // Dishes already saved with repeated names: each portion is its own choice with its own price.
+  const saved = { price: 65, variants: JSON.stringify(perPic) };
+  assert.deepEqual(parseVariants(saved.variants).map((v) => v.name), ["Per Pic", "Per Pic 2"]);
+  assert.equal(priceFor(saved, "Per Pic"), 65);
+  assert.equal(priceFor(saved, "Per Pic 2"), 70);
+  assert.deepEqual(parseVariants(JSON.stringify([{ name: "A", price: 1 }, { name: "a", price: 2 }, { name: "A 2", price: 3 }])).map((v) => v.name), ["A", "a 2", "A 2 2"]);
+});

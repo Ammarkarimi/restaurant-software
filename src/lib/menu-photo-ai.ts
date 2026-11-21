@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod/v4";
 import { guessFoodType, type ImportRow } from "./menu-import";
+import { distinctPortions } from "./menu";
 
 const MODEL = () => process.env.OPENAI_MODEL?.trim() || "gpt-5.4-mini";
 
@@ -74,7 +75,7 @@ export async function readMenuPhotos(photos: PhotoInput[]): Promise<{ rows: Impo
     const prices = d.prices.filter((p) => Number.isFinite(p.price) && p.price > 0);
     const name = d.name.trim();
     if (!name || !prices.length) continue;
-    const variants = prices.length > 1 ? prices.map((p, i) => ({ name: (p.portion.trim() || `Option ${i + 1}`).slice(0, 40), price: p.price })) : undefined;
+    const variants = prices.length > 1 ? distinctPortions(name, prices.map((p, i) => ({ name: (p.portion.trim() || `Option ${i + 1}`).slice(0, 40), price: p.price }))) : undefined;
     rows.push({
       name: name.slice(0, 120),
       category: (d.category.trim() || "Menu").slice(0, 60),

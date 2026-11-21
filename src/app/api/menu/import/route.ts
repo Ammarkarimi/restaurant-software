@@ -3,7 +3,7 @@ import { z } from "zod";
 import { currentRestaurantId, prisma } from "@/lib/db";
 import { fail, withAdmin } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
-import { parseQuickAdd } from "@/lib/menu";
+import { distinctPortions, parseQuickAdd } from "@/lib/menu";
 import { importRowSchema, markDuplicates, type ImportRow } from "@/lib/menu-import";
 
 const schema = z.object({
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
               foodType: row.foodType,
               shortCode: row.shortCode || null,
               description: row.description || null,
-              variants: JSON.stringify(row.variants ?? []),
+              variants: JSON.stringify(distinctPortions(row.name, row.variants ?? [])),
               sortOrder: ++itemOrder,
             },
           });

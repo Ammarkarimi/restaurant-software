@@ -15,13 +15,44 @@ export function parseVariants(json: string | null | undefined): Variant[] {
   try {
     const parsed = JSON.parse(json || "[]");
     if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((v) => {
-      const r = variantSchema.safeParse(v);
-      return r.success ? [r.data] : [];
-    });
+    return numberRepeats(
+      parsed.flatMap((v) => {
+        const r = variantSchema.safeParse(v);
+        return r.success ? [r.data] : [];
+      })
+    );
   } catch {
     return [];
   }
+}
+
+const hasRepeats = (names: string[]) => new Set(names.map((n) => n.trim().toLowerCase())).size !== names.length;
+
+/**
+ * Portions are told apart by name: two called "Per Pic" would both be picked together and both
+ * charge the first price. A dish saved like that (older menu imports could) gets "Per Pic 2".
+ */
+function numberRepeats(variants: Variant[]): Variant[] {
+  if (!hasRepeats(variants.map((v) => v.name))) return variants;
+  const taken = new Set<string>();
+  return variants.map((v) => {
+    let name = v.name.trim();
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${v.name.trim().slice(0, 36)} ${n}`;
+    taken.add(name.toLowerCase());
+    return { ...v, name };
+  });
+}
+
+/**
+ * Gives every portion of an imported dish its own name. "Naan (Plain/Butter)" priced 65 / 70 with
+ * both portions read as "Per Pic" becomes Plain 65 and Butter 70; anything else gets numbered.
+ */
+export function distinctPortions(dishName: string, variants: Variant[]): Variant[] {
+  if (!hasRepeats(variants.map((v) => v.name))) return variants;
+  const inBrackets = /\(([^()]+)\)\s*$/.exec(dishName)?.[1] ?? "";
+  const parts = inBrackets.split(/\s*[/,|]\s*|\s+or\s+/i).map((p) => p.trim()).filter(Boolean);
+  if (parts.length === variants.length && !hasRepeats(parts)) return variants.map((v, i) => ({ name: parts[i].slice(0, 40), price: v.price }));
+  return numberRepeats(variants);
 }
 
 /** The price a guest pays for an item, or for one of its portions. */
