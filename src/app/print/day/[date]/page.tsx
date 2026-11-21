@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { runForRestaurant } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { parseBillTemplate } from "@/lib/bill-template";
+import { parseBillTemplate, slipWidth } from "@/lib/bill-template";
 import { isDateKey, formatDateKey } from "@/lib/dates";
 import { daySummary } from "@/lib/cash";
 import { formatAmount, label } from "@/lib/utils";
@@ -25,7 +25,7 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
   if (!isDateKey(date)) notFound();
 
   const { settings, s } = await runForRestaurant(session.restaurantId, async () => ({ settings: await getSettings(), s: await daySummary(date) }));
-  const paper = parseBillTemplate(settings.billTemplate).paperSize === "58mm" ? "58mm" : "80mm";
+  const paper = slipWidth(parseBillTemplate(settings.billTemplate));
   const Line = ({ l, v, bold }: { l: string; v: string; bold?: boolean }) => (
     <div className={`flex justify-between gap-2 ${bold ? "font-bold" : ""}`}>
       <span>{l}</span>

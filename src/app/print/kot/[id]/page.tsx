@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { prisma, runForRestaurant } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { parseBillTemplate } from "@/lib/bill-template";
+import { parseBillTemplate, slipWidth } from "@/lib/bill-template";
 import { orderInclude } from "@/lib/orders";
 import { label } from "@/lib/utils";
 import { addonText, parseList } from "@/lib/menu";
@@ -31,7 +31,7 @@ export default async function PrintKotPage({ params, searchParams }: Props) {
   });
   if (!data.order) notFound();
   const { settings, order } = data;
-  const paper = parseBillTemplate(settings.billTemplate).paperSize === "58mm" ? "58mm" : "80mm";
+  const paper = slipWidth(parseBillTemplate(settings.billTemplate));
 
   const only = kot ? Number(kot) : null;
   const stations = parseList(settings.kitchenStations);

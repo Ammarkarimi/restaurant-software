@@ -40,7 +40,7 @@ export default async function PrintBillPage({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
-      <style>{pageCss(template.paperSize)}</style>
+      <style>{pageCss(template)}</style>
       <PrintButton auto={auto === "1"} title={order.billNumber ? `Bill ${order.billNumber}` : `Order #${order.number}`} />
       {order.status === "cancelled" && (
         <p className="no-print mx-auto mt-4 max-w-md rounded-xl bg-red-50 px-4 py-2 text-center text-sm font-semibold text-red-700">

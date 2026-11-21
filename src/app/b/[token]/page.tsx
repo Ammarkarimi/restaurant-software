@@ -40,7 +40,7 @@ export default async function SharedBillPage({ params }: { params: Promise<{ tok
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
-      <style>{pageCss(template.paperSize)}</style>
+      <style>{pageCss(template)}</style>
       <PrintButton closable={false} title={`${settings.restaurantName} · Bill ${order.billNumber}`} />
       <div className="py-6 print:py-0">
         <div className="mx-auto w-fit max-w-full bg-white p-4 shadow print:p-0 print:shadow-none">

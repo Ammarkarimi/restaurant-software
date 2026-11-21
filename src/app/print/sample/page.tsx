@@ -27,7 +27,7 @@ export default async function SampleBillPage({ searchParams }: { searchParams: P
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
-      <style>{pageCss(template.paperSize)}</style>
+      <style>{pageCss(template)}</style>
       <PrintButton auto={auto === "1"} title="Sample bill (test print)" />
       <div className="py-6 print:py-0">
         <div className="mx-auto w-fit bg-white p-4 shadow print:p-0 print:shadow-none">

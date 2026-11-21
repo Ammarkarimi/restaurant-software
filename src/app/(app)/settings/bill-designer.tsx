@@ -6,7 +6,7 @@ import { ImagePlus, Printer, RotateCcw, Trash2 } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, Field, Input, Select, Textarea, Tip, Toggle } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { BillView, upiLink } from "@/components/bill-view";
-import { BILL_PRESETS, DEFAULT_BILL_TEMPLATE, type BillTemplate } from "@/lib/bill-template";
+import { BILL_PRESETS, CUSTOM_PAPER_HEIGHT, CUSTOM_PAPER_WIDTH, DEFAULT_BILL_TEMPLATE, PAPER_OPTIONS, paperSpec, type BillTemplate, type PaperSize } from "@/lib/bill-template";
 import { api } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import type { SettingsDTO } from "@/lib/types";
@@ -60,6 +60,9 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
   const [previewPaid, setPreviewPaid] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [customW, setCustomW] = useState(String(settings.billTemplate.customPaperWidth));
+  const [customH, setCustomH] = useState(settings.billTemplate.customPaperHeight ? String(settings.billTemplate.customPaperHeight) : "");
+  const pageLayout = paperSpec(t).layout === "page";
   const set = (p: Partial<BillTemplate>) => setT((x) => ({ ...x, ...p }));
   const changed = JSON.stringify(t) !== JSON.stringify(settings.billTemplate) || upiId !== (settings.upiId ?? "");
 
@@ -121,7 +124,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setT({ ...DEFAULT_BILL_TEMPLATE, ...p.template, headerText: t.headerText, footerText: p.template.footerText ?? t.footerText })}
+                onClick={() => setT({ ...DEFAULT_BILL_TEMPLATE, ...p.template, customPaperWidth: t.customPaperWidth, customPaperHeight: t.customPaperHeight, headerText: t.headerText, footerText: p.template.footerText ?? t.footerText })}
                 className="rounded-md border border-slate-200 p-3 text-left transition hover:border-primary-300 hover:bg-primary-50/50"
               >
                 <p className="font-semibold text-slate-900">{p.name}</p>
@@ -164,9 +167,45 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
             </Section>
 
             <Section title="Paper & text">
-              <Field label="Paper">
-                <Choice value={t.paperSize} onChange={(v) => set({ paperSize: v })} options={[["80mm", "80 mm thermal (3 inch)"], ["58mm", "58 mm thermal (2 inch)"], ["a4", "A4 page"]]} />
+              <Field label="Paper size" hint="Choose the same size as in your printer's settings">
+                <Select value={t.paperSize} onChange={(e) => set({ paperSize: e.target.value as PaperSize })} aria-label="Paper size">
+                  {PAPER_OPTIONS.map(([v, text]) => (
+                    <option key={v} value={v}>{text}</option>
+                  ))}
+                </Select>
               </Field>
+              {t.paperSize === "custom" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Width (mm)" hint={`${CUSTOM_PAPER_WIDTH.min}–${CUSTOM_PAPER_WIDTH.max} mm`}>
+                    <Input
+                      type="number"
+                      min={CUSTOM_PAPER_WIDTH.min}
+                      max={CUSTOM_PAPER_WIDTH.max}
+                      value={customW}
+                      onChange={(e) => {
+                        setCustomW(e.target.value);
+                        const n = Math.round(Number(e.target.value));
+                        if (n >= CUSTOM_PAPER_WIDTH.min && n <= CUSTOM_PAPER_WIDTH.max) set({ customPaperWidth: n });
+                      }}
+                      onBlur={() => setCustomW(String(t.customPaperWidth))}
+                    />
+                  </Field>
+                  <Field label="Length (mm)" optional hint="Leave empty for a continuous roll">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={CUSTOM_PAPER_HEIGHT.max}
+                      value={customH}
+                      onChange={(e) => {
+                        setCustomH(e.target.value);
+                        const n = Math.round(Number(e.target.value) || 0);
+                        if (n >= 0 && n <= CUSTOM_PAPER_HEIGHT.max) set({ customPaperHeight: n });
+                      }}
+                      onBlur={() => setCustomH(t.customPaperHeight ? String(t.customPaperHeight) : "")}
+                    />
+                  </Field>
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Font">
                   <Choice value={t.fontStyle} onChange={(v) => set({ fontStyle: v })} options={[["mono", "Receipt"], ["sans", "Modern"], ["serif", "Classic"]]} />
@@ -178,8 +217,8 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
                   <Choice value={t.headerAlign} onChange={(v) => set({ headerAlign: v })} options={[["center", "Centre"], ["left", "Left"]]} />
                 </Field>
               </div>
-              {t.paperSize === "a4" && (
-                <Field label="Colour (A4 only)">
+              {pageLayout && (
+                <Field label="Colour (full-page bills only)">
                   <div className="flex items-center gap-2">
                     <input type="color" value={t.accentColor} onChange={(e) => set({ accentColor: e.target.value })} className="h-10 w-14 cursor-pointer rounded border border-slate-200" aria-label="Bill colour" />
                     <span className="font-mono text-sm text-slate-500">{t.accentColor}</span>
@@ -271,7 +310,12 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
           <Button size="lg" loading={saving} disabled={!changed} onClick={save}>
             Save bill design
           </Button>
-          <Button variant="ghost" disabled={!changed} onClick={() => (setT(settings.billTemplate), setUpiId(settings.upiId ?? ""))}>
+          <Button variant="ghost" disabled={!changed} onClick={() => {
+              setT(settings.billTemplate);
+              setUpiId(settings.upiId ?? "");
+              setCustomW(String(settings.billTemplate.customPaperWidth));
+              setCustomH(settings.billTemplate.customPaperHeight ? String(settings.billTemplate.customPaperHeight) : "");
+            }}>
             <RotateCcw className="h-4 w-4" /> Undo changes
           </Button>
           {changed && <span className="text-sm font-medium text-amber-700">Not saved yet</span>}
@@ -296,7 +340,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               <Choice value={previewPaid ? "paid" : "unpaid"} onChange={(v) => setPreviewPaid(v === "paid")} options={[["unpaid", "Before payment"], ["paid", "After payment"]]} />
             </div>
             <div className="max-h-[75vh] overflow-auto rounded-md bg-slate-100 p-4">
-              <div className="bill-preview mx-auto w-fit bg-white p-2 shadow-md" style={t.paperSize === "a4" ? { zoom: 0.5 } : undefined}>
+              <div className="bill-preview mx-auto w-fit bg-white p-2 shadow-md" style={pageLayout ? { zoom: 0.5 } : undefined}>
                 <BillView template={t} profile={settings} bill={bill} logoUrl={settings.logoUrl} qrDataUrl={qr} upiId={upiId || null} timezone={settings.timezone} />
               </div>
             </div>

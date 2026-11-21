@@ -1,6 +1,6 @@
 // The printed bill. Pure markup (no hooks) so the print page (server) and the
 // live preview in Settings → Bill design (browser) draw exactly the same thing.
-import type { BillTemplate } from "@/lib/bill-template";
+import { DEFAULT_BILL_TEMPLATE, paperSpec, type BillTemplate, type PaperSize } from "@/lib/bill-template";
 import { taxRowsFor, type BillTotals } from "@/lib/billing";
 import { amountInWords } from "@/lib/words";
 import { addonText } from "@/lib/menu";
@@ -43,7 +43,6 @@ export interface BillData {
   status: string;
 }
 
-const PAPER_WIDTH: Record<string, string> = { "58mm": "58mm", "80mm": "80mm", a4: "190mm" };
 const FONT: Record<string, string> = {
   mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
   sans: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif",
@@ -90,7 +89,8 @@ export function BillView({
   upiId?: string | null;
   timezone: string;
 }) {
-  const a4 = t.paperSize === "a4";
+  const paper = paperSpec(t);
+  const a4 = paper.layout === "page";
   const kind = a4 ? "a4" : "thermal";
   const when = formatBillDate(b.date, timezone);
   const taxRows = taxRowsFor(b.totals, b.taxMode, b.taxName);
@@ -270,9 +270,9 @@ export function BillView({
     <div
       className="print-sheet mx-auto bg-white text-black"
       style={{
-        width: PAPER_WIDTH[t.paperSize],
+        width: `${paper.widthMm}mm`,
         maxWidth: "100%",
-        padding: a4 ? "0" : t.paperSize === "58mm" ? "2mm" : "3mm",
+        padding: paper.padding,
         fontFamily: FONT[t.fontStyle],
         fontSize: SIZE[kind][t.fontSize],
         lineHeight: 1.35,
@@ -325,7 +325,7 @@ export function BillView({
       {showQr && (
         <div className={cn("mt-2 flex flex-col items-center", a4 && "items-start")}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl!} alt="UPI QR code" style={{ width: a4 ? "110px" : t.paperSize === "58mm" ? "28mm" : "36mm" }} />
+          <img src={qrDataUrl!} alt="UPI QR code" style={{ width: a4 ? "110px" : paper.narrow ? "28mm" : "36mm" }} />
           {t.upiQrText && <p className="text-center">{t.upiQrText}</p>}
           {upiId && <p className="text-center opacity-75">{upiId}</p>}
         </div>
@@ -338,9 +338,8 @@ export function BillView({
 }
 
 /** The `@page` rule that sizes the browser's print output to the paper. */
-export function pageCss(paperSize: string) {
-  if (paperSize === "a4") return "@page { size: A4; margin: 12mm; }";
-  return `@page { size: ${paperSize === "58mm" ? "58mm" : "80mm"} auto; margin: 0; }`;
+export function pageCss(paper: PaperSize | Pick<BillTemplate, "paperSize" | "customPaperWidth" | "customPaperHeight">) {
+  return paperSpec(typeof paper === "string" ? { ...DEFAULT_BILL_TEMPLATE, paperSize: paper } : paper).pageCss;
 }
 
 export function upiLink(upiId: string, payee: string, amount: number, currency: string, note: string) {
