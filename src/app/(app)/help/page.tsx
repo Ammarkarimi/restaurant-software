@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Card, CardContent, CardHeader, PageHeader } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Help" };
@@ -283,7 +284,11 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
   },
 ];
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  // The address of this site, for the direct-printing shortcut.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "restaurant-software-lyart.vercel.app";
+  const appUrl = `${host.startsWith("localhost") ? "http" : "https"}://${host}/`;
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader title="Help & guide" description="Everything you need, in plain words." />
@@ -303,7 +308,18 @@ export default function HelpPage() {
         <CardHeader title="Printing tips" />
         <CardContent className="space-y-2 text-sm text-slate-700">
           <p>Bills and kitchen tickets open in a small window and the print dialog appears by itself. Choose your thermal printer and set margins to “None”.</p>
-          <p>On Chrome you can skip the print dialog on a dedicated billing computer by starting Chrome with <code className="rounded bg-slate-100 px-1">--kiosk-printing</code>.</p>
+          <div id="print-without-dialog" className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="font-semibold text-slate-900">Print straight to the printer, without the print window (Windows)</p>
+            <ol className="list-decimal space-y-1.5 pl-5">
+              <li>Windows Settings → Bluetooth &amp; devices → Printers &amp; scanners: turn off “Let Windows manage my default printer”, click your thermal printer → “Set as default”. In its Printing preferences, choose the paper (for example 80 × 297 mm).</li>
+              <li>Right-click the desktop → New → Shortcut. Paste this as the location (one line):
+                <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-xs ring-1 ring-slate-200">&quot;C:\Program Files\Google\Chrome\Application\chrome.exe&quot; --kiosk-printing --user-data-dir=&quot;C:\Billspoon&quot; --app={appUrl}</code>
+                Name it “Billspoon” and finish.
+              </li>
+              <li>Always open Billspoon from this shortcut (sign in once). “Print bill”, kitchen tickets and the Print button now go straight to the default printer, and the bill window closes by itself.</li>
+            </ol>
+            <p className="text-slate-500">The print window still appears if Billspoon is opened any other way. For Microsoft Edge use <code className="rounded bg-white px-1">&quot;C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe&quot;</code> in the same line instead.</p>
+          </div>
           <p>If your kitchen has no printer, open ⋯ on the order screen and switch off “Print kitchen ticket when sending” on that device, and use the kitchen screen instead.</p>
         </CardContent>
       </Card>

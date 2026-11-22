@@ -176,6 +176,13 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
                   ))}
                 </Select>
               </Field>
+              <Tip>
+                Want bills to print without the print window popping up?{" "}
+                <a href="/help#print-without-dialog" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary-700 underline">
+                  Set up direct printing
+                </a>{" "}
+                once on the billing computer.
+              </Tip>
               {t.paperSize === "custom" && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Width (mm)" hint={`${CUSTOM_PAPER_WIDTH.min}–${CUSTOM_PAPER_WIDTH.max} mm`}>

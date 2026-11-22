@@ -26,10 +26,17 @@ export function PrintButton({ auto = false, title, closable = true }: { auto?: b
   useEffect(() => {
     if (!auto) return;
     let cancelled = false;
+    // A window the order screen opened just to print closes itself afterwards. With Chrome's
+    // kiosk printing (no print dialog) the bill then prints and nothing is left on the screen.
+    const done = () => {
+      if (window.opener) setTimeout(() => window.close(), 500);
+    };
+    window.addEventListener("afterprint", done);
     const t = setTimeout(() => whenImagesReady().then(() => !cancelled && window.print()), 300);
     return () => {
       cancelled = true;
       clearTimeout(t);
+      window.removeEventListener("afterprint", done);
     };
   }, [auto]);
   return (
