@@ -28,7 +28,7 @@ export interface OfflineRules {
 
 export interface OfflineBootstrap {
   savedAt: string;
-  restaurant: { name: string; address: string | null; phone: string | null; gstin: string | null; fssai: string | null; currency: string; timezone: string; billPrefix: string; footer: string };
+  restaurant: { name: string; address: string | null; phone: string | null; gstin: string | null; fssai: string | null; currency: string; timezone: string; billPrefix: string; footer: string; /** Print area on the roll, in mm (missing in menus saved before it was added). */ printWidthMm?: number };
   rules: OfflineRules;
   menu: OfflineMenuItem[];
   tables: string[];

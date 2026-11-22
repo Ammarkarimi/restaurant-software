@@ -6,7 +6,7 @@ import { ImagePlus, Printer, RotateCcw, Trash2 } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, Field, Input, Select, Textarea, Tip, Toggle } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { BillView, upiLink } from "@/components/bill-view";
-import { BILL_PRESETS, CUSTOM_PAPER_HEIGHT, CUSTOM_PAPER_WIDTH, DEFAULT_BILL_TEMPLATE, PAPER_OPTIONS, paperSpec, type BillTemplate, type PaperSize } from "@/lib/bill-template";
+import { BILL_PRESETS, CUSTOM_PAPER_HEIGHT, CUSTOM_PAPER_WIDTH, DEFAULT_BILL_TEMPLATE, PAPER_OPTIONS, PRINT_WIDTH, paperSpec, type BillTemplate, type PaperSize } from "@/lib/bill-template";
 import { api } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import type { SettingsDTO } from "@/lib/types";
@@ -62,7 +62,9 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
   const fileRef = useRef<HTMLInputElement>(null);
   const [customW, setCustomW] = useState(String(settings.billTemplate.customPaperWidth));
   const [customH, setCustomH] = useState(settings.billTemplate.customPaperHeight ? String(settings.billTemplate.customPaperHeight) : "");
-  const pageLayout = paperSpec(t).layout === "page";
+  const paper = paperSpec(t);
+  const pageLayout = paper.layout === "page";
+  const [printW, setPrintW] = useState(settings.billTemplate.printWidth ? String(settings.billTemplate.printWidth) : "");
   const set = (p: Partial<BillTemplate>) => setT((x) => ({ ...x, ...p }));
   const changed = JSON.stringify(t) !== JSON.stringify(settings.billTemplate) || upiId !== (settings.upiId ?? "");
 
@@ -124,7 +126,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setT({ ...DEFAULT_BILL_TEMPLATE, ...p.template, customPaperWidth: t.customPaperWidth, customPaperHeight: t.customPaperHeight, headerText: t.headerText, footerText: p.template.footerText ?? t.footerText })}
+                onClick={() => setT({ ...DEFAULT_BILL_TEMPLATE, ...p.template, customPaperWidth: t.customPaperWidth, customPaperHeight: t.customPaperHeight, printWidth: t.printWidth, headerText: t.headerText, footerText: p.template.footerText ?? t.footerText })}
                 className="rounded-md border border-slate-200 p-3 text-left transition hover:border-primary-300 hover:bg-primary-50/50"
               >
                 <p className="font-semibold text-slate-900">{p.name}</p>
@@ -205,6 +207,30 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
                     />
                   </Field>
                 </div>
+              )}
+              {!pageLayout && (
+                <Field
+                  label="Print area width (mm)"
+                  optional
+                  hint={`Most printers print ${paper.autoWidthMm} mm on ${paper.paperMm} mm paper, centred. If the edges of the bill are cut, make this smaller; if there is too much blank space on the sides, make it bigger.`}
+                >
+                  <Input
+                    type="number"
+                    min={PRINT_WIDTH.min}
+                    max={paper.paperMm}
+                    step="0.5"
+                    placeholder={`${paper.autoWidthMm} (automatic)`}
+                    value={printW}
+                    onChange={(e) => {
+                      setPrintW(e.target.value);
+                      const n = Math.round(Number(e.target.value) * 2) / 2;
+                      if (!e.target.value) set({ printWidth: 0 });
+                      else if (n >= PRINT_WIDTH.min && n <= PRINT_WIDTH.max) set({ printWidth: n });
+                    }}
+                    onBlur={() => setPrintW(t.printWidth ? String(t.printWidth) : "")}
+                    className="max-w-56"
+                  />
+                </Field>
               )}
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Font">
@@ -315,6 +341,7 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               setUpiId(settings.upiId ?? "");
               setCustomW(String(settings.billTemplate.customPaperWidth));
               setCustomH(settings.billTemplate.customPaperHeight ? String(settings.billTemplate.customPaperHeight) : "");
+              setPrintW(settings.billTemplate.printWidth ? String(settings.billTemplate.printWidth) : "");
             }}>
             <RotateCcw className="h-4 w-4" /> Undo changes
           </Button>
@@ -340,9 +367,21 @@ export function BillDesigner({ settings, onChange }: { settings: SettingsDTO; on
               <Choice value={previewPaid ? "paid" : "unpaid"} onChange={(v) => setPreviewPaid(v === "paid")} options={[["unpaid", "Before payment"], ["paid", "After payment"]]} />
             </div>
             <div className="max-h-[75vh] overflow-auto rounded-md bg-slate-100 p-4">
-              <div className="bill-preview mx-auto w-fit bg-white p-2 shadow-md" style={pageLayout ? { zoom: 0.5 } : undefined}>
-                <BillView template={t} profile={settings} bill={bill} logoUrl={settings.logoUrl} qrDataUrl={qr} upiId={upiId || null} timezone={settings.timezone} />
-              </div>
+              {pageLayout ? (
+                <div className="bill-preview mx-auto w-fit bg-white p-2 shadow-md" style={{ zoom: 0.5 }}>
+                  <BillView template={t} profile={settings} bill={bill} logoUrl={settings.logoUrl} qrDataUrl={qr} upiId={upiId || null} timezone={settings.timezone} />
+                </div>
+              ) : (
+                // The whole roll, with the edges the printer can't reach shaded.
+                <div
+                  className="bill-preview mx-auto py-2 shadow-md"
+                  style={{ width: `${paper.paperMm}mm`, background: "repeating-linear-gradient(45deg, #fecaca 0 1px, #fff 1px 5px)" }}
+                  title={`${paper.paperMm} mm paper · ${paper.widthMm} mm printed`}
+                >
+                  <BillView template={t} profile={settings} bill={bill} logoUrl={settings.logoUrl} qrDataUrl={qr} upiId={upiId || null} timezone={settings.timezone} />
+                </div>
+              )}
+              {!pageLayout && <p className="mt-2 text-center text-xs text-slate-500">{paper.paperMm} mm paper · {paper.widthMm} mm printed · shaded edges don&apos;t print</p>}
             </div>
           </CardContent>
         </Card>

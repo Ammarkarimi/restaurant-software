@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { runForRestaurant } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { parseBillTemplate, slipWidth } from "@/lib/bill-template";
+import { parseBillTemplate, slipSpec } from "@/lib/bill-template";
 import { isDateKey, formatDateKey } from "@/lib/dates";
 import { daySummary } from "@/lib/cash";
 import { formatAmount, label } from "@/lib/utils";
@@ -25,7 +25,7 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
   if (!isDateKey(date)) notFound();
 
   const { settings, s } = await runForRestaurant(session.restaurantId, async () => ({ settings: await getSettings(), s: await daySummary(date) }));
-  const paper = slipWidth(parseBillTemplate(settings.billTemplate));
+  const slip = slipSpec(parseBillTemplate(settings.billTemplate));
   const Line = ({ l, v, bold }: { l: string; v: string; bold?: boolean }) => (
     <div className={`flex justify-between gap-2 ${bold ? "font-bold" : ""}`}>
       <span>{l}</span>
@@ -37,10 +37,10 @@ export default async function PrintDayPage({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
-      <style>{pageCss(paper)}</style>
+      <style>{pageCss(slip.paper)}</style>
       <PrintButton auto={auto === "1"} title={`Day summary · ${formatDateKey(date)}`} />
       <div className="py-6 print:py-0">
-        <div className="print-sheet mx-auto bg-white font-mono text-black shadow print:shadow-none" style={{ width: paper, padding: paper === "58mm" ? "2mm" : "3mm", fontSize: "12.5px", lineHeight: 1.4 }}>
+        <div className="print-sheet mx-auto bg-white font-mono text-black shadow print:shadow-none" style={{ width: slip.width, padding: slip.padding, fontSize: "12.5px", lineHeight: 1.4 }}>
           <p className="text-center font-bold">{settings.restaurantName}</p>
           <p className="text-center font-bold">DAY SUMMARY</p>
           <p className="text-center">{formatDateKey(date, { weekday: "short" })}</p>

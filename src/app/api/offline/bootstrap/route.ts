@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
-import { parseBillTemplate } from "@/lib/bill-template";
+import { parseBillTemplate, slipSpec } from "@/lib/bill-template";
 import { parseVariants } from "@/lib/menu";
 import type { OfflineBootstrap } from "@/lib/offline";
 
@@ -27,6 +27,7 @@ export async function GET() {
         timezone: settings.timezone,
         billPrefix: settings.billPrefix,
         footer: t.footerText,
+        printWidthMm: slipSpec(t).widthMm,
       },
       rules: {
         taxMode: settings.taxMode,

@@ -16,15 +16,15 @@ type OrderType = "dine_in" | "takeaway" | "delivery";
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-function printHtml(body: string) {
+function printHtml(body: string, widthMm = 72) {
   const f = document.createElement("iframe");
   Object.assign(f.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
   document.body.appendChild(f);
   const doc = f.contentDocument!;
   doc.open();
   doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: 80mm auto; margin: 3mm; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; width: 72mm; margin: 0; }
+    @page { margin: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; width: ${widthMm - 2}mm; margin: 0 auto; padding: 0 1mm; }
     h1 { font-size: 15px; margin: 0; text-align: center; } .c { text-align: center; } .r { text-align: right; }
     table { width: 100%; border-collapse: collapse; } td { padding: 1px 0; vertical-align: top; }
     hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; } .b { font-weight: bold; } .big { font-size: 15px; }
@@ -181,7 +181,7 @@ export default function OfflineBillingPage() {
       total: totals.total,
     };
     saveOfflineBill(bill);
-    printHtml(billHtml(boot, bill));
+    printHtml(billHtml(boot, bill), boot.restaurant.printWidthMm);
     setLines([]);
     setDiscount("");
     setCustomer({ name: "", phone: "" });
@@ -301,7 +301,7 @@ export default function OfflineBillingPage() {
               </div>
             )}
             <div className="mt-3 grid gap-2">
-              <button disabled={!lines.length} onClick={() => printHtml(kotHtml(boot, lines, label))} className="flex items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold ring-1 ring-slate-300 disabled:opacity-40">
+              <button disabled={!lines.length} onClick={() => printHtml(kotHtml(boot, lines, label), boot.restaurant.printWidthMm)} className="flex items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold ring-1 ring-slate-300 disabled:opacity-40">
                 <Printer className="h-4 w-4" /> Print KOT
               </button>
               <div className="grid grid-cols-3 gap-2">
@@ -329,7 +329,7 @@ export default function OfflineBillingPage() {
                           {waiting ? (waiting.error ? `not saved: ${waiting.error}` : "waiting to sync") : `synced · order #${b.orderNumber}`}
                         </span>
                       </span>
-                      <button onClick={() => printHtml(billHtml(boot, b))} className="text-xs font-semibold text-primary-700">Reprint</button>
+                      <button onClick={() => printHtml(billHtml(boot, b), boot.restaurant.printWidthMm)} className="text-xs font-semibold text-primary-700">Reprint</button>
                     </li>
                   );
                 })}

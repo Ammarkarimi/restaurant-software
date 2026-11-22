@@ -24,6 +24,8 @@ export const PAPER_OPTIONS: Array<[PaperSize, string]> = [
 
 export const CUSTOM_PAPER_WIDTH = { min: 40, max: 320 } as const;
 export const CUSTOM_PAPER_HEIGHT = { max: 3300 } as const;
+/** The printer's print area on a roll, in mm. 0 = worked out from the paper width. */
+export const PRINT_WIDTH = { min: 30, max: 320 } as const;
 export const FONT_STYLES = ["mono", "sans", "serif"] as const;
 export const FONT_SIZES = ["small", "normal", "large"] as const;
 export const LOGO_SIZES = ["small", "medium", "large"] as const;
@@ -34,6 +36,8 @@ export const billTemplateSchema = z.object({
   /** Custom paper only, in mm. Height 0 means a continuous roll: the printer decides where to cut. */
   customPaperWidth: z.coerce.number().int().min(CUSTOM_PAPER_WIDTH.min).max(CUSTOM_PAPER_WIDTH.max).default(80),
   customPaperHeight: z.coerce.number().int().min(0).max(CUSTOM_PAPER_HEIGHT.max).default(0),
+  /** Width the printer can print on a roll, in mm (0 = 72 mm on 80 mm paper, 48 mm on 58 mm). */
+  printWidth: z.coerce.number().min(0).max(PRINT_WIDTH.max).default(0),
   fontStyle: z.enum(FONT_STYLES),
   fontSize: z.enum(FONT_SIZES),
   headerAlign: z.enum(ALIGNMENTS),
@@ -80,6 +84,7 @@ export const DEFAULT_BILL_TEMPLATE: BillTemplate = {
   paperSize: "80mm",
   customPaperWidth: 80,
   customPaperHeight: 0,
+  printWidth: 0,
   fontStyle: "mono",
   fontSize: "normal",
   headerAlign: "center",
@@ -206,57 +211,77 @@ export function parseBillTemplate(json: string | null | undefined): BillTemplate
 export interface PaperSpec {
   /** "receipt" is the narrow counter slip; "page" is the full-page invoice (A4, Letter, wide custom paper). */
   layout: "receipt" | "page";
-  /** Width of the printed bill, in mm. */
+  /** Width of the paper, in mm. */
+  paperMm: number;
+  /**
+   * Width the bill's text is laid out to, in mm. On a receipt this is the printer's print area,
+   * centred on the paper: thermal printers can't print the outer ~4 mm on each side of the roll.
+   */
   widthMm: number;
+  /** The print area the printer most likely has, used when the owner hasn't set one. */
+  autoWidthMm: number;
   padding: string;
   /** A 2-inch roll: smaller QR code and a 58 mm kitchen ticket. */
   narrow: boolean;
   pageCss: string;
 }
 
+type PaperFields = Pick<BillTemplate, "paperSize" | "customPaperWidth" | "customPaperHeight"> & Partial<Pick<BillTemplate, "printWidth">>;
+
 const PAGE_MARGIN_MM = 12;
 
-function receipt(widthMm: number, pageCss: string, padding?: string): PaperSpec {
-  const narrow = widthMm <= 60;
-  return { layout: "receipt", widthMm, padding: padding ?? (narrow ? "2mm" : "3mm"), narrow, pageCss };
+/** 80 mm thermal printers print 72 mm (576 dots), 58 mm ones 48 mm (384 dots). */
+export function autoPrintWidth(paperMm: number) {
+  return paperMm <= 60 ? Math.max(30, paperMm - 10) : paperMm - 8;
+}
+
+function receipt(paperMm: number, pageCss: string, printWidth = 0): PaperSpec {
+  const narrow = paperMm <= 60;
+  const autoWidthMm = autoPrintWidth(paperMm);
+  const widthMm = printWidth >= PRINT_WIDTH.min ? Math.min(printWidth, paperMm) : autoWidthMm;
+  return { layout: "receipt", paperMm, widthMm, autoWidthMm, padding: "0 1mm", narrow, pageCss };
 }
 
 function page(pageWidthMm: number, pageCss: string): PaperSpec {
-  return { layout: "page", widthMm: Math.min(190, pageWidthMm - 2 * PAGE_MARGIN_MM), padding: "0", narrow: false, pageCss };
+  const widthMm = Math.min(190, pageWidthMm - 2 * PAGE_MARGIN_MM);
+  return { layout: "page", paperMm: pageWidthMm, widthMm, autoWidthMm: widthMm, padding: "0", narrow: false, pageCss };
 }
 
-export function paperSpec(t: Pick<BillTemplate, "paperSize" | "customPaperWidth" | "customPaperHeight">): PaperSpec {
+export function paperSpec(t: PaperFields): PaperSpec {
+  const pw = t.printWidth ?? 0;
   switch (t.paperSize) {
-    // Unchanged from before more sizes were added, so existing restaurants print exactly as they did.
+    // The page rules of the original three sizes are unchanged.
     case "80mm":
-      return receipt(80, "@page { size: 80mm auto; margin: 0; }");
+      return receipt(80, "@page { size: 80mm auto; margin: 0; }", pw);
     case "58mm":
-      return receipt(58, "@page { size: 58mm auto; margin: 0; }");
+      return receipt(58, "@page { size: 58mm auto; margin: 0; }", pw);
     case "a4":
       return page(214, `@page { size: A4; margin: ${PAGE_MARGIN_MM}mm; }`);
     case "letter":
       return page(216, `@page { size: letter; margin: ${PAGE_MARGIN_MM}mm; }`);
     case "postcard":
-      return receipt(100, "@page { size: 100mm 148mm; margin: 0; }", "4mm");
+      return receipt(100, "@page { size: 100mm 148mm; margin: 0; }", pw);
     case "roll58x297":
-      return receipt(58, "@page { size: 58mm 297mm; margin: 0; }");
+      return receipt(58, "@page { size: 58mm 297mm; margin: 0; }", pw);
     case "roll58x3276":
-      return receipt(58, "@page { size: 58mm 3276mm; margin: 0; }");
+      return receipt(58, "@page { size: 58mm 3276mm; margin: 0; }", pw);
     case "roll80x297":
-      return receipt(80, "@page { size: 80mm 297mm; margin: 0; }");
+      return receipt(80, "@page { size: 80mm 297mm; margin: 0; }", pw);
     case "roll80x3276":
-      return receipt(80, "@page { size: 80mm 3276mm; margin: 0; }");
+      return receipt(80, "@page { size: 80mm 3276mm; margin: 0; }", pw);
     case "custom": {
       const w = Math.round(Math.min(CUSTOM_PAPER_WIDTH.max, Math.max(CUSTOM_PAPER_WIDTH.min, t.customPaperWidth || 80)));
       const h = Math.round(Math.min(CUSTOM_PAPER_HEIGHT.max, Math.max(0, t.customPaperHeight || 0)));
-      // Wide paper gets the invoice layout with page margins; narrow paper prints edge to edge like a roll.
+      // Wide paper gets the invoice layout with page margins; narrow paper prints like a roll.
       if (w >= 150) return page(w, `@page { ${h ? `size: ${w}mm ${h}mm; ` : ""}margin: ${PAGE_MARGIN_MM}mm; }`);
-      return receipt(w, `@page { ${h ? `size: ${w}mm ${h}mm; ` : ""}margin: 0; }`);
+      return receipt(w, `@page { ${h ? `size: ${w}mm ${h}mm; ` : ""}margin: 0; }`, pw);
     }
   }
 }
 
-/** Kitchen tickets and the day summary always print as a roll slip, 58 or 80 mm wide to match the bill printer. */
-export function slipWidth(t: BillTemplate): "58mm" | "80mm" {
-  return paperSpec(t).narrow ? "58mm" : "80mm";
+/** Kitchen tickets and the day summary print as a roll slip with the same print area as the bill. */
+export function slipSpec(t: BillTemplate): { paper: "58mm" | "80mm"; widthMm: number; width: string; padding: string } {
+  const spec = paperSpec(t);
+  const [paper, widthMm] = spec.layout === "receipt" ? [spec.narrow ? ("58mm" as const) : ("80mm" as const), spec.widthMm] : (["80mm", autoPrintWidth(80)] as const);
+  return { paper, widthMm, width: `${widthMm}mm`, padding: "0 1mm" };
 }

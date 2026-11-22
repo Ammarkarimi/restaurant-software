@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { prisma, runForRestaurant } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { parseBillTemplate, slipWidth } from "@/lib/bill-template";
+import { parseBillTemplate, slipSpec } from "@/lib/bill-template";
 import { orderInclude } from "@/lib/orders";
 import { label } from "@/lib/utils";
 import { addonText, parseList } from "@/lib/menu";
@@ -31,7 +31,7 @@ export default async function PrintKotPage({ params, searchParams }: Props) {
   });
   if (!data.order) notFound();
   const { settings, order } = data;
-  const paper = slipWidth(parseBillTemplate(settings.billTemplate));
+  const slip = slipSpec(parseBillTemplate(settings.billTemplate));
 
   const only = kot ? Number(kot) : null;
   const stations = parseList(settings.kitchenStations);
@@ -53,7 +53,7 @@ export default async function PrintKotPage({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
-      <style>{pageCss(paper)}</style>
+      <style>{pageCss(slip.paper)}</style>
       <PrintButton auto={auto === "1"} title={`Kitchen ticket · ${where}`} />
       <div className="space-y-4 py-6 print:space-y-0 print:py-0">
         {tickets.size === 0 && <p className="text-center text-slate-500">Nothing has been sent to the kitchen for this order yet.</p>}
@@ -64,7 +64,7 @@ export default async function PrintKotPage({ params, searchParams }: Props) {
             <div
               key={`${number}-${st}`}
               className="print-sheet mx-auto bg-white font-mono text-black shadow print:shadow-none"
-              style={{ width: paper, padding: paper === "58mm" ? "2mm" : "3mm", fontSize: "13px", lineHeight: 1.35, breakAfter: index < tickets.size - 1 ? "page" : undefined }}
+              style={{ width: slip.width, padding: slip.padding, fontSize: "13px", lineHeight: 1.35, breakAfter: index < tickets.size - 1 ? "page" : undefined }}
             >
               <p className="text-center text-xs">{settings.restaurantName}</p>
               {stations.length > 0 && <p className="text-center text-base font-extrabold uppercase">[ {st ?? "Kitchen"} ]</p>}

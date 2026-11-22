@@ -70,9 +70,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .no-print {
     display: none !important;
   }
+  /* Centred on the paper: a thermal printer can't print the outer edges of the roll. */
   .print-sheet {
     box-shadow: none !important;
     border: none !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
   }
 }

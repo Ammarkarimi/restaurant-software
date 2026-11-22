@@ -50,6 +50,8 @@ const FONT: Record<string, string> = {
 };
 const SIZE: Record<string, Record<string, string>> = {
   thermal: { small: "11px", normal: "12.5px", large: "14px" },
+  // 2-inch rolls print only ~48 mm.
+  slim: { small: "10.5px", normal: "11.5px", large: "13px" },
   a4: { small: "12px", normal: "13.5px", large: "15px" },
 };
 const LOGO: Record<string, Record<string, string>> = {
@@ -91,7 +93,9 @@ export function BillView({
 }) {
   const paper = paperSpec(t);
   const a4 = paper.layout === "page";
-  const kind = a4 ? "a4" : "thermal";
+  /** A 2-inch roll: one detail per line, and quantity × rate under the dish name. */
+  const slim = !a4 && paper.widthMm < 60;
+  const kind = a4 ? "a4" : slim ? "slim" : "thermal";
   const when = formatBillDate(b.date, timezone);
   const taxRows = taxRowsFor(b.totals, b.taxMode, b.taxName);
   const paid = b.payments.reduce((s, x) => s + x.amount, 0);
@@ -111,7 +115,7 @@ export function BillView({
         <img
           src={logoUrl}
           alt=""
-          style={{ maxHeight: LOGO[kind][t.logoSize], maxWidth: a4 ? "40%" : "70%", objectFit: "contain", filter: a4 ? undefined : "grayscale(1) contrast(1.2)" }}
+          style={{ maxHeight: LOGO[a4 ? "a4" : "thermal"][t.logoSize], maxWidth: a4 ? "40%" : "70%", objectFit: "contain", filter: a4 ? undefined : "grayscale(1) contrast(1.2)" }}
           className={cn(!a4 && (t.headerAlign === "center" ? "mx-auto" : ""), !a4 && "mb-1.5")}
         />
       )}
@@ -157,7 +161,39 @@ export function BillView({
   // Takeaway guests collect their food by this number (shown on the token screen).
   const token = b.type === "takeaway" && !a4 ? <p className="my-1 text-center font-black" style={{ fontSize: "1.8em" }}>TOKEN {b.orderNumber}</p> : null;
 
-  const itemsTable = (
+  const dishName = (i: BillData["items"][number]) => (
+    <>
+      {t.showFoodTypeMark && <FoodDot type={i.foodType} />}
+      {i.name}
+      {i.variant && ` (${i.variant})`}
+      {addonText(i.addons) && <span className="block opacity-80">+ {addonText(i.addons)}</span>}
+      {t.showItemNotes && i.note && <span className="block italic opacity-75">- {i.note}</span>}
+    </>
+  );
+
+  const itemsTable = slim && t.showRateColumn ? (
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="border-b border-dashed border-black">
+          <th className="py-1 text-left font-semibold">Item</th>
+          <th className="py-1 pl-1 text-right font-semibold">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {b.items.flatMap((i, idx) => [
+          <tr key={`${idx}n`} className="align-top">
+            <td colSpan={2} className="pt-0.5">{dishName(i)}</td>
+          </tr>,
+          <tr key={`${idx}q`} className="align-top">
+            <td className="pb-0.5 pl-2 opacity-90">
+              {i.quantity} × {money(i.price)}
+            </td>
+            <td className="pb-0.5 pl-1 text-right">{money(i.price * i.quantity)}</td>
+          </tr>,
+        ])}
+      </tbody>
+    </table>
+  ) : (
     <table className="w-full border-collapse" style={{ tableLayout: "auto" }}>
       <thead>
         <tr className={cn(a4 ? "text-white" : "border-b border-dashed border-black")} style={a4 ? { background: t.accentColor } : undefined}>
@@ -170,13 +206,7 @@ export function BillView({
       <tbody>
         {b.items.map((i, idx) => (
           <tr key={idx} className={cn("align-top", a4 && "border-b border-slate-200")}>
-            <td className={cn(a4 ? "px-2 py-1.5" : "py-0.5")}>
-              {t.showFoodTypeMark && <FoodDot type={i.foodType} />}
-              {i.name}
-              {i.variant && ` (${i.variant})`}
-              {addonText(i.addons) && <span className="block opacity-80">+ {addonText(i.addons)}</span>}
-              {t.showItemNotes && i.note && <span className="block italic opacity-75">- {i.note}</span>}
-            </td>
+            <td className={cn(a4 ? "px-2 py-1.5" : "py-0.5")}>{dishName(i)}</td>
             <td className={cn("text-right", a4 ? "px-2 py-1.5" : "py-0.5 pl-1")}>{i.quantity}</td>
             {t.showRateColumn && <td className={cn("text-right", a4 ? "px-2 py-1.5" : "py-0.5 pl-1")}>{money(i.price)}</td>}
             <td className={cn("text-right", a4 ? "px-2 py-1.5" : "py-0.5 pl-1")}>{money(i.price * i.quantity)}</td>
@@ -287,9 +317,9 @@ export function BillView({
       )}
       {token}
       <div className={cn(a4 ? "mt-4 grid grid-cols-2 gap-6 rounded border border-slate-200 p-3" : "mt-1")}>
-        <div className={cn(!a4 && "grid grid-cols-2 gap-x-2")}>
+        <div className={cn(!a4 && !slim && "grid grid-cols-2 gap-x-2")}>
           {infoPairs.map(([k, v]) => (
-            <p key={k} className={cn(!a4 && (k === "Date" || k === "Served by" || k === "Via") ? "col-span-2" : "truncate")}>
+            <p key={k} className={cn(!a4 && !slim && ((k === "Date" || k === "Served by" || k === "Via") ? "col-span-2" : "truncate"))}>
               <span className="opacity-75">{k}:</span> {v}
             </p>
           ))}
@@ -338,7 +368,7 @@ export function BillView({
 }
 
 /** The `@page` rule that sizes the browser's print output to the paper. */
-export function pageCss(paper: PaperSize | Pick<BillTemplate, "paperSize" | "customPaperWidth" | "customPaperHeight">) {
+export function pageCss(paper: PaperSize | Pick<BillTemplate, "paperSize" | "customPaperWidth" | "customPaperHeight" | "printWidth">) {
   return paperSpec(typeof paper === "string" ? { ...DEFAULT_BILL_TEMPLATE, paperSize: paper } : paper).pageCss;
 }
 
