@@ -10,6 +10,7 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
     points: [
       "Settings → Restaurant: your name, address, GSTIN and FSSAI number.",
       "Settings → Tax & charges: GST rate (usually 5%), whether menu prices include tax, service charge, packing and delivery charges, round-off.",
+      "A fixed-price dish (like a ₹100 thali) while the rest of the menu adds GST: Menu → edit the dish → switch on “Price includes GST”. The guest pays exactly ₹100; the bill marks it with * and shows the GST inside it.",
       "Settings → Bill design: upload your logo, pick a style, choose what to print, and press Save. Use “Test print” to check your printer.",
       "Table setup: add your areas and tables (for example T1 to T12 in the Main hall).",
       "Menu → Import menu: upload your Excel / CSV sheet (or the export from your old billing software), take photos of your printed menu card, or paste lines. You check the list — and fix any price — before anything is added.",

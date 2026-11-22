@@ -4,7 +4,8 @@
 // For each line:
 //   gross        = unit price × quantity (the menu price)
 //   afterDisc    = gross − its share of the bill discount
-//   base         = afterDisc, or afterDisc without tax when menu prices include tax
+//   base         = afterDisc, or afterDisc without tax when the price includes tax
+//                  (all menu prices, or just this dish: a fixed-price thali)
 //   service      = base × service charge %
 //   taxable      = base + service             (service charge is taxed like the food)
 //   tax          = taxable × the item's tax rate
@@ -16,6 +17,8 @@ export interface BillLineInput {
   price: number;
   quantity: number;
   taxRate: number;
+  /** This dish's price already includes tax, even when the rest of the menu adds tax on top. */
+  taxIncluded?: boolean;
 }
 
 export interface BillRules {
@@ -49,6 +52,8 @@ export interface TaxLine {
   rate: number;
   taxable: number;
   tax: number;
+  /** The part of `tax` already inside the prices (dishes priced with tax); the rest is added on top. */
+  included: number;
 }
 
 export interface BillTotals {
@@ -65,6 +70,8 @@ export interface BillTotals {
   /** Packing, delivery… as entered (they include tax when menu prices include tax). */
   charges: Array<{ name: string; amount: number }>;
   chargesTotal: number;
+  /** Tax already inside the prices; `tax - includedTax` is added on top of the items. */
+  includedTax: number;
   /** Amount tax is calculated on (food after discount, without tax, plus service charge and charges). */
   taxable: number;
   tax: number;
@@ -104,7 +111,8 @@ export function calculateBill(lines: BillLineInput[], rules: BillRules, discount
   for (const l of items) {
     const rate = taxed ? Math.max(0, l.taxRate || 0) : 0;
     const afterDisc = l.price * l.quantity * (1 - discountShare);
-    const base = rules.pricesIncludeTax ? afterDisc / (1 + rate / 100) : afterDisc;
+    const included = rules.pricesIncludeTax || Boolean(l.taxIncluded);
+    const base = included ? afterDisc / (1 + rate / 100) : afterDisc;
     const service = base * sc;
     const taxable = base + service;
     const tax = (taxable * rate) / 100;
@@ -112,9 +120,11 @@ export function calculateBill(lines: BillLineInput[], rules: BillRules, discount
     serviceCharge += service;
     serviceChargeTax += (service * rate) / 100;
     if (taxed && rate > 0) {
-      const t = byRate.get(rate) ?? { rate, taxable: 0, tax: 0 };
+      const t = byRate.get(rate) ?? { rate, taxable: 0, tax: 0, included: 0 };
       t.taxable += taxable;
       t.tax += tax;
+      // Service charge is added on top, so the tax on it is never inside the price.
+      if (included) t.included += (base * rate) / 100;
       byRate.set(rate, t);
     }
   }
@@ -126,17 +136,19 @@ export function calculateBill(lines: BillLineInput[], rules: BillRules, discount
     const base = rules.pricesIncludeTax ? c.amount / (1 + rate / 100) : c.amount;
     chargesBase += base;
     if (taxed && rate > 0) {
-      const t = byRate.get(rate) ?? { rate, taxable: 0, tax: 0 };
+      const t = byRate.get(rate) ?? { rate, taxable: 0, tax: 0, included: 0 };
       t.taxable += base;
       t.tax += (base * rate) / 100;
+      if (rules.pricesIncludeTax) t.included += (base * rate) / 100;
       byRate.set(rate, t);
     }
   }
 
   const taxLines = [...byRate.values()]
     .sort((a, b) => a.rate - b.rate)
-    .map((t) => ({ rate: t.rate, taxable: round2(t.taxable), tax: round2(t.tax) }));
+    .map((t) => ({ rate: t.rate, taxable: round2(t.taxable), tax: round2(t.tax), included: Math.min(round2(t.tax), round2(t.included)) }));
   const tax = round2(taxLines.reduce((sum, t) => sum + t.tax, 0));
+  const includedTax = round2(taxLines.reduce((sum, t) => sum + t.included, 0));
   serviceCharge = round2(serviceCharge);
   const taxable = round2(foodBase + serviceCharge + chargesBase);
   const exactTotal = round2(taxable + tax);
@@ -152,6 +164,7 @@ export function calculateBill(lines: BillLineInput[], rules: BillRules, discount
     serviceChargeTax: round2(serviceChargeTax),
     taxable,
     tax,
+    includedTax,
     taxLines,
     exactTotal,
     roundOff: round2(total - exactTotal),
@@ -160,12 +173,23 @@ export function calculateBill(lines: BillLineInput[], rules: BillRules, discount
   };
 }
 
-/** "CGST @2.5%" / "SGST @2.5%" for GST, or one line with the tax name. */
-export function taxRowsFor(totals: BillTotals, taxMode: string, taxName = "Tax"): Array<{ label: string; amount: number }> {
+/**
+ * "CGST @2.5%" / "SGST @2.5%" for GST, or one line with the tax name.
+ * `part`: "added" = tax added on top of the prices, "included" = tax already inside them.
+ */
+export function taxRowsFor(totals: BillTotals, taxMode: string, taxName = "Tax", part: "all" | "added" | "included" = "all"): Array<{ label: string; amount: number }> {
   if (taxMode === "none") return [];
   const fmt = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0+$/, "")}%`;
+  const lines = totals.taxLines
+    .map((t) => {
+      const included = t.included ?? 0;
+      const tax = part === "all" ? t.tax : part === "included" ? included : round2(t.tax - included);
+      return { rate: t.rate, tax, all: t.tax };
+    })
+    // Keep a rate with nothing on it only when it was asked for in full.
+    .filter((t) => t.tax > 0 || (part === "all" && t.all >= 0) || (part === "added" && t.all === 0));
   if (taxMode === "gst") {
-    return totals.taxLines.flatMap((t) => {
+    return lines.flatMap((t) => {
       const half = round2(t.tax / 2);
       return [
         { label: `CGST @${fmt(t.rate / 2)}`, amount: half },
@@ -173,7 +197,7 @@ export function taxRowsFor(totals: BillTotals, taxMode: string, taxName = "Tax")
       ];
     });
   }
-  return totals.taxLines.map((t) => ({ label: `${taxName} @${fmt(t.rate)}`, amount: t.tax }));
+  return lines.map((t) => ({ label: `${taxName} @${fmt(t.rate)}`, amount: t.tax }));
 }
 
 export function paidAmount(payments: Array<{ amount: number }>) {

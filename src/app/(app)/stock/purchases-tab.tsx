@@ -660,7 +660,7 @@ export function CostingTab() {
           const dishCost = used.reduce((s, l) => s + l.quantity * (cost.get(l.stockItemId) ?? 0), 0);
           const rate = d.taxRate ?? settings.defaultTaxRate;
           // Compare with the price before tax: that is what the restaurant keeps.
-          const net = settings.pricesIncludeTax && settings.taxMode !== "none" ? p.price / (1 + rate / 100) : p.price;
+          const net = (settings.pricesIncludeTax || d.priceIncludesTax) && settings.taxMode !== "none" ? p.price / (1 + rate / 100) : p.price;
           const missing = used.some((l) => !(cost.get(l.stockItemId) ?? 0));
           return { id: `${d.id}:${p.variant}`, name: d.name, variant: p.variant, foodType: d.foodType, category: c.name, price: p.price, cost: dishCost, percent: net > 0 ? (dishCost / net) * 100 : 0, margin: net - dishCost, missing };
         });

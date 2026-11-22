@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       for (const i of o.items) {
         if (i.status !== "active") continue;
         const gross = i.price * i.quantity;
-        const beforeTax = o.pricesIncludeTax && o.taxMode !== "none" ? gross / (1 + i.taxRate / 100) : gross;
+        const beforeTax = (o.pricesIncludeTax || i.taxIncluded) && o.taxMode !== "none" ? gross / (1 + i.taxRate / 100) : gross;
         const key = `${i.menuItemId ?? i.name}|${i.variant ?? ""}`;
         const d = dishes.get(key) ?? { key, name: i.variant ? `${i.name} (${i.variant})` : i.name, category: i.categoryName ?? "", quantity: 0, revenue: 0, unitCost: unitCost(i.menuItemId, i.variant) };
         d.quantity += i.quantity;

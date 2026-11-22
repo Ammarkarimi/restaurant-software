@@ -28,6 +28,7 @@ interface ItemForm {
   foodType: string;
   customTax: boolean;
   taxRate: string;
+  priceIncludesTax: boolean;
   available: boolean;
   addonGroupIds: string[];
   showOnline: boolean;
@@ -48,6 +49,7 @@ function toForm(item: MenuItemDTO | null, categoryId: string): ItemForm {
     foodType: item?.foodType ?? "veg",
     customTax: item?.taxRate !== null && item?.taxRate !== undefined,
     taxRate: item?.taxRate !== null && item?.taxRate !== undefined ? String(item.taxRate) : "",
+    priceIncludesTax: item?.priceIncludesTax ?? false,
     available: item?.available ?? true,
     addonGroupIds: item ? parseList(item.addonGroupIds) : [],
     showOnline: item?.showOnline ?? true,
@@ -60,6 +62,7 @@ function ItemDialog({
   categories,
   addonGroups,
   defaultTax,
+  taxRules,
   onClose,
   onSaved,
 }: {
@@ -67,6 +70,8 @@ function ItemDialog({
   categories: CategoryDTO[];
   addonGroups: AddonGroupDTO[];
   defaultTax: number;
+  /** Whether the restaurant charges tax, and whether all its prices already include it. */
+  taxRules: { taxMode: string; pricesIncludeTax: boolean; taxName: string };
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -93,6 +98,7 @@ function ItemDialog({
         variants,
         foodType: f.foodType,
         taxRate: f.customTax && f.taxRate !== "" ? Number(f.taxRate) : null,
+        priceIncludesTax: f.priceIncludesTax,
         available: f.available,
         addonGroupIds: f.addonGroupIds,
         showOnline: f.showOnline,
@@ -180,6 +186,25 @@ function ItemDialog({
             <Input className="mt-2" type="number" min={0} max={100} step="0.01" value={f.taxRate} onChange={(e) => set({ taxRate: e.target.value })} placeholder="Tax %" aria-label="Tax rate" />
           )}
         </div>
+        {taxRules.taxMode !== "none" && !taxRules.pricesIncludeTax && (
+          <div className="sm:col-span-2">
+            <Toggle
+              checked={f.priceIncludesTax}
+              onChange={(v) => set({ priceIncludesTax: v })}
+              label={`Price includes ${taxRules.taxMode === "gst" ? "GST" : taxRules.taxName}`}
+              description={`For a fixed-price dish like a ₹100 thali: the guest pays exactly the price, with ${taxRules.taxMode === "gst" ? "GST" : taxRules.taxName} taken out of it. Other dishes still get it added on top.`}
+            />
+            {f.priceIncludesTax && !f.hasPortions && Number(f.price) > 0 && (
+              <p className="mt-1.5 text-xs text-slate-500">
+                {(() => {
+                  const rate = f.customTax && f.taxRate !== "" ? Number(f.taxRate) : defaultTax;
+                  const before = Number(f.price) / (1 + rate / 100);
+                  return `${formatCurrency(Number(f.price))} = ${formatCurrency(before)} + ${formatCurrency(Number(f.price) - before)} ${taxRules.taxMode === "gst" ? "GST" : taxRules.taxName} (${rate}%)`;
+                })()}
+              </p>
+            )}
+          </div>
+        )}
         <Field label="Description" optional hint="Shown to guests on the QR menu" className="sm:col-span-2">
           <Textarea rows={2} value={f.description} onChange={(e) => set({ description: e.target.value })} />
         </Field>
@@ -261,6 +286,7 @@ export default function MenuPage() {
   const [areas, setAreas] = useState<string[]>([]);
   const [stations, setStations] = useState<string[]>([]);
   const [defaultTax, setDefaultTax] = useState(5);
+  const [taxRules, setTaxRules] = useState({ taxMode: "gst", pricesIncludeTax: false, taxName: "GST" });
   const [selected, setSelected] = useState<string>("all");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<ItemForm | null>(null);
@@ -283,6 +309,7 @@ export default function MenuPage() {
     api<{ settings: SettingsDTO }>("/api/settings").then(
       (r) => {
         setDefaultTax(r.settings.defaultTaxRate);
+        setTaxRules({ taxMode: r.settings.taxMode, pricesIncludeTax: r.settings.pricesIncludeTax, taxName: r.settings.taxName });
         setStations(parseList(r.settings.kitchenStations));
       },
       () => null
@@ -535,6 +562,7 @@ export default function MenuPage() {
                             {variants.length ? variants.map((v) => `${v.name} ${formatCurrency(v.price)}`).join(" · ") : formatCurrency(item.price)}
                             {(selected === "all" || q) && ` · ${catName(item.categoryId)}`}
                             {item.taxRate !== null && ` · Tax ${item.taxRate}%`}
+                            {item.priceIncludesTax && !taxRules.pricesIncludeTax && taxRules.taxMode !== "none" && ` · incl. ${taxRules.taxMode === "gst" ? "GST" : taxRules.taxName}`}
                           </p>
                           {item.description && <p className="truncate text-xs text-slate-400">{item.description}</p>}
                         </div>
@@ -569,6 +597,7 @@ export default function MenuPage() {
           categories={categories}
           addonGroups={addonGroups}
           defaultTax={defaultTax}
+          taxRules={taxRules}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

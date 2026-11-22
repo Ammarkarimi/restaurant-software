@@ -92,6 +92,7 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
               price: i.price,
               quantity: i.quantity,
               taxRate: i.taxRate,
+              taxIncluded: i.taxIncluded,
               // Cooked long ago: it never shows on the kitchen screen.
               kotNumber: 0,
               sentAt: b.createdAt,

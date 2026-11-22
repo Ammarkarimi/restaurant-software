@@ -9,6 +9,7 @@ import { CloudOff, Minus, Plus, Printer, RefreshCw, Search, Trash2, Wifi } from 
 import { offlineTotals, type OfflineBill, type OfflineBootstrap, type OfflineMenuItem } from "@/lib/offline";
 import { getBootstrap, getDone, getQueue, nextOfflineBillNumber, refreshBootstrap, saveOfflineBill, syncOfflineBills } from "@/lib/offline-client";
 import { todayKey } from "@/lib/dates";
+import { taxRowsFor } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 
 type Line = { key: string; item: OfflineMenuItem; variant: string | null; price: number; quantity: number };
@@ -50,24 +51,23 @@ function billHtml(boot: OfflineBootstrap, bill: OfflineBill) {
   const t = offlineTotals(bill);
   const m = (n: number) => money(n, r.currency);
   const when = new Date(bill.paidAt).toLocaleString("en-IN", { timeZone: r.timezone, dateStyle: "medium", timeStyle: "short" });
-  const taxRows =
-    bill.rules.taxMode === "gst"
-      ? t.taxLines.flatMap((l) => [`<tr><td>CGST @${l.rate / 2}%</td><td class="r">${m(l.tax / 2)}</td></tr>`, `<tr><td>SGST @${l.rate / 2}%</td><td class="r">${m(l.tax / 2)}</td></tr>`])
-      : t.tax
-        ? [`<tr><td>${esc(bill.rules.taxName)}</td><td class="r">${m(t.tax)}</td></tr>`]
-        : [];
+  // Tax added on top of the prices; tax already inside them is noted under the total.
+  const taxRows = taxRowsFor(t, bill.rules.taxMode, bill.rules.taxName, "added").map((x) => `<tr><td>${esc(x.label)}</td><td class="r">${m(x.amount)}</td></tr>`);
+  const included = taxRowsFor(t, bill.rules.taxMode, bill.rules.taxName, "included").map((x) => `${esc(x.label)} ${m(x.amount)}`);
+  const starred = !bill.rules.pricesIncludeTax && bill.rules.taxMode !== "none";
   return `<h1>${esc(r.name)}</h1>
   ${r.address ? `<p class="c">${esc(r.address)}</p>` : ""}${r.phone ? `<p class="c">Ph: ${esc(r.phone)}</p>` : ""}
   ${r.gstin ? `<p class="c">GSTIN: ${esc(r.gstin)}</p>` : ""}${r.fssai ? `<p class="c">FSSAI: ${esc(r.fssai)}</p>` : ""}
   <hr><p>Bill: <b>${esc(bill.billNumber)}</b><br>${when}${bill.tableName ? `<br>Table: ${esc(bill.tableName)}` : ""}${bill.customerName ? `<br>${esc(bill.customerName)}` : ""}</p><hr>
-  <table>${bill.items.map((i) => `<tr><td>${esc(i.name)}${i.variant ? ` (${esc(i.variant)})` : ""}<br>${i.quantity} × ${m(i.price)}</td><td class="r">${m(i.price * i.quantity)}</td></tr>`).join("")}</table><hr>
+  <table>${bill.items.map((i) => `<tr><td>${esc(i.name)}${i.variant ? ` (${esc(i.variant)})` : ""}${starred && i.taxIncluded ? " *" : ""}<br>${i.quantity} × ${m(i.price)}</td><td class="r">${m(i.price * i.quantity)}</td></tr>`).join("")}</table><hr>
   <table><tr><td>Items</td><td class="r">${m(t.itemsTotal)}</td></tr>
   ${t.discount ? `<tr><td>Discount</td><td class="r">−${m(t.discount)}</td></tr>` : ""}
   ${t.serviceCharge ? `<tr><td>Service charge</td><td class="r">${m(t.serviceCharge)}</td></tr>` : ""}
   ${t.charges.filter((c) => c.amount).map((c) => `<tr><td>${esc(c.name)}</td><td class="r">${m(c.amount)}</td></tr>`).join("")}
   ${taxRows.join("")}
   ${t.roundOff ? `<tr><td>Round off</td><td class="r">${m(t.roundOff)}</td></tr>` : ""}
-  <tr class="b big"><td>Total</td><td class="r">${m(t.total)}</td></tr></table><hr>
+  <tr class="b big"><td>Total</td><td class="r">${m(t.total)}</td></tr></table>
+  ${t.includedTax > 0 ? `<p>${bill.rules.pricesIncludeTax ? "Includes" : "Prices marked * include"} ${included.join(", ")}</p>` : ""}<hr>
   <p>Paid: ${bill.payments.map((p) => `${p.method.toUpperCase()} ${m(p.amount)}`).join(" + ")}</p>
   <p class="c">${esc(r.footer).replace(/\n/g, "<br>")}</p>`;
 }
@@ -152,7 +152,7 @@ export default function OfflineBillingPage() {
     type,
     discount: discountValue,
     rules: boot.rules,
-    items: lines.map((l) => ({ menuItemId: l.item.id, name: l.item.name, variant: l.variant, category: l.item.category, foodType: l.item.foodType, price: l.price, quantity: l.quantity, taxRate: l.item.taxRate })),
+    items: lines.map((l) => ({ menuItemId: l.item.id, name: l.item.name, variant: l.variant, category: l.item.category, foodType: l.item.foodType, price: l.price, quantity: l.quantity, taxRate: l.item.taxRate, taxIncluded: l.item.taxIncluded ?? false })),
   };
   const totals = lines.length ? offlineTotals(draft) : null;
   const label = type === "dine_in" ? `Table ${table || "?"}` : type === "delivery" ? "Delivery" : "Takeaway";
@@ -291,8 +291,8 @@ export default function OfflineBillingPage() {
                   <span className="text-slate-600">Discount (₹)</span>
                   <input type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-right" aria-label="Discount" />
                 </label>
-                {totals.tax > 0 && (
-                  <p className="flex justify-between text-slate-600"><span>Tax</span><span>{m(totals.tax)}</span></p>
+                {totals.tax - totals.includedTax > 0 && (
+                  <p className="flex justify-between text-slate-600"><span>Tax</span><span>{m(totals.tax - totals.includedTax)}</span></p>
                 )}
                 {totals.chargesTotal > 0 && (
                   <p className="flex justify-between text-slate-600"><span>Charges</span><span>{m(totals.chargesTotal)}</span></p>

@@ -13,6 +13,8 @@ export interface MenuItemDTO {
   variants: string;
   foodType: string;
   taxRate: number | null;
+  /** The price already includes tax, even when the rest of the menu adds tax on top. */
+  priceIncludesTax: boolean;
   available: boolean;
   sortOrder: number;
   /** JSON ids of the add-on groups offered with the dish. */
@@ -111,6 +113,8 @@ export interface OrderItemDTO {
   price: number;
   quantity: number;
   taxRate: number;
+  /** The price included tax when it was ordered. */
+  taxIncluded: boolean;
   note: string | null;
   /** JSON [{ group, name, price }]; already part of `price`. */
   addons: string;

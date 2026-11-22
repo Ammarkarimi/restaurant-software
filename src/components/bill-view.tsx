@@ -32,7 +32,7 @@ export interface BillData {
   customerAddress: string | null;
   customerGstin?: string | null;
   date: string | Date;
-  items: Array<{ name: string; variant: string | null; foodType: string; quantity: number; price: number; note: string | null; addons?: string }>;
+  items: Array<{ name: string; variant: string | null; foodType: string; quantity: number; price: number; note: string | null; addons?: string; taxIncluded?: boolean }>;
   totals: BillTotals;
   taxMode: string;
   taxName: string;
@@ -97,7 +97,9 @@ export function BillView({
   const slim = !a4 && paper.widthMm < 60;
   const kind = a4 ? "a4" : slim ? "slim" : "thermal";
   const when = formatBillDate(b.date, timezone);
-  const taxRows = taxRowsFor(b.totals, b.taxMode, b.taxName);
+  /** Tax added on top of the prices, and tax already inside them (all prices, or tax-included dishes). */
+  const addedTaxRows = taxRowsFor(b.totals, b.taxMode, b.taxName, "added");
+  const includedTaxRows = taxRowsFor(b.totals, b.taxMode, b.taxName, "included");
   const paid = b.payments.reduce((s, x) => s + x.amount, 0);
   const due = Math.round((b.totals.total - paid) * 100) / 100;
   const align = t.headerAlign === "center" ? "text-center" : "text-left";
@@ -166,6 +168,7 @@ export function BillView({
       {t.showFoodTypeMark && <FoodDot type={i.foodType} />}
       {i.name}
       {i.variant && ` (${i.variant})`}
+      {i.taxIncluded && !b.pricesIncludeTax && b.taxMode !== "none" && "\u00a0*"}
       {addonText(i.addons) && <span className="block opacity-80">+ {addonText(i.addons)}</span>}
       {t.showItemNotes && i.note && <span className="block italic opacity-75">- {i.note}</span>}
     </>
@@ -232,13 +235,13 @@ export function BillView({
       {b.totals.charges.map((c) => (
         <Line key={c.name} l={c.name} v={money(c.amount)} />
       ))}
-      {!b.pricesIncludeTax && taxRows.map((r) => <Line key={r.label} l={r.label} v={money(r.amount)} />)}
+      {addedTaxRows.map((r) => <Line key={r.label} l={r.label} v={money(r.amount)} />)}
       {b.totals.roundOff !== 0 && <Line l="Round off" v={`${b.totals.roundOff > 0 ? "+" : ""}${money(b.totals.roundOff)}`} muted />}
       <div className={cn("my-1", a4 ? "border-t-2" : rule)} style={a4 ? { borderColor: t.accentColor } : undefined} />
       <Line l={`TOTAL (${p.currency})`} v={money(b.totals.total)} strong />
-      {b.pricesIncludeTax && b.totals.tax > 0 && (
+      {b.totals.includedTax > 0 && (
         <p className="opacity-75">
-          Includes {taxRows.map((r) => `${r.label} ${money(r.amount)}`).join(", ")}
+          {b.pricesIncludeTax ? "Includes" : "Prices marked * include"} {includedTaxRows.map((r) => `${r.label} ${money(r.amount)}`).join(", ")}
         </p>
       )}
       {t.showAmountInWords && <p className="mt-1 italic">{amountInWords(b.totals.total, p.currency)}</p>}

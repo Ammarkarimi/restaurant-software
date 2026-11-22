@@ -119,10 +119,10 @@ export default async function TrackOrderPage({ params }: { params: Promise<{ tok
                 <span>{formatCurrency(totals.chargesTotal, settings.currency)}</span>
               </p>
             )}
-            {totals.tax > 0 && !order.pricesIncludeTax && (
+            {totals.tax - totals.includedTax > 0 && (
               <p className="flex justify-between">
                 <span>Tax</span>
-                <span>{formatCurrency(totals.tax, settings.currency)}</span>
+                <span>{formatCurrency(totals.tax - totals.includedTax, settings.currency)}</span>
               </p>
             )}
             <p className="mt-1 flex justify-between text-lg font-bold text-slate-900">

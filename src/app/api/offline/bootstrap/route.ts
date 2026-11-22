@@ -48,6 +48,7 @@ export async function GET() {
         variants: parseVariants(i.variants),
         foodType: i.foodType,
         taxRate: i.taxRate ?? settings.defaultTaxRate,
+        taxIncluded: i.priceIncludesTax,
         available: i.available,
       })),
       tables: tables.map((x) => x.name),

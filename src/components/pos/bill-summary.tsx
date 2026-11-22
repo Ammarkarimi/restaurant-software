@@ -62,7 +62,7 @@ export function BillSummary({
     }
   };
   const folded = collapsible && !open;
-  const taxRows = taxRowsFor(totals, taxMode, taxName);
+  const addedTaxRows = taxRowsFor(totals, taxMode, taxName, "added");
   const row = "flex items-center justify-between gap-3 py-0.5";
   const manualDiscount = Math.round((totals.discount - totals.pointsDiscount) * 100) / 100;
   return (
@@ -159,19 +159,21 @@ export function BillSummary({
           <span className="font-semibold text-primary-700 underline-offset-2 hover:underline">+ Packing / delivery charge</span>
         </button>
       )}
-      {folded ? null : pricesIncludeTax
-        ? totals.tax > 0 && (
-            <div className={cn(row, "text-sm text-slate-500")}>
-              <span>Includes {taxMode === "gst" ? "GST" : taxName}</span>
-              <span>{formatCurrency(totals.tax)}</span>
-            </div>
-          )
-        : taxRows.map((t) => (
-            <div key={t.label} className={row}>
-              <span className="text-slate-600">{t.label}</span>
-              <span>{formatCurrency(t.amount)}</span>
-            </div>
-          ))}
+      {!folded &&
+        addedTaxRows.map((t) => (
+          <div key={t.label} className={row}>
+            <span className="text-slate-600">{t.label}</span>
+            <span>{formatCurrency(t.amount)}</span>
+          </div>
+        ))}
+      {!folded && totals.includedTax > 0 && (
+        <div className={cn(row, "text-sm text-slate-500")}>
+          <span>
+            {pricesIncludeTax ? "Includes" : "Tax-included dishes include"} {taxMode === "gst" ? "GST" : taxName}
+          </span>
+          <span>{formatCurrency(totals.includedTax)}</span>
+        </div>
+      )}
       {!folded && totals.roundOff !== 0 && (
         <div className={cn(row, "text-sm text-slate-500")}>
           <span>Round off</span>

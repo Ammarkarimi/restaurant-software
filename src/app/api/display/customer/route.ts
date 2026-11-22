@@ -39,7 +39,8 @@ export async function GET() {
           discount: t.discount,
           serviceCharge: t.serviceCharge,
           charges: t.chargesTotal,
-          tax: t.tax,
+          // Only tax added on top: tax already inside the prices is not an extra line to pay.
+          tax: Math.round((t.tax - t.includedTax) * 100) / 100,
           roundOff: t.roundOff,
           total: t.total,
         },

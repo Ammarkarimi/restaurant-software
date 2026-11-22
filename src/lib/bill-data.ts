@@ -7,10 +7,10 @@ import { formatCurrency } from "./utils";
 export function billItems(order: FullOrder) {
   const merged = new Map<string, BillData["items"][number]>();
   for (const i of activeItems(order.items)) {
-    const key = [i.menuItemId ?? i.name, i.variant, i.addons, i.price, i.note].join("|");
+    const key = [i.menuItemId ?? i.name, i.variant, i.addons, i.price, i.note, i.taxIncluded].join("|");
     const line = merged.get(key);
     if (line) line.quantity += i.quantity;
-    else merged.set(key, { name: i.name, variant: i.variant, foodType: i.foodType, quantity: i.quantity, price: i.price, note: i.note, addons: i.addons });
+    else merged.set(key, { name: i.name, variant: i.variant, foodType: i.foodType, quantity: i.quantity, price: i.price, note: i.note, addons: i.addons, taxIncluded: i.taxIncluded });
   }
   return [...merged.values()];
 }

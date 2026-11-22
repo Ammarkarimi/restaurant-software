@@ -61,6 +61,7 @@ interface CartLine {
   price: number;
   foodType: string;
   taxRate: number;
+  taxIncluded: boolean;
   quantity: number;
   note: string;
   addons: ChosenAddon[];
@@ -320,7 +321,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       setDialog({ kind: "options", item });
       return;
     }
-    addToCart({ menuItemId: item.id, name: item.name, variant: null, price: priceOf(item, null) ?? item.price, foodType: item.foodType, taxRate: taxFor(item), addons: [], picks: [] });
+    addToCart({ menuItemId: item.id, name: item.name, variant: null, price: priceOf(item, null) ?? item.price, foodType: item.foodType, taxRate: taxFor(item), taxIncluded: item.priceIncludesTax, addons: [], picks: [] });
   }
 
   // ---------- totals ----------
@@ -1176,7 +1177,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
           onClose={() => setDialog(null)}
           onAdd={(c) => {
             const it = dialog.item;
-            addToCart({ menuItemId: it.id, name: it.name, variant: c.variant, price: c.unitPrice, foodType: it.foodType, taxRate: taxFor(it), addons: c.addons, picks: c.picks }, c.quantity);
+            addToCart({ menuItemId: it.id, name: it.name, variant: c.variant, price: c.unitPrice, foodType: it.foodType, taxRate: taxFor(it), taxIncluded: it.priceIncludesTax, addons: c.addons, picks: c.picks }, c.quantity);
             setDialog(null);
           }}
         />
@@ -1185,7 +1186,7 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
         <OpenItemDialog
           onClose={() => setDialog(null)}
           onAdd={(name, price, quantity) => {
-            addToCart({ menuItemId: null, name, variant: null, price, foodType: "veg", taxRate: settings.defaultTaxRate, addons: [], picks: [] }, quantity);
+            addToCart({ menuItemId: null, name, variant: null, price, foodType: "veg", taxRate: settings.defaultTaxRate, taxIncluded: false, addons: [], picks: [] }, quantity);
             setDialog(null);
           }}
         />

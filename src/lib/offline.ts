@@ -12,6 +12,8 @@ export interface OfflineMenuItem {
   variants: Array<{ name: string; price: number }>;
   foodType: string;
   taxRate: number;
+  /** Price already includes tax (missing in menus saved before this was added). */
+  taxIncluded?: boolean;
   available: boolean;
 }
 
@@ -67,6 +69,7 @@ export const offlineBillSchema = z.object({
         price: z.number().min(0).max(10_000_000),
         quantity: z.number().int().min(1).max(1000),
         taxRate: z.number().min(0).max(100),
+        taxIncluded: z.boolean().default(false),
       })
     )
     .min(1)
@@ -81,7 +84,7 @@ export type OfflineBill = z.infer<typeof offlineBillSchema>;
 export function offlineTotals(bill: Pick<OfflineBill, "items" | "rules" | "discount" | "type">): BillTotals {
   const r = bill.rules;
   return calculateBill(
-    bill.items.map((i) => ({ price: i.price, quantity: i.quantity, taxRate: i.taxRate })),
+    bill.items.map((i) => ({ price: i.price, quantity: i.quantity, taxRate: i.taxRate, taxIncluded: i.taxIncluded })),
     { taxMode: r.taxMode, pricesIncludeTax: r.pricesIncludeTax, serviceChargePercent: r.serviceChargePercent, roundOff: r.roundOff },
     bill.discount ? { type: "amount", value: bill.discount } : null,
     {

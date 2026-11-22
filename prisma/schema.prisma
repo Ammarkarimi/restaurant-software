@@ -219,27 +219,29 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id            String       @id @default(cuid())
-  restaurantId  String
-  categoryId    String
-  name          String
-  shortCode     String? // typed at the counter for quick search, e.g. "PBM"
-  description   String?
-  price         Float // used when the item has no portions
-  variants      String       @default("[]") // JSON [{ "name": "Half", "price": 180 }]
-  foodType      String       @default("veg") // veg, non_veg, egg
-  taxRate       Float? // null = the restaurant's default rate
-  available     Boolean      @default(true) // false = sold out today
-  addonGroupIds String       @default("[]") // JSON ids of the add-on groups offered with it, in order
-  imagePath     String? // photo shown on the QR menu
-  showOnline    Boolean      @default(true) // false = only staff see it, not the QR / online menu
-  sortOrder     Int          @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  category      MenuCategory @relation(fields: [categoryId], references: [id])
-  orderItems    OrderItem[]
-  recipeLines   RecipeLine[]
-  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id               String       @id @default(cuid())
+  restaurantId     String
+  categoryId       String
+  name             String
+  shortCode        String? // typed at the counter for quick search, e.g. "PBM"
+  description      String?
+  price            Float // used when the item has no portions
+  variants         String       @default("[]") // JSON [{ "name": "Half", "price": 180 }]
+  foodType         String       @default("veg") // veg, non_veg, egg
+  taxRate          Float? // null = the restaurant's default rate
+  /// Price already includes tax (a fixed-price thali), even when the rest of the menu adds tax on top.
+  priceIncludesTax Boolean      @default(false)
+  available        Boolean      @default(true) // false = sold out today
+  addonGroupIds    String       @default("[]") // JSON ids of the add-on groups offered with it, in order
+  imagePath        String? // photo shown on the QR menu
+  showOnline       Boolean      @default(true) // false = only staff see it, not the QR / online menu
+  sortOrder        Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  category         MenuCategory @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+  recipeLines      RecipeLine[]
+  restaurant       Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, categoryId])
 }
@@ -335,6 +337,8 @@ model OrderItem {
   price         Float // unit price
   quantity      Int        @default(1)
   taxRate       Float      @default(0)
+  /// The dish's price included tax when it was ordered (kept so later menu changes don't change old bills).
+  taxIncluded   Boolean    @default(false)
   note          String? // "less spicy", "no onion"
   addons        String     @default("[]") // JSON [{ "group": "Toppings", "name": "Extra cheese", "price": 40 }]; included in price
   station       String? // kitchen station the ticket goes to; null = the main kitchen
@@ -945,24 +949,24 @@ model Payslip {
 
 // A prepaid card a guest buys (often as a present) and spends on bills later.
 model GiftCard {
-  id             String        @id @default(cuid())
-  restaurantId   String
-  code           String // printed on the card, e.g. GC-7K3M-9Q2P
-  amount         Float // value when sold
-  balance        Float
-  buyerName      String?
-  buyerPhone     String?
-  recipientName  String?
-  message        String?
-  expiresOn      String? // "YYYY-MM-DD"; null = never
-  status         String        @default("active") // active, cancelled
-  soldMethod     String        @default("cash") // how the buyer paid: cash, upi, card
-  soldOn         String // "YYYY-MM-DD"
-  soldByName     String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  txns           GiftCardTxn[]
-  restaurant     Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id            String        @id @default(cuid())
+  restaurantId  String
+  code          String // printed on the card, e.g. GC-7K3M-9Q2P
+  amount        Float // value when sold
+  balance       Float
+  buyerName     String?
+  buyerPhone    String?
+  recipientName String?
+  message       String?
+  expiresOn     String? // "YYYY-MM-DD"; null = never
+  status        String        @default("active") // active, cancelled
+  soldMethod    String        @default("cash") // how the buyer paid: cash, upi, card
+  soldOn        String // "YYYY-MM-DD"
+  soldByName    String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  txns          GiftCardTxn[]
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, code])
   @@index([restaurantId, soldOn])

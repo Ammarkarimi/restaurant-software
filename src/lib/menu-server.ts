@@ -18,6 +18,8 @@ export const menuItemFields = {
   variants: z.array(variantSchema).max(10).default([]),
   foodType: z.enum(FOOD_TYPES).default("veg"),
   taxRate: z.coerce.number().min(0).max(100).optional().nullable(),
+  /** The price already includes tax (a fixed-price thali) while the rest of the menu adds it. */
+  priceIncludesTax: z.boolean().default(false),
   available: z.boolean().default(true),
   addonGroupIds: z.array(z.string().min(1).max(40)).max(20).default([]),
   showOnline: z.boolean().default(true),
@@ -39,6 +41,7 @@ export function menuItemData(item: z.infer<typeof menuItemSchema>) {
     variants: JSON.stringify(item.variants),
     foodType: item.foodType,
     taxRate: item.taxRate ?? null,
+    priceIncludesTax: item.priceIncludesTax,
     available: item.available,
     addonGroupIds: JSON.stringify([...new Set(item.addonGroupIds)]),
     showOnline: item.showOnline,
