@@ -202,9 +202,11 @@ const STEPS: Array<{ title: string; who?: string; points: string[] }> = [
     title: "19. When the internet goes down",
     points: [
       "Open the app once on each billing computer while the internet works: the menu and the offline billing screen are saved on that computer.",
-      "When the internet drops, a red bar says so — press “Open offline billing” (or just open any page). Tap dishes, then “Print KOT” and “Paid by Cash / UPI / Card”: the bill prints and is saved on the computer.",
+      "When the internet drops on the Tables or order screen, a red bar counts down 8 seconds and the app moves to offline billing by itself — the new order you were typing comes along. Press “Stay here” to stop it, or “Switch now” to go at once. On other pages the red bar just offers “Open offline billing”.",
+      "This works even when the Wi-Fi router still has power but its internet line is down (common in a power cut): the app checks the server every 20 seconds, not just the Wi-Fi.",
+      "In offline billing, tap dishes, then “Print KOT” and “Paid by Cash / UPI / Card”: the bill prints and is saved on the computer. A table's order that was already sent to the kitchen stays on the server — bill it when the internet is back.",
       "Offline bills get their own numbers (for example OFFKQ-12) so they never clash with normal bills or another counter. Special prices and offers are not used offline.",
-      "When the internet is back, the bills go to your account by themselves, with the day and time they were paid — they show in Bills, Reports, stock and the day close. Don't clear the browser's data while bills are waiting to sync.",
+      "When the internet is back, the bills go to your account by themselves, with the day and time they were paid — they show in Bills, Reports, stock and the day close. The app then goes back to normal billing by itself (it waits if you are in the middle of a bill). Don't clear the browser's data while bills are waiting to sync.",
     ],
   },
   {

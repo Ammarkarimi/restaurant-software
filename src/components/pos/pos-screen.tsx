@@ -43,6 +43,7 @@ import {
   type TransferTable,
 } from "@/components/pos/pos-dialogs";
 import { api, whatsappLink } from "@/lib/client";
+import { setCarriedOrder } from "@/lib/offline-client";
 import { normalizePhone } from "@/lib/phone";
 import { calculateBill } from "@/lib/billing";
 import { addonText, addonsTotal, groupsForItem, parseVariants, type ChosenAddon } from "@/lib/menu";
@@ -301,6 +302,15 @@ export function PosScreen({ orderId, newOrder }: { orderId?: string; newOrder?: 
       return changed ? next : c;
     });
   }, [allItems, priceOf]);
+
+  // A new order not yet sent is handed to offline billing if the internet drops, so nothing is typed twice.
+  // (An order already on the server stays there: offline billing can't see it.)
+  useEffect(() => {
+    if (order) return setCarriedOrder(null);
+    const lines = cart.filter((l) => l.menuItemId).map((l) => ({ menuItemId: l.menuItemId!, name: l.name, variant: [l.variant, addonText(l.addons)].filter(Boolean).join(" + ") || null, price: l.price, quantity: l.quantity }));
+    setCarriedOrder({ type: orderType, tableName: tableName ?? null, lines });
+  }, [order, cart, orderType, tableName]);
+  useEffect(() => () => setCarriedOrder(null), []);
 
   function addToCart(line: Omit<CartLine, "key" | "quantity" | "note">, quantity = 1) {
     const extras = JSON.stringify(line.addons);

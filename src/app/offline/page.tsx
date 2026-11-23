@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CloudOff, Minus, Plus, Printer, RefreshCw, Search, Trash2, Wifi } from "lucide-react";
 import { offlineTotals, type OfflineBill, type OfflineBootstrap, type OfflineMenuItem } from "@/lib/offline";
-import { getBootstrap, getDone, getQueue, nextOfflineBillNumber, refreshBootstrap, saveOfflineBill, syncOfflineBills } from "@/lib/offline-client";
+import { getBootstrap, getDone, getQueue, getReturnTo, nextOfflineBillNumber, reachable, refreshBootstrap, saveOfflineBill, setReturnTo, syncOfflineBills, takeCarriedOrder } from "@/lib/offline-client";
 import { todayKey } from "@/lib/dates";
 import { taxRowsFor } from "@/lib/billing";
 import { cn } from "@/lib/utils";
@@ -92,6 +92,9 @@ export default function OfflineBillingPage() {
   const [recent, setRecent] = useState<Array<OfflineBill & { orderNumber?: number }>>([]);
   const [message, setMessage] = useState("");
   const [pick, setPick] = useState<OfflineMenuItem | null>(null);
+  // Set when the app moved here by itself: it goes back there once the internet returns.
+  const [returnTo, setReturn] = useState<string | null>(null);
+  const [backIn, setBackIn] = useState<number | null>(null);
 
   const refreshLists = useCallback(() => {
     setPending(getQueue().length);
@@ -106,26 +109,71 @@ export default function OfflineBillingPage() {
   }, [refreshLists]);
 
   useEffect(() => {
-    setBoot(getBootstrap());
+    const saved = getBootstrap();
+    setBoot(saved);
+    setReturn(getReturnTo());
+    // The order that was on the billing screen when the internet dropped.
+    const carried = takeCarriedOrder();
+    if (saved && carried) {
+      const carriedLines: Line[] = [];
+      for (const l of carried.lines) {
+        const item = saved.menu.find((i) => i.id === l.menuItemId);
+        if (item) carriedLines.push({ key: `${item.id}|${l.variant ?? ""}|${carriedLines.length}`, item, variant: l.variant, price: l.price, quantity: l.quantity });
+      }
+      if (carriedLines.length) {
+        setLines(carriedLines);
+        if (carried.type === "dine_in" || carried.type === "takeaway" || carried.type === "delivery") setType(carried.type);
+        if (carried.tableName) setTable(carried.tableName);
+        setMessage("The order you were making is here — finish it and take payment.");
+      }
+    }
     setOnline(navigator.onLine);
     refreshLists();
     setReady(true);
-    if (navigator.onLine) refreshBootstrap().then((b) => b && setBoot(b));
-    const up = () => {
-      setOnline(true);
-      trySync();
+    let alive = true;
+    // The browser's own flag stays "online" when the router has power but no internet, so ask the server too.
+    const check = async () => {
+      const ok = await reachable();
+      if (!alive) return;
+      setOnline(ok);
+      if (ok) trySync();
     };
+    check();
+    if (navigator.onLine) refreshBootstrap().then((b) => b && alive && setBoot(b));
     const down = () => setOnline(false);
-    window.addEventListener("online", up);
+    window.addEventListener("online", check);
     window.addEventListener("offline", down);
-    const t = setInterval(trySync, 30_000);
-    trySync();
+    const t = setInterval(check, 15_000);
     return () => {
-      window.removeEventListener("online", up);
+      alive = false;
+      window.removeEventListener("online", check);
       window.removeEventListener("offline", down);
       clearInterval(t);
     };
   }, [refreshLists, trySync]);
+
+  // Back to normal billing by itself once the internet is back — but never in the middle of a bill.
+  const busy = lines.length > 0 || pick !== null;
+  useEffect(() => {
+    if (!online || !returnTo || busy) return setBackIn(null);
+    let left = 5;
+    setBackIn(left);
+    const t = setInterval(async () => {
+      left -= 1;
+      setBackIn(left);
+      if (left > 0) return;
+      clearInterval(t);
+      await syncOfflineBills();
+      setReturnTo(null);
+      window.location.href = returnTo;
+    }, 1000);
+    return () => clearInterval(t);
+  }, [online, returnTo, busy]);
+
+  function stayOffline() {
+    setReturnTo(null);
+    setReturn(null);
+  }
 
   const categories = useMemo(() => [...new Set(boot?.menu.map((m) => m.category) ?? [])], [boot]);
   const shown = useMemo(() => {
@@ -196,6 +244,7 @@ export default function OfflineBillingPage() {
         {online ? <Wifi className="h-5 w-5" /> : <CloudOff className="h-5 w-5" />}
         <p className="font-semibold">
           {online ? "Internet is back." : "No internet — offline billing."} {pending > 0 ? `${pending} bill${pending === 1 ? "" : "s"} waiting to sync.` : "All bills are synced."}
+          {online && returnTo && (backIn !== null ? ` Going back to normal billing in ${backIn} s…` : " Finish this bill and the app goes back to normal billing.")}
         </p>
         <span className="ml-auto flex items-center gap-2">
           {online && pending > 0 && (
@@ -203,8 +252,13 @@ export default function OfflineBillingPage() {
               <RefreshCw className="h-4 w-4" /> Sync now
             </button>
           )}
+          {online && backIn !== null && (
+            <button onClick={stayOffline} className="rounded-lg px-3 py-1 text-sm font-semibold underline">
+              Stay here
+            </button>
+          )}
           {online && (
-            <Link href="/" className="rounded-lg bg-white px-3 py-1 text-sm font-semibold text-emerald-800">
+            <Link href={returnTo ?? "/"} onClick={() => setReturnTo(null)} className="rounded-lg bg-white px-3 py-1 text-sm font-semibold text-emerald-800">
               Back to normal billing
             </Link>
           )}

@@ -1,6 +1,7 @@
 // Keeps the offline billing screen working when the internet drops.
 // - /_next/static files (code, styles) are kept after the first load (their names change on every release).
 // - /offline (the offline billing screen) is saved whenever the app asks ("warm").
+// - /offline opens from that saved copy first, so it is instant with no internet.
 // - Any page opened while offline shows the offline billing screen instead of an error.
 const SHELL = "restaurant-shell-v1";
 
@@ -52,6 +53,13 @@ self.addEventListener("fetch", (event) => {
         return res;
       })
     );
+    return;
+  }
+
+  // The offline billing screen opens from the saved copy straight away: when the router has power but
+  // the internet line is down, waiting for the network could take a minute.
+  if (req.mode === "navigate" && url.pathname === "/offline") {
+    event.respondWith(caches.match("/offline").then((hit) => hit || fetch(req)));
     return;
   }
 

@@ -85,3 +85,75 @@ export function syncOfflineBills(): Promise<{ synced: number; failed: number }> 
   })();
   return syncing;
 }
+
+/**
+ * Checks that the server can really be reached. The browser's own "online" flag stays on when the
+ * Wi-Fi router has power but its internet line is down (common in a power cut), so we also ask the
+ * server for a tiny file. It is a static file, so this costs no server work.
+ */
+export async function reachable(timeoutMs = 5000): Promise<boolean> {
+  if (!navigator.onLine) return false;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/sw.js?ping=${Date.now()}`, { method: "HEAD", cache: "no-store", signal: ctl.signal });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Pages where the counter bills: when the internet drops here, the app moves to offline billing by itself. */
+export function isBillingPage(path: string) {
+  return path === "/" || path === "/tables" || path.startsWith("/tables/") || path.startsWith("/orders");
+}
+
+/** A new order not yet sent from the billing screen, handed to offline billing when the internet drops. */
+export interface CarriedOrder {
+  type: string;
+  tableName: string | null;
+  lines: Array<{ menuItemId: string; name: string; variant: string | null; price: number; quantity: number }>;
+}
+
+const CARRY = "offline:carry";
+const RETURN_TO = "offline:returnTo";
+
+export function setCarriedOrder(order: CarriedOrder | null) {
+  try {
+    if (order && order.lines.length) sessionStorage.setItem(CARRY, JSON.stringify(order));
+    else sessionStorage.removeItem(CARRY);
+  } catch {
+    // storage blocked: the order just isn't carried over
+  }
+}
+
+/** Reads the carried order once (it is removed so it never comes back twice). */
+export function takeCarriedOrder(): CarriedOrder | null {
+  try {
+    const v = sessionStorage.getItem(CARRY);
+    sessionStorage.removeItem(CARRY);
+    return v ? (JSON.parse(v) as CarriedOrder) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers the page to go back to once the internet returns after an automatic switch. */
+export function setReturnTo(path: string | null) {
+  try {
+    if (path) sessionStorage.setItem(RETURN_TO, path);
+    else sessionStorage.removeItem(RETURN_TO);
+  } catch {
+    // ignore
+  }
+}
+
+export function getReturnTo(): string | null {
+  try {
+    return sessionStorage.getItem(RETURN_TO);
+  } catch {
+    return null;
+  }
+}
