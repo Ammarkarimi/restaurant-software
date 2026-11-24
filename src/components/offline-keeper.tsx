@@ -9,7 +9,10 @@ import { getQueue, isBillingPage, reachable, refreshBootstrap, setReturnTo, sync
 const SWITCH_AFTER = 8;
 
 function switchNow() {
-  setReturnTo(window.location.pathname + window.location.search);
+  const { pathname, search } = window.location;
+  // A new table order is finished in offline billing, so come back to the Tables screen, not an empty order.
+  const newTableOrder = pathname === "/orders/new" && (new URLSearchParams(search).get("type") ?? "dine_in") === "dine_in";
+  setReturnTo(newTableOrder ? "/" : pathname + search);
   // A full page load (not a client-side route change) so the saved copy opens without internet.
   window.location.href = "/offline";
 }
