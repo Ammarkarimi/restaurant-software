@@ -4,7 +4,9 @@ import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
-import { isUniqueViolation, loadOrder, nextNumber, saveTotals, totalsOf } from "@/lib/orders";
+import { defaultCharges, isUniqueViolation, loadOrder, nextNumber, orderRulesFrom, saveTotals, totalsOf } from "@/lib/orders";
+import { priceFor } from "@/lib/menu";
+import { discountLimit } from "@/lib/permissions";
 import { settleOrder } from "@/lib/settle";
 import { offlineBillSchema, type OfflineBill } from "@/lib/offline";
 import { formatCurrency } from "@/lib/utils";
@@ -41,10 +43,45 @@ export async function POST(request: NextRequest) {
   });
 }
 
+/**
+ * An offline bill is checked like a bill made online: dishes on the menu are charged at the menu's
+ * price and tax (not whatever the device sent), the bill follows the restaurant's tax and charge
+ * settings, and a cashier's discount stays within their limit. Anything changed is noted in the
+ * activity history, and a different total shows up as a payment difference in the day close.
+ */
+async function checkedBill(user: SessionUser, b: OfflineBill, settings: Awaited<ReturnType<typeof getSettings>>) {
+  const notes: string[] = [];
+  const ids = [...new Set(b.items.map((i) => i.menuItemId).filter((x): x is string => !!x))];
+  const menu = new Map((await prisma.menuItem.findMany({ where: { id: { in: ids } }, select: { id: true, price: true, variants: true, taxRate: true, priceIncludesTax: true } })).map((m) => [m.id, m]));
+  const items = b.items.map((i) => {
+    const m = i.menuItemId ? menu.get(i.menuItemId) : undefined;
+    if (!i.menuItemId) return { ...i, menuItemId: null }; // an open item, as the till allows
+    if (!m) {
+      notes.push(`${i.name}: no longer on the menu, kept as an open item`);
+      return { ...i, menuItemId: null };
+    }
+    const price = priceFor(m, i.variant) ?? i.price;
+    if (Math.abs(price - i.price) > 0.009) notes.push(`${i.name}: ${formatCurrency(i.price, settings.currency)} → menu price ${formatCurrency(price, settings.currency)}`);
+    return { ...i, price, taxRate: m.taxRate ?? settings.defaultTaxRate, taxIncluded: m.priceIncludesTax };
+  });
+  const rules = { ...orderRulesFrom(settings), ...defaultCharges(b.type, settings) };
+  let discount = b.discount;
+  if (discount > 0) {
+    const itemsTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const limit = (discountLimit(user) / 100) * itemsTotal;
+    if (discount > limit + 0.009) {
+      notes.push(`discount ${formatCurrency(discount, settings.currency)} is above ${user.name}'s limit, kept at ${formatCurrency(limit, settings.currency)}`);
+      discount = Math.floor(limit * 100) / 100;
+    }
+  }
+  return { items, rules, discount, notes };
+}
+
 async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
   const existing = await prisma.order.findFirst({ where: { clientId: b.clientId }, select: { number: true } });
   if (existing) return existing.number;
   const settings = await getSettings();
+  const checked = await checkedBill(user, b, settings);
   const table = b.tableName ? await prisma.diningTable.findFirst({ where: { name: { equals: b.tableName, mode: "insensitive" } }, select: { id: true } }) : null;
   const notes = [b.tableName && !table ? `Table ${b.tableName}` : null, "Billed offline"].filter(Boolean).join(" · ");
 
@@ -69,20 +106,13 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
           createdByName: user.name,
           createdAt: b.createdAt,
           billedAt: b.paidAt,
-          // The rules the counter billed with, so the totals come out the same.
-          taxMode: b.rules.taxMode,
-          taxName: b.rules.taxName,
-          pricesIncludeTax: b.rules.pricesIncludeTax,
-          serviceChargePercent: b.rules.serviceChargePercent,
-          roundOff: b.rules.roundOff,
-          chargeTaxRate: b.rules.chargeTaxRate,
-          packingCharge: b.type === "dine_in" ? 0 : b.rules.packingCharge,
-          deliveryCharge: b.type === "delivery" ? b.rules.deliveryCharge : 0,
+          // The restaurant's own tax and charge settings (never the device's).
+          ...checked.rules,
           discountType: "amount",
-          discountValue: b.discount,
-          discountReason: b.discount ? "Discount (offline bill)" : null,
+          discountValue: checked.discount,
+          discountReason: checked.discount ? "Discount (offline bill)" : null,
           items: {
-            create: b.items.map((i) => ({
+            create: checked.items.map((i) => ({
               restaurantId: settings.restaurantId,
               menuItemId: i.menuItemId,
               name: i.name,
@@ -111,6 +141,7 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
     throw e;
   }
 
+  if (checked.notes.length) await logActivity(user, "Offline bill corrected", `Bill ${b.billNumber}: ${checked.notes.join("; ")}`);
   const order = await loadOrder(created.id);
   const total = totalsOf(order).total;
   // Payments as taken at the counter; if the menu maths differ by paise, the last payment absorbs it.

@@ -20,7 +20,18 @@ function getStorageDriver(): StorageDriver {
 }
 
 function getLocalUploadDir(): string {
-  return path.join(process.cwd(), process.env.UPLOAD_DIR || "./uploads");
+  return path.resolve(process.cwd(), process.env.UPLOAD_DIR || "./uploads");
+}
+
+/**
+ * The full path of a stored file. Stored paths come from the database, but they are still checked
+ * to stay inside the upload folder, so a bad value can never read or delete another file.
+ */
+function insideUploads(filePath: string): string {
+  const root = getLocalUploadDir();
+  const full = path.resolve(root, filePath.replace(/\\/g, "/"));
+  if (full !== root && !full.startsWith(root + path.sep)) throw new Error("File not found");
+  return full;
 }
 
 function buildRelativePath(subfolder: string, uniqueName: string): string {
@@ -50,7 +61,7 @@ export async function storeFile(
     };
   }
 
-  const uploadPath = path.join(getLocalUploadDir(), subfolder);
+  const uploadPath = insideUploads(subfolder);
   await mkdir(uploadPath, { recursive: true });
   await writeFile(path.join(uploadPath, uniqueName), buffer);
 
@@ -79,7 +90,7 @@ export async function readStoredFile(
     };
   }
 
-  const fullPath = path.join(getLocalUploadDir(), sanitized);
+  const fullPath = insideUploads(sanitized);
   const buffer = await readFile(fullPath);
   const ext = path.extname(sanitized).toLowerCase();
   const mimeTypes: Record<string, string> = {
@@ -106,7 +117,7 @@ export async function deleteStoredFile(filePath: string): Promise<void> {
   }
 
   const { unlink } = await import("fs/promises");
-  await unlink(path.join(getLocalUploadDir(), sanitized));
+  await unlink(insideUploads(sanitized));
 }
 
 export function getUploadDir(): string {

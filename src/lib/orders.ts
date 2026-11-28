@@ -2,11 +2,11 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { currentRestaurantId, prisma, type Db } from "./db";
 import { fail } from "./api";
-import { calculateBill, paidAmount, round2, type BillCharge, type BillRules } from "./billing";
+import { calculateBill, paidAmount, round2, type BillCharge, type BillLineInput, type BillRules } from "./billing";
+import { billShareToken, orderTrackToken } from "./share";
 import { addonText, addonsTotal, chooseAddons, groupsForItem, parseList } from "./menu";
 import { activeLists, menuPrice } from "./pricing";
 import type { SettingsRecord } from "./settings";
-import { billShareToken, orderTrackToken } from "./share";
 
 export const ACTIVE_STATUSES = ["open", "billed"];
 
@@ -53,7 +53,13 @@ export function chargesOf(order: ChargeFields): BillCharge[] {
   ];
 }
 
-export function totalsOf(order: FullOrder) {
+/** What a bill's totals are worked out from (a full order, or the slimmer rows reports load). */
+export type TotalsInput = Pick<
+  FullOrder,
+  "taxMode" | "pricesIncludeTax" | "serviceChargePercent" | "roundOff" | "discountType" | "discountValue" | "discountMax" | "packingCharge" | "deliveryCharge" | "chargeTaxRate" | "pointsRedeemed"
+> & { items: Array<BillLineInput & { status: string }> };
+
+export function totalsOf(order: TotalsInput) {
   return calculateBill(
     activeItems(order.items),
     rulesOf(order),
@@ -147,7 +153,8 @@ export const newItemSchema = z
   })
   .refine((i) => i.menuItemId || (i.name && i.price !== undefined), "Each item needs a menu item, or a name and price");
 
-export type NewItem = z.input<typeof newItemSchema>;
+// Items as they are after checking (numbers already numbers), so nothing unchecked reaches the prices.
+export type NewItem = z.output<typeof newItemSchema>;
 
 /** Where an order is taken, for special prices (area, order type, app, happy hours). */
 export interface LineContext {

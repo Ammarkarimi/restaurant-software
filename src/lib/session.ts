@@ -27,6 +27,11 @@ export interface SessionUser {
   restaurantId: string;
   /** A cashier's rights, read from the database on every request (not kept in the cookie). */
   permissions?: Permissions;
+  /**
+   * Fingerprint of the password the sign-in was made with. When the password changes (own change,
+   * reset by the owner), every earlier sign-in stops working.
+   */
+  passwordKey?: string;
 }
 
 export interface PlatformSession {
@@ -43,6 +48,7 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     name: user.name,
     role: user.role,
     restaurantId: user.restaurantId,
+    pk: user.passwordKey,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -60,6 +66,7 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
       name: payload.name as string,
       role: payload.role as string,
       restaurantId: payload.restaurantId as string,
+      passwordKey: typeof payload.pk === "string" ? payload.pk : undefined,
     };
   } catch {
     return null;

@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return badRequest("Please enter your email and password");
     }
-    if (!rateLimit(`login:${clientIp(request.headers)}:${email}`, 10, 15 * 60 * 1000)) {
+    // Per device and account, and per account from anywhere (guessing from many devices at once).
+    if (!rateLimit(`login:${clientIp(request.headers)}:${email}`, 10, 15 * 60 * 1000) || !rateLimit(`login-account:${email}`, 30, 15 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many attempts. Please wait 15 minutes and try again." }, { status: 429 });
     }
 

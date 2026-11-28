@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Download, Megaphone, Plus, Send, Trash2 } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, Select, Textarea, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
+import { toCsv } from "@/lib/csv";
 import { api, whatsappLink } from "@/lib/client";
 import { SEGMENTS, personalise, type Recipient } from "@/lib/campaigns";
 import { formatDateTime } from "@/lib/utils";
@@ -123,7 +124,7 @@ function SendView({ id, onClose }: { id: string; onClose: () => void }) {
   }
 
   const done = c?.recipients.filter((r) => r.sentAt).length ?? 0;
-  const csv = c ? "data:text/csv;charset=utf-8," + encodeURIComponent(["Name,Phone,Message", ...c.recipients.map((r) => `"${(r.name ?? "").replace(/"/g, "'")}",${r.phone},"${personalise(c.message, r, settings.currency).replace(/"/g, "'")}"`)].join("\n")) : "";
+  const csv = c ? "data:text/csv;charset=utf-8," + encodeURIComponent(toCsv([["Name", "Phone", "Message"], ...c.recipients.map((r) => [r.name ?? "", r.phone, personalise(c.message, r, settings.currency)])])) : "";
 
   return (
     <Modal open onClose={onClose} title={c ? c.name : "Send"} description={c ? `${done} of ${c.recipients.length} sent. Tap Send: WhatsApp opens with the message ready — press send there, then come back.` : undefined} size="lg">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { rawPrisma } from "@/lib/db";
 import { withAuth, fail } from "@/lib/api";
-import { hashPassword, verifyPassword } from "@/lib/auth";
+import { COOKIE_NAME, SESSION_DURATION, createSession, hashPassword, verifyPassword } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 
 const schema = z.object({
@@ -11,6 +11,7 @@ const schema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const secure = request.nextUrl.protocol === "https:";
   return withAuth(async (user) => {
     const body = schema.parse(await request.json());
     // Own account: may belong to another outlet when an owner works across outlets.
@@ -18,6 +19,9 @@ export async function POST(request: NextRequest) {
     if (!(await verifyPassword(body.currentPassword, staff.passwordHash))) fail("Your current password is not correct");
     await rawPrisma.staff.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(body.newPassword) } });
     await logActivity(user, "Changed own password");
-    return NextResponse.json({ success: true });
+    // Other phones and PCs signed in as this person are signed out; this one stays signed in.
+    const response = NextResponse.json({ success: true });
+    response.cookies.set(COOKIE_NAME, await createSession(user), { httpOnly: true, secure, sameSite: "lax", maxAge: SESSION_DURATION, path: "/" });
+    return response;
   }, { kitchen: true });
 }

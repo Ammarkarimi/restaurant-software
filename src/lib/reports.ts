@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { round2 } from "./billing";
 import { addDays, diffDays } from "./dates";
@@ -9,12 +10,18 @@ export interface ReportRange {
   timezone: string;
 }
 
+// Making a date formatter is slow; a report asks for the hour of thousands of bills.
+const hourFormats = new Map<string, Intl.DateTimeFormat | null>();
 function hourIn(date: Date, timeZone: string) {
-  try {
-    return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone }).format(date)) % 24;
-  } catch {
-    return date.getUTCHours();
+  if (!hourFormats.has(timeZone)) {
+    try {
+      hourFormats.set(timeZone, new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone }));
+    } catch {
+      hourFormats.set(timeZone, null);
+    }
   }
+  const f = hourFormats.get(timeZone);
+  return f ? Number(f.format(date)) % 24 : date.getUTCHours();
 }
 
 /** Paid bills whose business day is between `from` and `to` (inclusive). */
@@ -22,7 +29,53 @@ export async function settledOrders(range: ReportRange) {
   return prisma.order.findMany({
     where: { status: "settled", businessDate: { gte: range.from, lte: range.to } },
     include: orderInclude,
-    orderBy: { settledAt: "asc" },
+    orderBy: [{ settledAt: "asc" }, { id: "asc" }],
+  });
+}
+
+/**
+ * Only the columns the sales report reads. A month of a busy restaurant is thousands of bills and
+ * tens of thousands of dishes; loading every column took about twice as long.
+ */
+const reportSelect = {
+  id: true,
+  billNumber: true,
+  type: true,
+  source: true,
+  guests: true,
+  complimentary: true,
+  discountReason: true,
+  createdByName: true,
+  offerId: true,
+  businessDate: true,
+  settledAt: true,
+  riderName: true,
+  deliveryStatus: true,
+  outAt: true,
+  deliveredAt: true,
+  taxMode: true,
+  pricesIncludeTax: true,
+  serviceChargePercent: true,
+  roundOff: true,
+  discountType: true,
+  discountValue: true,
+  discountMax: true,
+  packingCharge: true,
+  deliveryCharge: true,
+  chargeTaxRate: true,
+  pointsRedeemed: true,
+  items: {
+    select: { status: true, name: true, variant: true, categoryName: true, price: true, quantity: true, taxRate: true, taxIncluded: true },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  },
+  payments: { select: { method: true, amount: true }, orderBy: [{ paidAt: "asc" }, { id: "asc" }] },
+} satisfies Prisma.OrderSelect;
+
+function reportOrders(range: ReportRange) {
+  return prisma.order.findMany({
+    where: { status: "settled", businessDate: { gte: range.from, lte: range.to } },
+    select: reportSelect,
+    orderBy: [{ settledAt: "asc" }, { id: "asc" }],
   });
 }
 
@@ -38,7 +91,7 @@ export function parseCommission(json: string | null | undefined): Record<string,
 
 export async function salesReport(range: ReportRange, opts: { commission?: Record<string, number> } = {}) {
   const [orders, cancelled, expenseRows, removedItems, received, creditGiven] = await Promise.all([
-    settledOrders(range),
+    reportOrders(range),
     prisma.order.findMany({
       where: { status: "cancelled", businessDate: { gte: range.from, lte: range.to } },
       select: { id: true, number: true, billNumber: true, total: true, cancelReason: true, cancelledAt: true, createdByName: true, table: { select: { name: true } } },

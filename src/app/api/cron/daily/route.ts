@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { sendMissedReports } from "@/lib/daily-report";
 
@@ -19,7 +20,9 @@ function databaseWaking(error: unknown) {
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  const given = Buffer.from(request.headers.get("authorization") ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  if (!secret || given.length !== expected.length || !timingSafeEqual(given, expected)) {
     return NextResponse.json({ error: "Not allowed" }, { status: 401 });
   }
   for (let attempt = 1; ; attempt++) {

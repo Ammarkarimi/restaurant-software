@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { rawPrisma } from "./db";
 import { parsePermissions } from "./permissions";
 import {
   COOKIE_NAME,
   createSessionToken,
+  getJwtSecret,
   verifySessionToken,
   type SessionUser,
 } from "./session";
@@ -23,8 +25,20 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
+/** A short fingerprint of a password hash (never the hash itself), kept in the sign-in cookie. */
+export function passwordKey(passwordHash: string): string {
+  return createHmac("sha256", Buffer.from(getJwtSecret())).update(`pw:${passwordHash}`).digest("base64url").slice(0, 22);
+}
+
+function sameKey(a: string | undefined, b: string): boolean {
+  if (!a || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+/** A sign-in cookie for this person, tied to their current password. */
 export async function createSession(user: SessionUser): Promise<string> {
-  return createSessionToken(user);
+  const staff = await rawPrisma.staff.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+  return createSessionToken({ ...user, passwordKey: staff ? passwordKey(staff.passwordHash) : undefined });
 }
 
 export async function verifySession(token: string): Promise<SessionUser | null> {
@@ -41,6 +55,8 @@ export async function getSession(): Promise<SessionUser | null> {
   // and a paused restaurant is signed out everywhere.
   const staff = await rawPrisma.staff.findUnique({ where: { id: session.id }, include: { restaurant: true } });
   if (!staff || !staff.active) return null;
+  // Signed in with an older password (changed or reset since): sign in again.
+  if (!sameKey(session.passwordKey, passwordKey(staff.passwordHash))) return null;
   if (session.restaurantId && session.restaurantId !== staff.restaurantId) {
     // An owner working in another of their outlets: they are its owner / manager while there.
     const access = await rawPrisma.outletAccess.findUnique({

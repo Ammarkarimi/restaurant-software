@@ -1,5 +1,9 @@
+import { toCsv } from "./csv";
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
+import { ZodError, z } from "zod";
+
+// Missing fields read "Required" (as before zod 4), not "Invalid input: expected string, received undefined".
+z.config({ customError: (issue) => (issue.code === "invalid_type" && issue.input === undefined ? "Required" : undefined) });
 import { getSession, type SessionUser } from "./auth";
 import { runForRestaurant } from "./db";
 
@@ -78,11 +82,7 @@ export function withAdmin<T>(handler: (user: SessionUser) => Promise<T>) {
 }
 
 export function csvResponse(filename: string, rows: Array<Array<string | number | null | undefined>>) {
-  const escape = (v: string | number | null | undefined) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const body = rows.map((r) => r.map(escape).join(",")).join("\n");
+  const body = toCsv(rows);
   return new NextResponse(body, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

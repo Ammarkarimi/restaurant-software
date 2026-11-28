@@ -9,12 +9,18 @@ import type { KitchenTicket } from "@/lib/types";
 export async function GET() {
   return withAuth(
     async () => {
+      // Running orders, plus takeaway and delivery paid up front: those stay until the food is handed over.
+      // Found first (a handful, by index), then their dishes: dishes of old bills that were never marked
+      // served would otherwise all be looked at on every refresh, and there are more of them every day.
+      const orders = await prisma.order.findMany({
+        where: { OR: [{ status: { in: ACTIVE_STATUSES } }, { status: "settled", type: { not: "dine_in" }, settledAt: { gte: new Date(Date.now() - 12 * 3600_000) } }] },
+        select: { id: true },
+      });
       const items = await prisma.orderItem.findMany({
         where: {
+          orderId: { in: orders.map((o) => o.id) },
           kotNumber: { not: null },
           kitchenStatus: { in: ["new", "ready"] },
-          // Running orders, plus takeaway and delivery paid up front: those stay until the food is handed over.
-          order: { OR: [{ status: { in: ACTIVE_STATUSES } }, { status: "settled", type: { not: "dine_in" }, settledAt: { gte: new Date(Date.now() - 12 * 3600_000) } }] },
         },
         include: { order: { select: { id: true, number: true, type: true, source: true, sourceRef: true, customerName: true, notes: true, table: { select: { name: true } } } } },
         orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],

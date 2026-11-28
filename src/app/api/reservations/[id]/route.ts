@@ -5,7 +5,7 @@ import { fail, withAuth } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { getSettings } from "@/lib/settings";
 import { isUniqueViolation, nextNumber, orderRulesFrom, defaultCharges } from "@/lib/orders";
-import { RESERVATION_STATUSES, reservationSchema, timeLabel } from "@/lib/reservations";
+import { RESERVATION_SOURCES, RESERVATION_STATUSES, reservationSchema, timeLabel } from "@/lib/reservations";
 import { formatDate, label } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,6 +13,8 @@ type Params = { params: Promise<{ id: string }> };
 const schema = reservationSchema
   .partial()
   .extend({
+    // Without its default: a change that doesn't mention the source must keep it (zod applies defaults even in partial schemas).
+    source: z.enum(RESERVATION_SOURCES).optional(),
     status: z.enum(RESERVATION_STATUSES).optional(),
     // Seat the guests now: opens an order on the booked (or chosen) table with their name and phone.
     seat: z.boolean().optional(),

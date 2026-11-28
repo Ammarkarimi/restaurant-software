@@ -321,6 +321,7 @@ model Order {
   @@unique([restaurantId, billNumber])
   @@unique([restaurantId, clientId])
   @@index([restaurantId, status])
+  @@index([restaurantId, status, settledAt]) // kitchen screen: takeaway / delivery paid in the last hours
   @@index([restaurantId, businessDate])
   @@index([restaurantId, createdAt])
 }
