@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api";
+import { discountLimit } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
 import { parseBillTemplate, slipSpec } from "@/lib/bill-template";
 import { parseVariants } from "@/lib/menu";
@@ -52,7 +53,7 @@ export async function GET() {
         available: i.available,
       })),
       tables: tables.map((x) => x.name),
-      user: { name: user.name },
+      user: { name: user.name, discountMax: discountLimit(user) },
     };
     return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
   });

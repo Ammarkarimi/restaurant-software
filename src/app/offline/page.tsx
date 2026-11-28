@@ -214,6 +214,9 @@ export default function OfflineBillingPage() {
   function pay(method: "cash" | "upi" | "card") {
     if (!totals || !boot) return;
     if (type === "dine_in" && !table) return setMessage("Choose the table first.");
+    const maxPct = boot.user.discountMax ?? 100;
+    const itemsValue = lines.reduce((sum, l) => sum + l.price * l.quantity, 0);
+    if (discountValue > (itemsValue * maxPct) / 100 + 0.01) return setMessage(maxPct ? `The discount is more than your limit of ${maxPct}% of the items.` : "You can't give discounts. Ask the owner / manager.");
     const now = new Date();
     const bill: OfflineBill = {
       clientId: `off_${now.getTime().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,

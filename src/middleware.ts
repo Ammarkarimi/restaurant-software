@@ -21,8 +21,27 @@ function noIndex(response: NextResponse) {
   return response;
 }
 
+// Called by other services (with their own secret or signature), never from a browser page.
+const serviceHooks = ["/api/public/aggregator", "/api/public/razorpay", "/api/cron"];
+
+/** A browser sending a change from another website (cross-site request forgery): refuse it. */
+function crossSite(request: NextRequest) {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return false;
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host !== request.nextUrl.host;
+  } catch {
+    return true;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/api/") && !matches(pathname, serviceHooks) && crossSite(request)) {
+    return NextResponse.json({ error: "Not allowed from another website" }, { status: 403 });
+  }
 
   if (matches(pathname, platformPaths)) {
     const token = request.cookies.get(PLATFORM_COOKIE_NAME)?.value;

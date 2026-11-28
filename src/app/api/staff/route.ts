@@ -17,7 +17,7 @@ export async function GET() {
 const schema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   email: z.string().trim().toLowerCase().email("Please enter a valid email (used to sign in)"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200, "Password is too long"),
   role: z.enum(["admin", "staff", "kitchen"]).default("staff"),
 });
 

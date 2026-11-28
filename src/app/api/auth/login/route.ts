@@ -14,7 +14,11 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return badRequest("Please enter your email and password");
     }
-    if (!rateLimit(`login:${clientIp(request.headers)}:${email}`, 10, 15 * 60 * 1000)) {
+    if (password.length > 200) return badRequest("Email or password is not correct");
+    // Per phone / computer and email, and per email from anywhere (stops guessing spread over many IPs).
+    const ip = clientIp(request.headers);
+    const allowed = (await rateLimit(`login:${ip}:${email}`, 10, 15 * 60 * 1000)) && (await rateLimit(`login-email:${email}`, 30, 60 * 60 * 1000)) && (await rateLimit(`login-ip:${ip}`, 60, 15 * 60 * 1000));
+    if (!allowed) {
       return NextResponse.json({ error: "Too many attempts. Please wait 15 minutes and try again." }, { status: 429 });
     }
 

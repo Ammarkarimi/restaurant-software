@@ -54,4 +54,5 @@ export const ALERT_KINDS: Record<string, { label: string; rule: keyof AlertRules
   complimentary: { label: "Complimentary bill", rule: "discount" },
   payment_mode: { label: "Payment mode changed", rule: "paymentMode" },
   cash_short: { label: "Cash short", rule: "cashShort" },
+  offline_check: { label: "Offline bill to check", rule: "billChanged" },
 };

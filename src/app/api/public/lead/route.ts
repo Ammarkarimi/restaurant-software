@@ -18,7 +18,7 @@ const schema = z.object({
 /** "Ask for a free demo" on the landing page. Saved for the software provider to follow up in /platform, and emailed to them. */
 export async function POST(request: NextRequest) {
   try {
-    if (!rateLimit(`lead:${clientIp(request.headers)}`, 5, 60 * 60_000)) fail("Thanks — we already have your details. We'll call you soon.", 429);
+    if (!(await rateLimit(`lead:${clientIp(request.headers)}`, 5, 60 * 60_000))) fail("Thanks — we already have your details. We'll call you soon.", 429);
     const body = schema.parse(await request.json());
     if (body.website) return NextResponse.json({ ok: true });
     if (!normalizePhone(body.phone)) fail("Please enter a valid phone number");

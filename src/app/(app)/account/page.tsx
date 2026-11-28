@@ -41,17 +41,17 @@ export default function AccountPage() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader title="Change password" description="Use at least 6 characters. Do not share your password with others." />
+        <CardHeader title="Change password" description="Use at least 8 characters. Do not share your password with others." />
         <CardContent>
           <form onSubmit={save} className="space-y-4">
             <Field label="Current password">
               <Input type="password" autoComplete="current-password" value={form.currentPassword} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} required />
             </Field>
             <Field label="New password">
-              <Input type="password" autoComplete="new-password" minLength={6} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} required />
+              <Input type="password" autoComplete="new-password" minLength={8} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} required />
             </Field>
             <Field label="New password again">
-              <Input type="password" autoComplete="new-password" minLength={6} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required />
+              <Input type="password" autoComplete="new-password" minLength={8} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required />
             </Field>
             <Button type="submit" loading={saving}>
               Change password

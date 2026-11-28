@@ -90,20 +90,21 @@ model SubscriptionPayment {
 }
 
 model Staff {
-  id           String         @id @default(cuid())
-  restaurantId String
-  email        String         @unique
-  passwordHash String
-  name         String
-  role         String         @default("staff") // admin = owner / manager, staff = cashier / captain, kitchen = kitchen screen only
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  lastLoginAt  DateTime?
-  permissions  String         @default("{}") // JSON rights for cashiers / captains, see src/lib/permissions.ts
-  activities   ActivityLog[]
-  outlets      OutletAccess[]
-  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  restaurantId   String
+  email          String         @unique
+  passwordHash   String
+  name           String
+  role           String         @default("staff") // admin = owner / manager, staff = cashier / captain, kitchen = kitchen screen only
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  lastLoginAt    DateTime?
+  permissions    String         @default("{}") // JSON rights for cashiers / captains, see src/lib/permissions.ts
+  sessionVersion Int            @default(0) // raised on a password change, removal or role change: older sign-ins stop working
+  activities     ActivityLog[]
+  outlets        OutletAccess[]
+  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId])
 }
@@ -244,6 +245,7 @@ model MenuItem {
   restaurant       Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, categoryId])
+  @@index([categoryId])
 }
 
 model Order {
@@ -323,6 +325,8 @@ model Order {
   @@index([restaurantId, status])
   @@index([restaurantId, businessDate])
   @@index([restaurantId, createdAt])
+  @@index([tableId])
+  @@index([customerId])
 }
 
 model OrderItem {
@@ -355,6 +359,9 @@ model OrderItem {
   restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, orderId])
+  @@index([menuItemId])
+  @@index([orderId])
+  @@index([restaurantId, kitchenStatus])
 }
 
 model Payment {
@@ -370,6 +377,7 @@ model Payment {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, paidAt])
+  @@index([orderId])
 }
 
 // A guest the restaurant knows by phone number: saved automatically from paid bills.
@@ -416,6 +424,7 @@ model Expense {
   restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, date])
+  @@index([supplierId])
 }
 
 // End of the day: the cash in the drawer counted against what it should be.
@@ -482,6 +491,7 @@ model StockEntry {
   @@index([restaurantId, stockItemId, createdAt])
   @@index([restaurantId, date])
   @@index([restaurantId, orderId])
+  @@index([stockItemId])
 }
 
 // What one dish uses from stock, so paid bills take it out automatically.
@@ -497,6 +507,8 @@ model RecipeLine {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, menuItemId])
+  @@index([stockItemId])
+  @@index([menuItemId])
 }
 
 model ActivityLog {
@@ -511,6 +523,7 @@ model ActivityLog {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, createdAt])
+  @@index([staffId])
 }
 
 // Someone asked for a demo on the public landing page. Seen by the software provider in /platform.
@@ -613,6 +626,7 @@ model CustomerTxn {
 
   @@index([restaurantId, customerId, createdAt])
   @@index([restaurantId, date])
+  @@index([customerId])
 }
 
 // A table booked for later, by phone, walk-in or the restaurant's booking link.
@@ -637,6 +651,7 @@ model Reservation {
   restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, date])
+  @@index([tableId])
 }
 
 // Someone the restaurant buys from: vegetables, meat, dairy, packaging…
@@ -681,6 +696,7 @@ model Purchase {
 
   @@unique([restaurantId, number])
   @@index([restaurantId, status])
+  @@index([supplierId])
 }
 
 // What a guest thought of their visit, from the link on their e-bill.
@@ -771,6 +787,7 @@ model UpiRequest {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, orderId])
+  @@index([orderId])
 }
 
 // A party hall, lawn or private dining room the restaurant books out for functions.
@@ -853,6 +870,7 @@ model BanquetEvent {
   @@unique([restaurantId, number])
   @@unique([restaurantId, invoiceNumber])
   @@index([restaurantId, date])
+  @@index([hallId])
 }
 
 // Money taken for a function: advance, part payment, final payment, or a refund (negative).
@@ -872,6 +890,7 @@ model BanquetPayment {
 
   @@index([restaurantId, date])
   @@index([restaurantId, eventId])
+  @@index([eventId])
 }
 
 // Someone the restaurant pays a salary to. Not everyone signs in: cooks and helpers often don't,
@@ -915,6 +934,7 @@ model SalaryAdvance {
   restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, employeeId])
+  @@index([employeeId])
 }
 
 // One month's salary paid to one employee.
@@ -989,6 +1009,7 @@ model GiftCardTxn {
 
   @@index([restaurantId, giftCardId])
   @@index([restaurantId, date])
+  @@index([giftCardId])
 }
 
 // Walk-in guests waiting for a table.
@@ -1037,4 +1058,14 @@ model StockTransfer {
 
   @@unique([restaurantId, number])
   @@index([toRestaurantId, status])
+}
+
+// Counts attempts (sign-in, guest orders, AI scans) per key for a time window. Kept in the database so
+// every server instance shares the same count. Keys are hashed, so no emails or phone numbers are stored.
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
 }

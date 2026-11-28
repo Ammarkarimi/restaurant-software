@@ -13,7 +13,7 @@ import { formatDate } from "@/lib/utils";
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
-    if (!rateLimit(`booking:${clientIp(request.headers)}`, 5, 60 * 60_000)) fail("Too many requests from this phone. Please call the restaurant.", 429);
+    if (!(await rateLimit(`booking:${clientIp(request.headers)}`, 5, 60 * 60_000))) fail("Too many requests from this phone. Please call the restaurant.", 429);
     const found = await findRestaurantBySlug(slug);
     if (!found || !found.settings.onlineBookingEnabled) fail("Table booking is not available here", 404);
     const body = reservationSchema.omit({ tableId: true, source: true }).parse(await request.json());

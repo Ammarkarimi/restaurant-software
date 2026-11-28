@@ -25,6 +25,8 @@ export interface SessionUser {
   name: string;
   role: string;
   restaurantId: string;
+  /** The account's session version when this sign-in was made; a newer one in the database ends it. */
+  v?: number;
   /** A cashier's rights, read from the database on every request (not kept in the cookie). */
   permissions?: Permissions;
 }
@@ -43,6 +45,7 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     name: user.name,
     role: user.role,
     restaurantId: user.restaurantId,
+    v: user.v ?? 0,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -60,6 +63,7 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
       name: payload.name as string,
       role: payload.role as string,
       restaurantId: payload.restaurantId as string,
+      v: typeof payload.v === "number" ? payload.v : 0,
     };
   } catch {
     return null;

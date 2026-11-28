@@ -18,7 +18,7 @@ const schema = z.object({
 /** A guest rates their visit from the bill link on WhatsApp. One rating per bill; sending again updates it. */
 export async function POST(request: NextRequest) {
   try {
-    if (!rateLimit(`feedback:${clientIp(request.headers)}`, 10, 60 * 60_000)) fail("Thank you! We already have your feedback.", 429);
+    if (!(await rateLimit(`feedback:${clientIp(request.headers)}`, 10, 60 * 60_000))) fail("Thank you! We already have your feedback.", 429);
     const body = schema.parse(await request.json());
     const orderId = verifyBillShareToken(body.token);
     if (!orderId) fail("This link is not valid", 404);

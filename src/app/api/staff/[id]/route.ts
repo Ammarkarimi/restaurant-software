@@ -11,7 +11,7 @@ const schema = z.object({
   name: z.string().trim().min(1).optional(),
   role: z.enum(["admin", "staff", "kitchen"]).optional(),
   active: z.boolean().optional(),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200, "Password is too long").optional(),
   permissions: z
     .object({
       discountMax: z.coerce.number().min(0).max(100),
@@ -23,6 +23,7 @@ const schema = z.object({
       changePayment: z.boolean(),
       seeSales: z.boolean(),
       expenses: z.boolean(),
+      banquets: z.boolean().default(false),
     })
     .optional(),
 });
@@ -48,6 +49,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ...(body.active !== undefined && { active: body.active }),
         ...(body.password && { passwordHash: await hashPassword(body.password) }),
         ...(body.permissions && { permissions: JSON.stringify(body.permissions) }),
+        // A new password, a new role or a disabled account signs them out on every device.
+        ...((body.password || (body.role && body.role !== staff.role) || body.active === false) && { sessionVersion: { increment: 1 } }),
       },
       select: { id: true, name: true, email: true, role: true, active: true, createdAt: true, permissions: true },
     });

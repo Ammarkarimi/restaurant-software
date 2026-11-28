@@ -8,6 +8,10 @@ import { isUniqueViolation, loadOrder, nextNumber, saveTotals, totalsOf } from "
 import { settleOrder } from "@/lib/settle";
 import { offlineBillSchema, type OfflineBill } from "@/lib/offline";
 import { formatCurrency } from "@/lib/utils";
+import { raiseAlert } from "@/lib/alerts";
+import { parseVariants } from "@/lib/menu";
+import { discountLimit } from "@/lib/permissions";
+import { diffDays, todayKey } from "@/lib/dates";
 import type { SessionUser } from "@/lib/session";
 
 export const maxDuration = 120;
@@ -41,10 +45,60 @@ export async function POST(request: NextRequest) {
   });
 }
 
+/** How old an offline bill may be when it reaches the server. */
+const MAX_AGE_DAYS = 7;
+
+type Settings = Awaited<ReturnType<typeof getSettings>>;
+
+/**
+ * Checks an offline bill against the server's own menu and rules. The counter can't be trusted blindly:
+ * anyone signed in could send a made-up "offline" bill with low prices, a big discount or an old date.
+ * Impossible bills are refused; anything unusual is saved (the money was taken) but the owner is alerted.
+ */
+async function checkBill(user: SessionUser, b: OfflineBill, settings: Settings) {
+  if (!/OFF[A-Z]{2}-\d+$/.test(b.billNumber)) throw new Error("This is not an offline bill number");
+  const now = Date.now();
+  if (b.paidAt.getTime() > now + 15 * 60_000 || b.paidAt.getTime() < now - MAX_AGE_DAYS * 86_400_000) {
+    throw new Error(`The bill's date is not possible (more than ${MAX_AGE_DAYS} days old or in the future). Check the computer's date and time.`);
+  }
+  const paidDay = todayKey(settings.timezone, b.paidAt);
+  if (Math.abs(diffDays(paidDay, b.businessDate)) > 1) throw new Error("The bill's business day doesn't match when it was paid");
+  const createdAt = b.createdAt > b.paidAt || b.createdAt.getTime() < b.paidAt.getTime() - 86_400_000 ? b.paidAt : b.createdAt;
+
+  const issues: string[] = [];
+  const ids = [...new Set(b.items.map((i) => i.menuItemId).filter((id): id is string => Boolean(id)))];
+  const menu = new Map((await prisma.menuItem.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, price: true, variants: true } })).map((m) => [m.id, m]));
+  const items = b.items.map((i) => {
+    const dish = i.menuItemId ? menu.get(i.menuItemId) : undefined;
+    if (!dish) {
+      issues.push(`"${i.name}" is not on the menu`);
+      return { ...i, menuItemId: null };
+    }
+    // Only a price below the menu is a problem (extras added on top make it higher).
+    const portions = parseVariants(dish.variants);
+    const portion = i.variant ? portions.find((p) => i.variant === p.name || i.variant!.startsWith(`${p.name} +`)) : undefined;
+    const lowest = portion ? portion.price : portions.length ? Math.min(...portions.map((p) => p.price)) : dish.price;
+    if (i.price < lowest - 0.01) issues.push(`${dish.name}${i.variant ? ` (${i.variant})` : ""} at ${formatCurrency(i.price, settings.currency)} — the menu says ${formatCurrency(lowest, settings.currency)}`);
+    return i;
+  });
+
+  const itemsTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const limit = discountLimit(user);
+  if (b.discount > 0 && itemsTotal > 0 && (b.discount / itemsTotal) * 100 > limit + 0.01) {
+    issues.push(`discount ${formatCurrency(b.discount, settings.currency)} is more than ${user.name}'s limit of ${limit}%`);
+  }
+  const r = b.rules;
+  if (r.taxMode !== settings.taxMode || r.pricesIncludeTax !== settings.pricesIncludeTax || r.serviceChargePercent !== settings.serviceChargePercent) {
+    issues.push("tax or service charge differs from Settings");
+  }
+  return { items, createdAt, issues };
+}
+
 async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
   const existing = await prisma.order.findFirst({ where: { clientId: b.clientId }, select: { number: true } });
   if (existing) return existing.number;
   const settings = await getSettings();
+  const check = await checkBill(user, b, settings);
   const table = b.tableName ? await prisma.diningTable.findFirst({ where: { name: { equals: b.tableName, mode: "insensitive" } }, select: { id: true } }) : null;
   const notes = [b.tableName && !table ? `Table ${b.tableName}` : null, "Billed offline"].filter(Boolean).join(" · ");
 
@@ -67,7 +121,7 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
           notes,
           createdById: user.id,
           createdByName: user.name,
-          createdAt: b.createdAt,
+          createdAt: check.createdAt,
           billedAt: b.paidAt,
           // The rules the counter billed with, so the totals come out the same.
           taxMode: b.rules.taxMode,
@@ -82,7 +136,7 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
           discountValue: b.discount,
           discountReason: b.discount ? "Discount (offline bill)" : null,
           items: {
-            create: b.items.map((i) => ({
+            create: check.items.map((i) => ({
               restaurantId: settings.restaurantId,
               menuItemId: i.menuItemId,
               name: i.name,
@@ -95,7 +149,7 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
               taxIncluded: i.taxIncluded,
               // Cooked long ago: it never shows on the kitchen screen.
               kotNumber: 0,
-              sentAt: b.createdAt,
+              sentAt: check.createdAt,
               kitchenStatus: "served",
             })),
           },
@@ -121,5 +175,8 @@ async function syncBill(user: SessionUser, b: OfflineBill): Promise<number> {
     if (Math.abs(diff) >= 1) await logActivity(user, "Offline bill total differs", `Bill ${order.billNumber}: printed ${formatCurrency(b.total, settings.currency)}, saved ${formatCurrency(total, settings.currency)}`);
   }
   await settleOrder(user, created.id, payments.filter((p) => p.amount > 0), { businessDate: b.businessDate, paidAt: b.paidAt });
+  if (check.issues.length) {
+    await raiseAlert(user, { kind: "offline_check", title: "Offline bill to check", message: `Bill ${order.billNumber}: ${check.issues.join("; ")}`, orderId: created.id, amount: total });
+  }
   return created.number;
 }

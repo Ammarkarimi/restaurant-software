@@ -660,8 +660,8 @@ function StaffTab() {
           <Field label="Email (used to sign in)">
             <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           </Field>
-          <Field label="Password" hint="At least 6 characters. They can change it later in My account.">
-            <Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
+          <Field label="Password" hint="At least 8 characters. They can change it later in My account.">
+            <Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />
           </Field>
           <Field label="Access">
             <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
@@ -697,7 +697,7 @@ function StaffTab() {
           <>
             <Button variant="outline" onClick={() => setResetFor(null)}>Cancel</Button>
             <Button
-              disabled={newPassword.length < 6}
+              disabled={newPassword.length < 8}
               onClick={async () => {
                 if (resetFor) await update(resetFor, { password: newPassword }, "Password changed. Tell the staff member their new password.");
                 setResetFor(null);
@@ -708,7 +708,7 @@ function StaffTab() {
           </>
         }
       >
-        <Field label="New password" hint="At least 6 characters.">
+        <Field label="New password" hint="At least 8 characters.">
           <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoFocus />
         </Field>
       </Modal>

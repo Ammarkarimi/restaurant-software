@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": PHOTO_TYPES[contentType] ? contentType : "application/octet-stream",
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
         "X-Content-Type-Options": "nosniff",
       },
     });

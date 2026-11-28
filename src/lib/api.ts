@@ -79,7 +79,10 @@ export function withAdmin<T>(handler: (user: SessionUser) => Promise<T>) {
 
 export function csvResponse(filename: string, rows: Array<Array<string | number | null | undefined>>) {
   const escape = (v: string | number | null | undefined) => {
-    const s = v === null || v === undefined ? "" : String(v);
+    let s = v === null || v === undefined ? "" : String(v);
+    // A name like "=HYPERLINK(...)" would run as a formula in Excel: make it plain text.
+    // (Numbers and phone numbers such as "-12.50" or "+91 98765 43210" can't hold a formula, so they stay as they are.)
+    if (typeof v === "string" && /^[=+\-@\t\r]/.test(s) && !/^[+-]?[\d\s().,-]+$/.test(s)) s = `'${s}`;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const body = rows.map((r) => r.map(escape).join(",")).join("\n");

@@ -24,7 +24,7 @@ const schema = z.object({
 export async function POST(request: NextRequest) {
   return withAdmin(async (user) => {
     if (!menuPhotoReady()) fail("Reading bills from photos is not switched on yet. Ask your software provider to add the AI key (OPENAI_API_KEY).", 503);
-    if (!rateLimit(`bill-photo:${user.restaurantId}`, 30, 60 * 60_000)) fail("Too many bills this hour. Please try again later.", 429);
+    if (!(await rateLimit(`bill-photo:${user.restaurantId}`, 30, 60 * 60_000))) fail("Too many bills this hour. Please try again later.", 429);
     const body = schema.parse(await request.json());
     let bill;
     try {

@@ -38,7 +38,7 @@ const schema = z.object({
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
-    if (!rateLimit(`online-order:${clientIp(request.headers)}`, 6, 30 * 60_000)) fail("Too many orders from this phone. Please call the restaurant.", 429);
+    if (!(await rateLimit(`online-order:${clientIp(request.headers)}`, 6, 30 * 60_000))) fail("Too many orders from this phone. Please call the restaurant.", 429);
     const body = schema.parse(await request.json());
     const found = await findRestaurantBySlug(slug);
     if (!found || !found.settings.onlineOrderingEnabled) fail("Online ordering is not available right now", 404);
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!kiosk) {
       if (!body.name?.trim()) fail("Please enter your name");
       if (!normalizePhone(body.phone)) fail("Please enter a valid phone number, so the restaurant can reach you");
-      if (!rateLimit(`online-order-phone:${normalizePhone(body.phone)}`, 5, 30 * 60_000)) fail("You have several orders already. Please call the restaurant.", 429);
+      if (!(await rateLimit(`online-order-phone:${normalizePhone(body.phone)}`, 5, 30 * 60_000))) fail("You have several orders already. Please call the restaurant.", 429);
     }
     if (body.type === "delivery") {
       if (kiosk || !settings.onlineDeliveryEnabled) fail("Delivery is not available. Please choose pickup.");

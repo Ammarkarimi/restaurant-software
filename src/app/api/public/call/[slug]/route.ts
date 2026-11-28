@@ -12,7 +12,7 @@ const schema = z.object({ table: z.string().min(1).max(64), type: z.enum(["waite
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
-    if (!rateLimit(`qr-call:${clientIp(request.headers)}`, 10, 10 * 60_000)) fail("Please wait a moment, the staff are on their way.", 429);
+    if (!(await rateLimit(`qr-call:${clientIp(request.headers)}`, 10, 10 * 60_000))) fail("Please wait a moment, the staff are on their way.", 429);
     const body = schema.parse(await request.json());
     const found = await findPublicRestaurant(slug);
     if (!found) fail("This menu is not available", 404);

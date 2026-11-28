@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const updated = await prisma.restaurantSettings.update({ where: { id: settings.id }, data: { logoPath: stored.filePath } });
     if (settings.logoPath) await deleteStoredFile(settings.logoPath).catch(() => null);
     await logActivity(user, "Uploaded logo");
-    return NextResponse.json({ settings: publicSettings(updated) });
+    return NextResponse.json({ settings: publicSettings(updated, { admin: true }) });
   });
 }
 
@@ -58,6 +58,6 @@ export async function DELETE() {
     if (settings.logoPath) await deleteStoredFile(settings.logoPath).catch(() => null);
     const updated = await prisma.restaurantSettings.update({ where: { id: settings.id }, data: { logoPath: null } });
     await logActivity(user, "Removed logo");
-    return NextResponse.json({ settings: publicSettings(updated) });
+    return NextResponse.json({ settings: publicSettings(updated, { admin: true }) });
   });
 }

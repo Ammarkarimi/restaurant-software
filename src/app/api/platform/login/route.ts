@@ -10,7 +10,7 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!rateLimit(`platform-login:${clientIp(request.headers)}`, 5, 15 * 60 * 1000)) {
+    if (!(await rateLimit(`platform-login:${clientIp(request.headers)}`, 5, 15 * 60 * 1000))) {
       return NextResponse.json({ error: "Too many attempts. Please wait 15 minutes and try again." }, { status: 429 });
     }
     if (!platformConfigured()) {

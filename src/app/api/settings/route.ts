@@ -10,7 +10,7 @@ import { parseAlertRules } from "@/lib/alert-rules";
 import { randomBytes } from "node:crypto";
 
 export async function GET() {
-  return withAuth(async () => NextResponse.json({ settings: publicSettings(await getSettings()) }));
+  return withAuth(async (user) => NextResponse.json({ settings: publicSettings(await getSettings(), { admin: user.role === "admin" }) }));
 }
 
 const optional = (max: number) => z.string().trim().max(max).nullable().optional();
@@ -64,7 +64,14 @@ const schema = z
     onlineDeliveryEnabled: z.boolean(),
     onlineMinOrder: z.coerce.number().min(0).max(100_000),
     onlineBookingEnabled: z.boolean(),
-    googleReviewUrl: z.string().trim().max(300).url("Paste the full link, starting with https://").or(z.literal("")).nullable(),
+    googleReviewUrl: z
+      .string()
+      .trim()
+      .max(300)
+      .url("Paste the full link, starting with https://")
+      .refine((u) => /^https?:\/\//i.test(u), "Paste the full link, starting with https://")
+      .or(z.literal(""))
+      .nullable(),
     billTemplate: billTemplateSchema,
     sacCode: z.string().trim().regex(/^\d{4,8}$/, "SAC / HSN code is 4 to 8 digits"),
     alertPhone: z.string().trim().max(20).regex(/^$|^[+\d][\d\s-]{8,18}$/, "Enter the WhatsApp number with 10 digits").nullable(),
@@ -132,6 +139,6 @@ export async function PATCH(request: NextRequest) {
       .filter(Boolean)
       .join(", ");
     await logActivity(user, "Changed settings", what || undefined);
-    return NextResponse.json({ settings: publicSettings(updated) });
+    return NextResponse.json({ settings: publicSettings(updated, { admin: true }) });
   });
 }

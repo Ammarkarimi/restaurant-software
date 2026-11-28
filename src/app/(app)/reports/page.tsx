@@ -5,11 +5,13 @@ import Link from "next/link";
 import { AccountingCard } from "./accounting-card";
 import { ProfitCards } from "./profit-card";
 import { Ban, Bike, Download, Gift, IndianRupee, Percent, ReceiptText, Star, Users } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
 import { Button, Card, CardContent, CardHeader, EmptyState, Input, Loading, PageHeader, StatCard, Tip } from "@/components/ui";
 import { useApp } from "@/components/app-provider";
 import { api } from "@/lib/client";
 import { addDays } from "@/lib/dates";
+
+const ColumnChart = dynamic(() => import("./column-chart"), { ssr: false, loading: () => <div className="h-60 animate-pulse rounded-lg bg-slate-100" /> });
 import { formatCurrency, formatDate, formatDateTime, label } from "@/lib/utils";
 import type { SalesReport } from "@/lib/reports";
 
@@ -29,43 +31,6 @@ interface OutletRow {
 }
 
 const SERIES = "#19734b";
-const GRID = "#e2e8f0";
-const AXIS = "#64748b";
-
-function compact(n: number) {
-  if (n >= 100000) return `${Math.round(n / 1000) / 100}L`;
-  if (n >= 1000) return `${Math.round(n / 100) / 10}K`;
-  return String(Math.round(n));
-}
-
-function ColumnChart({ data, xKey, xFormat, height = 240 }: { data: Array<Record<string, number | string>>; xKey: string; xFormat: (v: string | number) => string; height?: number }) {
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap={2}>
-        <CartesianGrid vertical={false} stroke={GRID} strokeWidth={1} />
-        <XAxis dataKey={xKey} tickFormatter={xFormat} tick={{ fill: AXIS, fontSize: 12 }} axisLine={{ stroke: GRID }} tickLine={false} minTickGap={12} />
-        <YAxis tickFormatter={compact} tick={{ fill: AXIS, fontSize: 12 }} axisLine={false} tickLine={false} width={44} />
-        <Tooltip
-          cursor={{ fill: "#f1f5f9" }}
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null;
-            const row = payload[0].payload as { sales: number; bills: number } & Record<string, string | number>;
-            return (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-lg">
-                <p className="font-semibold text-slate-900">{xFormat(row[xKey])}</p>
-                <p className="flex items-center gap-2 text-slate-700">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: SERIES }} /> {formatCurrency(row.sales)}
-                </p>
-                <p className="text-slate-500">{row.bills} bill(s)</p>
-              </div>
-            );
-          }}
-        />
-        <Bar dataKey="sales" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={24} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
 
 /** A table row with a thin bar showing its share, so the biggest rows stand out. */
 function ShareRow({ name, value, share, sub }: { name: React.ReactNode; value: string; share: number; sub?: string }) {

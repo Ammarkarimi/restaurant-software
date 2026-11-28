@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const staff = await rawPrisma.staff.findFirst({ where: { id: staffId, restaurantId: id } });
     if (!staff) fail("Sign-in account not found", 404);
     const password = generatePassword();
-    await rawPrisma.staff.update({ where: { id: staff.id }, data: { passwordHash: await hashPassword(password), active: true } });
+    await rawPrisma.staff.update({ where: { id: staff.id }, data: { passwordHash: await hashPassword(password), active: true, sessionVersion: { increment: 1 } } });
     await runForRestaurant(id, () => logActivity(null, "Password reset by software provider", staff.name));
     return NextResponse.json({ email: staff.email, name: staff.name, password });
   });

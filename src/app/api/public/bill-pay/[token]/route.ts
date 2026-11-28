@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const t = await forToken((await params).token);
     if (!t) return NextResponse.json({ error: "Bill not found" }, { status: 404 });
-    if (!rateLimit(`bill-pay:${clientIp(request.headers)}`, 20, 10 * 60_000)) return NextResponse.json({ error: "Please wait a moment and try again." }, { status: 429 });
+    if (!(await rateLimit(`bill-pay:${clientIp(request.headers)}`, 20, 10 * 60_000))) return NextResponse.json({ error: "Please wait a moment and try again." }, { status: 429 });
     const qr = await runForRestaurant(t.restaurantId, async () => {
       const s = await getSettings();
       if (!s.razorpayKeyId || !s.razorpayKeySecret) return null;

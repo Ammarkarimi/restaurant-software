@@ -37,12 +37,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { slug } = await params;
     const ip = clientIp(request.headers);
-    if (!rateLimit(`qr-order:${ip}`, 8, 10 * 60_000)) fail("Too many orders from this phone. Please ask the staff.", 429);
+    if (!(await rateLimit(`qr-order:${ip}`, 8, 10 * 60_000))) fail("Too many orders from this phone. Please ask the staff.", 429);
     const body = schema.parse(await request.json());
     const found = await findPublicRestaurant(slug);
     if (!found) fail("This menu is not available", 404);
     if (!found.settings.qrOrderingEnabled) fail("Ordering from the table is switched off. Please order with the staff.", 403);
-    if (!rateLimit(`qr-order-table:${slug}:${body.table}`, 15, 10 * 60_000)) fail("Too many orders for this table. Please ask the staff.", 429);
+    if (!(await rateLimit(`qr-order-table:${slug}:${body.table}`, 15, 10 * 60_000))) fail("Too many orders for this table. Please ask the staff.", 429);
 
     return await runForRestaurant(found.restaurant.id, async () => {
       const settings = found.settings;

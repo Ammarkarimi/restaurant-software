@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   return withAdmin(async (user) => {
     if (!menuPhotoReady()) fail("Reading menus from photos is not switched on yet. Ask your software provider to add the AI key (OPENAI_API_KEY).", 503);
-    if (!rateLimit(`menu-photo:${user.restaurantId}`, 20, 60 * 60_000)) fail("Too many photos this hour. Please try again later.", 429);
+    if (!(await rateLimit(`menu-photo:${user.restaurantId}`, 20, 60 * 60_000))) fail("Too many photos this hour. Please try again later.", 429);
     const body = schema.parse(await request.json());
     try {
       const result = await readMenuPhotos(body.photos);

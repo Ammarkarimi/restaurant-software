@@ -34,7 +34,8 @@ export interface OfflineBootstrap {
   rules: OfflineRules;
   menu: OfflineMenuItem[];
   tables: string[];
-  user: { name: string };
+  /** discountMax: most this person may take off, in % (missing in menus saved before it was added). */
+  user: { name: string; discountMax?: number };
 }
 
 export const offlineBillSchema = z.object({

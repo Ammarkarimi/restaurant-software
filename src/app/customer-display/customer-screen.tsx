@@ -49,7 +49,7 @@ export function CustomerScreen({ restaurantName, logoUrl }: { restaurantName: st
         })
         .catch(() => !stop && setOffline(true));
     load();
-    const t = setInterval(load, 2000);
+    const t = setInterval(() => document.visibilityState === "visible" && load(), 2000);
     return () => {
       stop = true;
       clearInterval(t);
