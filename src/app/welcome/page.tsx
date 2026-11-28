@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import {
   ArrowDown,
   ArrowRight,
@@ -31,7 +31,16 @@ import { BRAND, BrandMark } from "@/components/brand";
 import { EnquiryForm } from "./enquiry-form";
 import { Frame, ScreenGallery } from "./screens";
 
-const display = Fraunces({ subsets: ["latin"], weight: ["500", "600", "700"], style: ["normal", "italic"], variable: "--font-fraunces" });
+// Shipped with the app (src/app/fonts, SIL Open Font License), not fetched from Google Fonts at build time.
+const display = localFont({
+  src: [
+    { path: "../fonts/fraunces-latin-wght-normal.woff2", weight: "100 900", style: "normal" },
+    { path: "../fonts/fraunces-latin-wght-italic.woff2", weight: "100 900", style: "italic" },
+  ],
+  variable: "--font-fraunces",
+  display: "swap",
+  adjustFontFallback: "Times New Roman",
+});
 
 const TITLE = `${BRAND.name} — restaurant billing, KOT, GST and kitchen software for India`;
 const DESCRIPTION = `${BRAND.name}: billing, kitchen tickets and kitchen screen, GST bills with your logo, UPI, QR and online ordering, Zomato & Swiggy, stock, staff salary, profit and reports for Indian restaurants, cafés and cloud kitchens. Works on the PC, tablet and phones you already have.`;

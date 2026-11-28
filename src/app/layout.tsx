@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+// Shipped with the app (src/app/fonts, SIL Open Font License) rather than fetched from Google Fonts
+// while building: a build never fails because of Google's answer, and the desktop app builds offline.
+const inter = localFont({ src: "./fonts/inter-latin-wght-normal.woff2", weight: "100 900", style: "normal", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Billspoon", template: "%s · Billspoon" },
